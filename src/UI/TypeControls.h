@@ -45,14 +45,14 @@ public:
     // Shows `name`, or (Multiple) when empty; an open menu stays.
     void sync(const QString &name);
     void showPopup() override;
-    // Closed, the text goes back; a choice already kept it.
-    void hidePopup() override;
     // Swift's isMultiple: the top item that is no font.
     bool isMultiple(int index) const;
 
 protected:
     // A long name is cut short, never widening the control.
     void paintEvent(QPaintEvent *event) override;
+    // Closed, the text goes back; a choice already kept it.
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void showMultiple();

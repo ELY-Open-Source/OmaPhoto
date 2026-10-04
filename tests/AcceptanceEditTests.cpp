@@ -69,7 +69,7 @@ void AcceptanceEditTests::textPaintingSmearAndMasks()
     // Pointing at a face previews it; Escape puts it back.
     QTest::mouseMove(faces->view()->viewport(), popupRow(*faces, mono));
     QTRY_COMPARE(app.session().textDraft().value().style.fontNameAt(6), mono);
-    QTest::keyClick(faces->view(), Qt::Key_Escape);
+    QTest::keyClick(faces->view()->window()->windowHandle(), Qt::Key_Escape);
     QTRY_VERIFY(app.session().textDraft().value().style.fontNameAt(6) != mono);
     choose(*faces, mono);
     QTRY_COMPARE(app.session().textDraft().value().style.fontRuns.value(), (std::vector<LayerTextFontRun>{{6, 5, mono}}));

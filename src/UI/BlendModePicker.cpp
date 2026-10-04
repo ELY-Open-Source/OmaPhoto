@@ -1,4 +1,6 @@
 #include "UI/BlendModePicker.h"
+#include <QAbstractItemView>
+#include <QEvent>
 
 BlendModePicker::BlendModePicker(EditorSession &session, QWidget *parent) : QComboBox(parent), m_session(session)
 {
@@ -13,6 +15,8 @@ BlendModePicker::BlendModePicker(EditorSession &session, QWidget *parent) : QCom
     connect(this, &QComboBox::highlighted, this, &BlendModePicker::highlight);
     connect(this, &QComboBox::activated, this, &BlendModePicker::choose);
     connect(&m_session, &EditorSession::changed, this, &BlendModePicker::synchronize);
+    // Qt 6.10 closes on Escape without calling hidePopup.
+    view()->window()->installEventFilter(this);
     synchronize();
 }
 
@@ -24,9 +28,10 @@ void BlendModePicker::showPopup()
     QComboBox::showPopup();
 }
 
-void BlendModePicker::hidePopup()
+bool BlendModePicker::eventFilter(QObject *watched, QEvent *event)
 {
-    QComboBox::hidePopup();
+    if (watched != view()->window() || event->type() != QEvent::Hide)
+        return QComboBox::eventFilter(watched, event);
     m_tracking = false;
     // A click closes the menu, then chooses: clear after.
     QMetaObject::invokeMethod(this, [this] {
@@ -34,6 +39,7 @@ void BlendModePicker::hidePopup()
         m_layerID = std::nullopt;
         m_highlighted = std::nullopt;
     }, Qt::QueuedConnection);
+    return false;
 }
 
 void BlendModePicker::synchronize()
@@ -47,6 +53,9 @@ void BlendModePicker::synchronize()
 
 void BlendModePicker::highlight(int index)
 {
+    // Qt 6.10 signals too, as the closed menu follows.
+    if (!m_tracking)
+        return;
     const std::optional<LayerBlendMode> mode = layerBlendMode(itemText(index));
     if (mode)
         m_highlighted = mode;

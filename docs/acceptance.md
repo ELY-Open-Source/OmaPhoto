@@ -31,7 +31,7 @@ The screenshots come from Qt's offscreen platform, so floating panels appear wit
 | Keep working while a project saves | Another layer is added while a save runs. The file holds the state the save began with. | — | `ProjectSaveWhileEditingTests` | pass |
 | Reload a project changed on disk | With unsaved edits open, another program renames a layer on disk. The app's alert asks, Revert is chosen, and the saved state shows with the new name. | [15](acceptance/15-shortcuts.png) | `ExternalChangeTests` | pass |
 | Follows the Omarchy theme | Starts in the built-in dark. A Catppuccin Latte `colors.toml` written while the app runs retints the window. | [16](acceptance/16-omarchy-light.png) | `OmarchyThemeTests` | pass |
-| Builds and tests on each system | The full suite runs on Ubuntu 24.04 (Qt 6.4.2), Ubuntu 26.04, Arch, Fedora 43 and 44, and NixOS. Warnings count as errors. | — | `scripts/distro-check.sh` | pending |
+| Builds and tests on each system | The full suite, 334 binaries, passes on Ubuntu 24.04 (Qt 6.4.2), Ubuntu 26.04 (6.10.2), Arch (6.11.2), Fedora 43 and 44, and NixOS (6.11.2). Warnings count as errors. | — | `scripts/distro-check.sh` | pass |
 | Packages and install scripts | Each install script runs from GitHub in a fresh container. On Ubuntu 24.04 and 26.04, Fedora 43 and 44 and Arch, it checks its package against `SHA256SUMS`, installs it and starts 1.4.5. On NixOS, `nixos.sh` resolves `v1.4.5`, builds its flake and starts 1.4.5. Debian 13 is refused, as intended. | — | `DesktopIntegrationTests`, `.github/workflows/release.yml` | pending |
 
 ## New in 1.4.5

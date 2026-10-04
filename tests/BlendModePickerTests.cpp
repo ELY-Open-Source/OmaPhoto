@@ -20,6 +20,7 @@ private slots:
     void hoveringTriesAModeOnAndChoosingKeepsIt();
     void aMenuClosedWithoutAChoiceLeavesTheLayerAlone();
     void theMaskButtonAddsAWhiteMaskOnce();
+    void escapeAndAClosedHighlightLeaveNoPreview();
 };
 
 void BlendModePickerTests::theMenuListsEveryModeAndFollowsTheActiveLayer()
@@ -163,6 +164,32 @@ void BlendModePickerTests::theMaskButtonAddsAWhiteMaskOnce()
     QVERIFY(!button.isEnabled());
     session.setIsProjectBusy(false);
     QVERIFY(button.isEnabled());
+}
+
+void BlendModePickerTests::escapeAndAClosedHighlightLeaveNoPreview()
+{
+    EditorSession session;
+    session.createDocument(4, 4);
+    session.insert(white());
+    BlendModePicker picker(session);
+    picker.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&picker));
+    // Qt 6.10 signals as the closed menu follows the layer.
+    emit picker.highlighted(3);
+    QVERIFY(!session.blendPreview().has_value());
+    // So a key choice when closed keeps its mode.
+    emit picker.activated(8);
+    QCOMPARE(session.activeLayer().value().blendMode, LayerBlendMode::screen);
+    session.undo();
+    // Escape closes without hidePopup on Qt 6.10: the preview goes.
+    picker.showPopup();
+    QTRY_VERIFY(picker.view()->isVisible());
+    emit picker.highlighted(3);
+    QVERIFY(session.blendPreview().has_value());
+    QTest::keyClick(picker.view(), Qt::Key_Escape);
+    QVERIFY(!picker.view()->isVisible());
+    QTRY_VERIFY(!session.blendPreview().has_value());
+    QCOMPARE(session.activeLayer().value().blendMode, LayerBlendMode::normal);
 }
 
 QTEST_MAIN(BlendModePickerTests)

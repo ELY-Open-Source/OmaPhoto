@@ -35,6 +35,8 @@ private slots:
     void hoveringTriesAFaceAndClosingPutsItBack();
     void aChoiceKeepsWhatShows();
     void onlyOpenTextPreviews();
+    void aClosedMenusHighlightTriesNothing();
+    void escapePutsTheFaceBack();
 };
 
 void TypeFontPreviewTests::theMenuDrawsEachFaceInItself()
@@ -131,6 +133,38 @@ void TypeFontPreviewTests::onlyOpenTextPreviews()
     typed.session.endFontPreview();
     QVERIFY(changed.isEmpty() && !typed.session.textDraft());
     QCOMPARE(typed.session.activeLayer().value().liveText().value().style, kept);
+}
+
+void TypeFontPreviewTests::aClosedMenusHighlightTriesNothing()
+{
+    Typed typed;
+    // Qt 6.10 signals as the menu follows the caret, closed.
+    QSignalSpy changed(&typed.session, &EditorSession::changed);
+    typed.hover(mono);
+    QVERIFY(changed.isEmpty() && typed.face() == sans);
+    // So a later close puts back nothing typed meanwhile.
+    QTest::keyClick(typed.canvas, Qt::Key_End);
+    QTest::keyClicks(typed.canvas, QStringLiteral("!"));
+    typed.menu().showPopup();
+    typed.menu().hidePopup();
+    QCoreApplication::processEvents();
+    QCOMPARE(typed.session.textDraft().value().style.content, QString("Hello!"));
+}
+
+void TypeFontPreviewTests::escapePutsTheFaceBack()
+{
+    Typed typed;
+    typed.menu().showPopup();
+    QTRY_VERIFY(typed.menu().view()->isVisible());
+    typed.hover(mono);
+    // The open popup's own events leave the preview showing.
+    typed.menu().view()->window()->update();
+    QTest::qWait(50);
+    QCOMPARE(typed.face(), mono);
+    // Qt 6.10 closes on Escape without calling hidePopup.
+    QTest::keyClick(typed.menu().view(), Qt::Key_Escape);
+    QVERIFY(!typed.menu().view()->isVisible());
+    QTRY_COMPARE(typed.face(), sans);
 }
 
 QTEST_MAIN(TypeFontPreviewTests)

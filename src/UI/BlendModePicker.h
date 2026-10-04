@@ -9,7 +9,10 @@ public:
     explicit BlendModePicker(EditorSession &session, QWidget *parent = nullptr);
 
     void showPopup() override;
-    void hidePopup() override;
+
+protected:
+    // The popup closed, however Qt closed it.
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void synchronize();

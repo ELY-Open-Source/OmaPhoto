@@ -14,6 +14,8 @@
 class GridSettingsSheetTests : public QObject {
     Q_OBJECT
 private slots:
+    // A user's English locale: Qt 6.10's C locale groups nothing.
+    void initTestCase() { QLocale::setDefault(QLocale(QLocale::English, QLocale::UnitedStates)); }
     void theSheetLaysOutAsSwifts();
     void eachChangePreviewsTheGrid();
     void aPickedColourBecomesCustom();

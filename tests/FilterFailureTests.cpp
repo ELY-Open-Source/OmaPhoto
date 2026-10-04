@@ -47,6 +47,9 @@ void FilterFailureTests::aTrimThatFindsNoMemoryIsARenderError()
 
 void FilterFailureTests::aDitherThatFindsNoMemoryIsARenderError()
 {
+    // Qt 6.10 converts on threads the limit starves first.
+    if (!placesStarvation())
+        QSKIP("the failure point is placed for Qt 6.4's allocations");
     DitherSettings dither;
     dither.pixelSize = 1;
     // Another format: its conversion finds no memory.

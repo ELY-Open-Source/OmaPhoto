@@ -1,5 +1,6 @@
 #include "UI/TypeControls.h"
 #include <QAbstractItemView>
+#include <QEvent>
 #include <QFontInfo>
 #include <QRawFont>
 #include <QtConcurrent>
@@ -147,18 +148,22 @@ TypeFontPicker::TypeFontPicker(std::function<void(PreviewStep, const QString &)>
 {
     setAccessibleName(QStringLiteral("Font"));
     prepareOwnNames();
-    // Only a face previews; (Multiple) leaves the last one showing.
+    // An open menu's face previews; Qt 6.10 signals closed too.
     connect(this, &QComboBox::highlighted, this, [this](int index) {
-        if (!isMultiple(index))
+        if (view()->isVisible() && !isMultiple(index))
             m_preview(PreviewStep::show, itemText(index));
     });
+    // Qt 6.10 closes on Escape without calling hidePopup.
+    view()->window()->installEventFilter(this);
 }
 
 // Qt reports a choice after the close: the revert waits.
-void TypeFontPicker::hidePopup()
+bool TypeFontPicker::eventFilter(QObject *watched, QEvent *event)
 {
-    QComboBox::hidePopup();
+    if (watched != view()->window() || event->type() != QEvent::Hide)
+        return QComboBox::eventFilter(watched, event);
     QMetaObject::invokeMethod(this, [this] { m_preview(PreviewStep::revert, QString()); }, Qt::QueuedConnection);
+    return false;
 }
 
 bool TypeFontPicker::isMultiple(int index) const
