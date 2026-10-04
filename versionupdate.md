@@ -59,6 +59,7 @@ OmaPhoto 1.4.5 catches up with Compositor 1.4.5. It follows 1.3.3.
 
 - Quit works in the middle of a gradient or with a dialog open. Pending edits are applied or cancelled first.
 - Two crashes when a window closed are fixed.
+- On Arch, Fedora and Ubuntu 26.04, Escape in the blend mode menu no longer leaves the previewed mode showing.
 - On NVIDIA with Hyprland at a fractional scale, OmaPhoto's own cursors can show garbled. The README names the workaround: software cursors.
 
 ## Packages

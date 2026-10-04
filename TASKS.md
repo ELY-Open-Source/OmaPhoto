@@ -501,6 +501,7 @@ Reviews for this section ran on codex `gpt-6.1-sol` at `max` (agent `codex-sol`)
   - 13.19i work: first run failed on every newer Qt. Arch (6.11), Fedora 43 and 44, Ubuntu 26.04 (6.10) and NixOS (6.11) found two real bugs in the pickers: Qt 6.10 emits `highlighted` when a closed combo box follows its value, so the font menu started a preview as the caret moved and a later close put back text typed since; and it closes the popup on Escape without `hidePopup`, so Escape kept a font or blend preview. Fixed by previewing only while the popup shows and ending on the popup window's `Hide`, tested on both Qts with mutants caught. Two test fixes: `GridSettingsSheetTests` sets an English default locale (6.10's C locale groups nothing), and Dither's starvation test skips off Qt 6.4 as the other five do.
   - 13.19i second run: all five pass, 334 of 334 each; the full suite passes on the dev image.
   - 13.19i review: round 1 PASS (the Qt behaviour probed on 6.4.2, 6.10.2 and 6.11.2, six mutants caught).
+  - 13.19j work: `versionupdate.md` gains 13.19i's blend menu fix; `v1.4.5` tagged on main and pushed; the workflow's run is checked below.
   - [ ] 13.19j Tag `v1.4.5`; the release workflow publishes every package.
   - [ ] 13.19k Live installs from GitHub in fresh containers.
   - [ ] 13.19l The acceptance checklist.
