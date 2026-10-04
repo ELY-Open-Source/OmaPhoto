@@ -300,14 +300,10 @@ void EditorSession::commitPaintSnapshot(const BrushStroke &stroke)
 // A raster edit assembled off the UI thread; one step.
 void EditorSession::commitRasterEdit(std::shared_ptr<const BrushStroke> stroke, const QString &name, std::function<void()> alsoApply, std::function<void()> done)
 {
-    // The caller resumes from the event loop, like await.
-    const auto finish = [this, done] {
-        if (done)
-            QMetaObject::invokeMethod(this, done, Qt::QueuedConnection);
-    };
     if (!stroke->committedTransform().isValid()) {
         setBrushError(QString::fromUtf8(ProjectError(ProjectError::Kind::tooLarge).what()));
-        finish();
+        if (done)
+            done();
         return;
     }
     setIsProjectBusy(true);
@@ -331,8 +327,9 @@ void EditorSession::finishRasterCommit()
         setIsProjectBusy(false);
         ++m_brushRevision;
         notify();
+        // Swift's caller resumes in the same job, nothing between.
         if (pending.done)
-            QMetaObject::invokeMethod(this, pending.done, Qt::QueuedConnection);
+            pending.done();
     };
     if (made.failure) {
         setBrushError(made.failure);
