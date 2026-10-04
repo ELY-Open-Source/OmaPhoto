@@ -65,7 +65,12 @@ void AcceptanceColorTests::cameraRawDocked()
     FilterSettings settings = app.session().filterSettings();
     settings.cameraRaw.exposure = 1;
     app.session().updateFilter(settings, true);
-    QTRY_VERIFY_WITH_TIMEOUT(app.session().filterEdit().value().previewImage(layer), 30000);
+    // The shot waits for the brightened preview.
+    const auto brightened = [&app, layer] {
+        const std::optional<QImage> preview = app.session().filterEdit().value().previewImage(layer);
+        return preview && preview.value().pixelColor(preview.value().width() / 2, preview.value().height() * 7 / 8).green() > 170;
+    };
+    QTRY_VERIFY_WITH_TIMEOUT(brightened(), 30000);
     app.shot(QStringLiteral("06-camera-raw"));
     bool done = false;
     app.session().commitFilter([&done] { done = true; });

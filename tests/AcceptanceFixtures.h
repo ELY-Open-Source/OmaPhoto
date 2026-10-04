@@ -5,6 +5,8 @@
 #include "UI/CompositorMenus.h"
 #include "UI/OmarchyTheme.h"
 #include "UI/ProjectWorkspaceView.h"
+#include <QAbstractItemView>
+#include <QComboBox>
 #include <QDir>
 #include <QPainter>
 #include <QTemporaryDir>
@@ -87,6 +89,25 @@ struct App {
         QTRY_VERIFY_WITH_TIMEOUT(done, 30000);
     }
 };
+
+// A combo box popup row, where the pointer finds it.
+inline QPoint popupRow(QComboBox &box, const QString &text)
+{
+    box.showPopup();
+    if (!QTest::qWaitFor([&box] { return box.view()->isVisible(); }, 2000))
+        throw std::runtime_error("the menu never opened");
+    const int row = box.findText(text);
+    if (row < 0)
+        throw std::runtime_error("no such entry");
+    return box.view()->visualRect(box.model()->index(row, 0)).center();
+}
+
+// Chooses an entry with a click in its popup.
+inline void choose(QComboBox &box, const QString &text)
+{
+    const QPoint row = popupRow(box, text);
+    QTest::mouseClick(box.view()->viewport(), Qt::LeftButton, Qt::NoModifier, row);
+}
 
 // A photograph's stand-in: sky, ground and a red disc.
 inline QImage scene(int width, int height)
