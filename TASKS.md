@@ -577,7 +577,8 @@ Compositor 1.4.9:
 - 14.26 Adaptive tables, Dehaze, Texture, Clarity, Sharpening; passed review round 2.
 - [x] 14.27 Camera Raw's Color Mixer, Calibration, curve, vignettes and Color Grading (`bdfb9c2`, `9dac4f1`, `7b5a592`).
 - 14.27 Mixer, Calibration, curve, vignettes, Grading from Photoshop's tables (xz); passed review round 4.
-- [ ] 14.28 Camera Raw's preview 5 to 20 times faster (`a8630e4`).
+- [x] 14.28 Camera Raw's preview 5 to 20 times faster (`a8630e4`).
+- 14.28 Preview 5–20× faster: one table, one measure, sparser scope, bands; passed review round 2.
 - [ ] 14.29 Tabs: the blank start tab stays put; Untitled numbers stay low (`d0ec2f3`).
 
 Release:
