@@ -1,17 +1,17 @@
 #include "IO/PSD/PSDReader.h"
-#include <QtEndian>
 #include <algorithm>
 #include <cmath>
 
 namespace {
+// Big-endian, byte by byte: GCC 16 misreads a cast pointer.
 quint16 u16(const QByteArray &data, qsizetype at)
 {
-    return qFromBigEndian<quint16>(data.constData() + at);
+    return quint16(uchar(data.at(at)) << 8 | uchar(data.at(at + 1)));
 }
 
 qint16 i16(const QByteArray &data, qsizetype at)
 {
-    return qFromBigEndian<qint16>(data.constData() + at);
+    return qint16(u16(data, at));
 }
 }
 
