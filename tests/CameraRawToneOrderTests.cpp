@@ -53,7 +53,7 @@ void CameraRawToneOrderTests::shadowsAndHighlightsKeepTonesInOrder()
 void CameraRawToneOrderTests::eachToneFollowsSwiftsCurve()
 {
     // Gray stays gray; Highlights first, then Shadows.
-    for (const auto &[shadows, highlights] : std::vector<std::pair<double, double>>{{100, 0}, {-100, 0}, {60, 0}, {0, 100}, {0, -100}, {0, -40}, {60, -40}}) {
+    for (const auto &[shadows, highlights] : std::vector<std::pair<double, double>>{{100, 0}, {-100, 0}, {60, 0}, {-50, 0}, {0, 100}, {0, -100}, {0, -40}, {0, 50}, {60, -40}, {-50, 50}}) {
         const std::vector<int> out = levels(shadows, highlights);
         const double low = shadows / 100, high = highlights / 100;
         for (int level = 0; level < 256; ++level) {
