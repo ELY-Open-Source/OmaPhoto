@@ -23,7 +23,8 @@ struct Shown : Bar {
     QList<bool> chrome()
     {
         return {window.menuBar()->isVisible(), named("toolbar").isVisible(), named("toolRail").isVisible(), named("statusBar").isVisible(),
-                named("toolHeader").isVisible(), window.findChild<LayersPanel *>()->isVisible(), window.findChild<CanvasRulerView *>()->isVisible()};
+                named("toolHeader").isVisible(), window.findChild<LayersPanel *>()->isVisible(), named("layersPanelEdge").isVisible(),
+                window.findChild<CanvasRulerView *>()->isVisible()};
     }
     void press(Qt::Key key, Qt::KeyboardModifiers modifiers = {})
     {
@@ -48,12 +49,14 @@ void CanvasOnlyWindowTests::fPutsEveryBarAwayAndBringsThemBack()
     Shown shown;
     QAction &entry = shown.action("toggleFullscreen");
     QVERIFY(entry.text() == "Toggle Fullscreen" && entry.isCheckable() && !entry.isChecked() && entry.shortcut() == QKeySequence(Qt::Key_F));
-    QCOMPARE(shown.chrome(), (QList<bool>{true, true, true, true, true, true, true}));
+    QCOMPARE(shown.chrome(), (QList<bool>{true, true, true, true, true, true, true, true}));
     shown.canvas().setFocus();
     shown.press(Qt::Key_F);
     QVERIFY(shown.session().canvasOnly() && entry.isChecked());
     QVERIFY(shown.window.windowState().testFlag(Qt::WindowFullScreen));
-    QCOMPARE(shown.chrome(), (QList<bool>{false, false, false, false, false, false, false}));
+    QCOMPARE(shown.chrome(), (QList<bool>{false, false, false, false, false, false, false, false}));
+    // Nothing else is left: the canvas fills the window.
+    QTRY_COMPARE(QRect(shown.canvas().mapTo(&shown.window, QPoint(0, 0)), shown.canvas().size()), shown.window.rect());
     // A new tool's bar stays away too.
     shown.session().selectTool(NavigationTool::brush);
     QVERIFY(!shown.named("toolHeader").isVisible());
@@ -67,7 +70,7 @@ void CanvasOnlyWindowTests::fPutsEveryBarAwayAndBringsThemBack()
     shown.press(Qt::Key_F);
     QVERIFY(!shown.session().canvasOnly() && !entry.isChecked());
     QVERIFY(!shown.window.windowState().testFlag(Qt::WindowFullScreen));
-    QCOMPARE(shown.chrome(), (QList<bool>{true, true, true, true, true, true, true}));
+    QCOMPARE(shown.chrome(), (QList<bool>{true, true, true, true, true, true, true, true}));
 }
 
 void CanvasOnlyWindowTests::theCanvasSitsOnBlack()
@@ -113,7 +116,7 @@ void CanvasOnlyWindowTests::escapeLeavesOnceNothingIsLeftToCancel()
     }
     shown.press(Qt::Key_Escape);
     QVERIFY(!shown.session().canvasOnly() && !shown.action("toggleFullscreen").isChecked());
-    QCOMPARE(shown.chrome(), (QList<bool>{true, true, true, true, true, true, true}));
+    QCOMPARE(shown.chrome(), (QList<bool>{true, true, true, true, true, true, true, true}));
     // Out of Canvas Only, Escape is the canvas's alone.
     shown.press(Qt::Key_Escape);
     QVERIFY(!shown.session().canvasOnly());

@@ -109,6 +109,16 @@ void KeyboardShortcutsTests::theListIsSwiftsWithoutHide()
     QCOMPARE(named("Increase leading by 10").original, ShortcutChord(QString(QChar(0xf701)), 10));
     QCOMPARE(named("Toggle Levels preview").group, QString("Canvas & Layers"));
     QCOMPARE(named("Undo").id(), QString("Menus:Undo"));
+    // Swift 1.4.7: Search Commands, then Fullscreen first in Canvas.
+    const auto at = [&](const QString &title) {
+        return std::ranges::find_if(all, [&](const ShortcutDefinition &d) { return d.title == title; }) - all.begin();
+    };
+    QCOMPARE(named("Search Commands").original, ShortcutChord("f", 1));
+    QVERIFY(named("Search Commands").isMenu() && at("Search Commands") == at("Fit Canvas") + 1);
+    const ShortcutDefinition fullscreen = named("Toggle Fullscreen: the canvas alone on black (Esc also leaves)");
+    QCOMPARE(fullscreen.original, ShortcutChord("f"));
+    QCOMPARE(fullscreen.group, QString("Canvas & Layers"));
+    QCOMPARE(std::ranges::find_if(all, [](const ShortcutDefinition &d) { return !d.isMenu(); })->title, fullscreen.title);
     // Swift's defaults hold together.
     QVERIFY(!ShortcutSettings::problem({}));
 }
