@@ -44,6 +44,7 @@ private slots:
     void turnedLayersAndPlacedMasksTurnAlong();
     void itIsOneStepRefusedWhereLayersCannotChange();
     void everyLayerAndEveryPlacedMaskTurns();
+    void anOpenEditClosesBeforeTheTurn();
 };
 
 void CanvasRotationTests::clockwiseTurnsThePixelsExactly()
@@ -218,6 +219,30 @@ void CanvasRotationTests::everyLayerAndEveryPlacedMaskTurns()
     }
     session.undo();
     QVERIFY(session.document().value().layers == placed);
+}
+
+void CanvasRotationTests::anOpenEditClosesBeforeTheTurn()
+{
+    EditorSession session;
+    canvas(session);
+    // An opacity drag is its own step, closed first.
+    session.beginOpacityEdit();
+    session.setLayerOpacity(0.25);
+    session.rotateCanvas(true);
+    QCOMPARE(session.history.undoName(), QString("Rotate Canvas 90° Clockwise"));
+    session.undo();
+    QCOMPARE(session.document().value().size(), QSizeF(3, 2));
+    QCOMPARE(session.activeLayer().value().opacity, 0.25);
+    session.undo();
+    QCOMPARE(session.activeLayer().value().opacity, 1.0);
+    // A pending transform lands first, its own step.
+    session.beginTransform();
+    session.nudgeLayer(1, 0);
+    session.rotateCanvas(true);
+    QVERIFY(!session.transformEdit());
+    session.undo();
+    QCOMPARE(session.document().value().size(), QSizeF(3, 2));
+    QCOMPARE(session.activeLayer().value().origin(), QPointF(1, 0));
 }
 
 QTEST_GUILESS_MAIN(CanvasRotationTests)
