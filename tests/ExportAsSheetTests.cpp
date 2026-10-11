@@ -376,6 +376,11 @@ void ExportAsSheetTests::theSizeKeepsTheProportionsWithinTheLimits()
     QCOMPARE(both(width, "1e-99999999999999999999"), QString("1x1"));
     QCOMPARE(both(width, "64"), QString("64x32"));
     QCOMPARE(both(width, "1e99999999999999999999"), QString("64x32"));
+    QCOMPARE(both(width, "1e0000001"), QString("10x5"));
+    QCOMPARE(both(width, "128e-0000000"), QString("128x64"));
+    QCOMPARE(both(width, "1e0000000000000000000000002"), QString("100x50"));
+    QCOMPARE(both(width, "𝟙𝟚𝟠"), QString("128x64"));
+    QCOMPARE(both(width, "𝟞𝟜.𝟡"), QString("64x32"));
     QCOMPARE(both(width, "64"), QString("64x32"));
     // Past Int64, or grouped, Swift reads nothing here.
     QCOMPARE(both(width, "9223372036854775808"), QString("64x32"));

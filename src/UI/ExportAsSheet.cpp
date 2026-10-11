@@ -77,10 +77,17 @@ std::optional<qint64> typedInteger(const QLineEdit &field)
                 return at += mark.size(), true;
         return false;
     };
+    // Decimal digits of any script, read by code point.
     const auto digits = [&text, &at] {
         QString read;
-        for (; at < text.size() && text[at].isDigit(); ++at)
-            read += QChar(u'0' + text[at].digitValue());
+        while (at < text.size()) {
+            const bool pair = at + 1 < text.size() && text[at].isHighSurrogate() && text[at + 1].isLowSurrogate();
+            const char32_t code = pair ? QChar::surrogateToUcs4(text[at], text[at + 1]) : text[at].unicode();
+            if (!QChar::isDigit(code))
+                break;
+            read += QChar(u'0' + QChar::digitValue(code));
+            at += pair ? 2 : 1;
+        }
         return read;
     };
     const bool negative = take({QStringLiteral("-"), locale.negativeSign()});
@@ -95,7 +102,9 @@ std::optional<qint64> typedInteger(const QLineEdit &field)
         if (!down)
             take({QStringLiteral("+")});
         // No digits after it is no exponent, as in Swift.
-        const QString power = digits();
+        QString power = digits();
+        while (power.startsWith(u'0'))
+            power.remove(0, 1);
         // Past six digits the number is zero or too large.
         const qint64 exponent = power.size() > 6 ? 1'000'000 : power.toLongLong();
         point += down ? -exponent : exponent;
