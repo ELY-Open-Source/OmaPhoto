@@ -560,7 +560,8 @@ Compositor 1.4.8:
 - 14.19 Filter › Scanlines on cdde327's kernel (blocks as band functions), Swift's own bytes matched; passed review round 2.
 - [x] 14.20 The Navigator: a minimap in the canvas's corner from 300% (`6490bb3`, `3e09948`; `3c6cf5e` resolves a conflict in `ContentView` between the Navigator's column and Canvas Only, which the minimap supersedes).
 - 14.20 The Navigator minimap from 300% (View › Navigator), Swift's geometry and picture; passed review round 3.
-- [ ] 14.21 The slider snap test draws its slider before pressing it (`07eee7e`).
+- [x] 14.21 The slider snap test draws its slider before pressing it (`07eee7e`).
+- 14.21 Held: Qt's style measures the groove unpainted; the test pins a press before any paint; passed review round 2.
 
 Compositor 1.4.9:
 
