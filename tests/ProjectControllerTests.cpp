@@ -403,13 +403,17 @@ void ProjectControllerTests::saveIsTheOneDefaultAndDontSaveIsAsPlainAsCancel()
                     const auto *button = qobject_cast<QPushButton *>(each);
                     looks << QStringLiteral("%1:%2%3").arg(button->text()).arg(button->isDefault()).arg(button->isFlat());
                 }
+                // Cancel's colours are Don't Save's: no red, no tint.
+                const QList<QAbstractButton *> buttons = alert->buttons();
+                looks << QStringLiteral("same:%1").arg(buttons.value(1)->palette() == buttons.value(2)->palette()
+                                                       && buttons.value(1)->palette() == alert->palette());
                 return looks.join(',');
             }
         return QStringLiteral("none");
     };
     desk.replies = {"Cancel"};
     QCOMPARE(answered([&](auto done) { controller.confirmQuit(done); }), std::optional(false));
-    QCOMPARE(desk.seen.value(0).section('|', 5), QStringLiteral("Save:10,Cancel:00,Don’t Save:00"));
+    QCOMPARE(desk.seen.value(0).section('|', 5), QStringLiteral("Save:10,Cancel:00,Don’t Save:00,same:1"));
 }
 
 QTEST_MAIN(ProjectControllerTests)
