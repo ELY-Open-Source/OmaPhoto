@@ -120,9 +120,12 @@ void CanvasView::mousePressEvent(QMouseEvent *event)
 // Swift's mouseDown with its click count.
 void CanvasView::press(QMouseEvent *event, int clicks)
 {
-    // The middle button pans in any tool, beside the left.
+    // The middle button pans anywhere; Ctrl or Meta zooms.
     if (event->button() == Qt::MiddleButton && m_session.document()) {
-        m_middlePanPoint = event->position();
+        if (event->modifiers() & (Qt::ControlModifier | Qt::MetaModifier))
+            m_middleZoom = MiddleZoom{event->position(), m_session.viewport.zoom()};
+        else
+            m_middlePanPoint = event->position();
         updateBrushCursor();
         updateCursor();
         return;
@@ -226,6 +229,17 @@ void CanvasView::mouseMoveEvent(QMouseEvent *event)
     // Swift's mouseMoved: the readout follows a hover alone.
     if (!event->buttons() && m_session.document())
         m_session.updateCameraRawReadout(m_session.viewport.documentPoint(point, m_session.document()->size()));
+    if (m_middleZoom && event->buttons().testFlag(Qt::MiddleButton)) {
+        // Up zooms in, doubling each 100 points, as Zoom drags.
+        const double factor = std::pow(2, (m_middleZoom->start.y() - point.y()) / 100);
+        m_middleZoom->out = factor < 1;
+        m_session.zoom(m_middleZoom->zoom * factor, m_middleZoom->start);
+        updateCursor();
+        if (!event->buttons().testFlag(Qt::LeftButton))
+            return;
+    } else if (m_middleZoom) {
+        endMiddlePan();
+    }
     if (m_middlePanPoint && event->buttons().testFlag(Qt::MiddleButton)) {
         m_session.viewport.translate(QSizeF(point.x() - m_middlePanPoint->x(), point.y() - m_middlePanPoint->y()));
         m_middlePanPoint = point;
@@ -297,7 +311,7 @@ void CanvasView::mouseMoveEvent(QMouseEvent *event)
 
 void CanvasView::mouseReleaseEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::MiddleButton && m_middlePanPoint) {
+    if (event->button() == Qt::MiddleButton && (m_middlePanPoint || m_middleZoom)) {
         endMiddlePan();
         return;
     }
@@ -394,6 +408,7 @@ void CanvasView::leaveEvent(QEvent *event)
 void CanvasView::endMiddlePan()
 {
     m_middlePanPoint.reset();
+    m_middleZoom.reset();
     updateCursor();
     updateBrushCursor();
 }

@@ -10,6 +10,7 @@ private slots:
     void theWheelPansAndZoomsWithAModifier();
     void aPinchZoomsAboutThePointer();
     void theMiddleButtonPansFromAnyTool();
+    void ctrlOrMetaWithTheMiddleButtonZooms();
 };
 
 void CanvasNavigationTests::theZoomToolClicksAndDrags()
@@ -253,6 +254,71 @@ void CanvasNavigationTests::theMiddleButtonPansFromAnyTool()
     const Qt::CursorShape before = empty.canvas->cursor().shape();
     QTest::mousePress(empty.canvas, Qt::MiddleButton, Qt::NoModifier, QPoint(50, 50));
     QCOMPARE(empty.canvas->cursor().shape(), before);
+}
+
+// Swift 1.4.9 (`e03923f`), as Blender: up zooms in, down out.
+void CanvasNavigationTests::ctrlOrMetaWithTheMiddleButtonZooms()
+{
+    Shown shown;
+    CanvasView &canvas = *shown.canvas;
+    EditorSession &session = shown.session;
+    shown.settle();
+    session.zoom(1);
+    // The Zoom tool's own magnifiers, plus and minus.
+    session.selectTool(NavigationTool::zoom);
+    canvas.synchronizeDisplay();
+    const QImage plus = canvas.cursor().pixmap().toImage();
+    QTest::keyPress(&canvas, Qt::Key_Alt, Qt::AltModifier);
+    const QImage minus = canvas.cursor().pixmap().toImage();
+    QTest::keyRelease(&canvas, Qt::Key_Alt);
+    QVERIFY(!plus.isNull() && plus != minus);
+    session.selectTool(NavigationTool::brush);
+    canvas.synchronizeDisplay();
+    const auto move = [&](QPointF to, Qt::MouseButtons buttons) {
+        QMouseEvent event(QEvent::MouseMove, to, to, canvas.mapToGlobal(to.toPoint()), Qt::NoButton, buttons, Qt::NoModifier);
+        QApplication::sendEvent(&canvas, &event);
+    };
+    move(QPointF(100, 100), Qt::NoButton);
+    const Qt::CursorShape brush = canvas.cursor().shape();
+    const QSizeF size = shown.documentSize();
+    // Off the view's middle, so the anchor shows.
+    const QPointF start(120, 210);
+    const QPointF anchor = session.viewport.documentPoint(start, size);
+    QTest::mousePress(&canvas, Qt::MiddleButton, Qt::ControlModifier, start.toPoint());
+    QCOMPARE(canvas.cursor().pixmap().toImage(), plus);
+    QVERIFY(!canvas.brushCursor().circle().has_value());
+    // A hundred points up doubles about the press.
+    move(QPointF(180, 110), Qt::MiddleButton);
+    QCOMPARE(session.viewport.zoom(), 2.0);
+    QCOMPARE(session.viewport.documentPoint(start, size), anchor);
+    // Below the press it zooms out, with the minus.
+    move(QPointF(120, 260), Qt::MiddleButton);
+    QVERIFY(qFuzzyCompare(session.viewport.zoom(), std::sqrt(0.5)));
+    QCOMPARE(session.viewport.documentPoint(start, size), anchor);
+    QCOMPARE(canvas.cursor().pixmap().toImage(), minus);
+    move(QPointF(120, 200), Qt::MiddleButton);
+    QCOMPARE(canvas.cursor().pixmap().toImage(), plus);
+    QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(120, 200));
+    QCOMPARE(canvas.cursor().shape(), brush);
+    QVERIFY(canvas.brushCursor().circle().has_value());
+    const double kept = session.viewport.zoom();
+    move(QPointF(200, 40), Qt::NoButton);
+    QCOMPARE(session.viewport.zoom(), kept);
+    // Meta zooms too; a lost release ends it.
+    session.zoom(1);
+    QTest::mousePress(&canvas, Qt::MiddleButton, Qt::MetaModifier, start.toPoint());
+    move(QPointF(120, 110), Qt::MiddleButton);
+    QCOMPARE(session.viewport.zoom(), 2.0);
+    move(QPointF(200, 60), Qt::NoButton);
+    QCOMPARE(canvas.cursor().shape(), brush);
+    move(QPointF(200, -50), Qt::MiddleButton);
+    QCOMPARE(session.viewport.zoom(), 2.0);
+    // A plain middle drag still pans, at the same zoom.
+    const QSizeF before = session.viewport.pan;
+    QTest::mousePress(&canvas, Qt::MiddleButton, Qt::NoModifier, QPoint(100, 100));
+    move(QPointF(110, 60), Qt::MiddleButton);
+    QVERIFY(session.viewport.zoom() == 2.0 && session.viewport.pan == before + QSizeF(10, -40));
+    QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::NoModifier, QPoint(110, 60));
 }
 
 QTEST_MAIN(CanvasNavigationTests)

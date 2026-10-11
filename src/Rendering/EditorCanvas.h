@@ -134,6 +134,12 @@ private:
         double zoom;
         bool moved;
     };
+    // Swift's middleZoom: its start, the zoom then, the minus.
+    struct MiddleZoom {
+        QPointF start;
+        double zoom;
+        bool out = false;
+    };
     using Center = std::function<QPointF(QPointF)>;
     // What a press off the handles drags, picked or not.
     struct PressTarget {
@@ -303,6 +309,8 @@ private:
     std::optional<QPointF> m_lastDragPoint;
     // Where a middle-button pan last was, its own drag point.
     std::optional<QPointF> m_middlePanPoint;
+    // A middle drag with Ctrl or Meta: Blender's zoom.
+    std::optional<MiddleZoom> m_middleZoom;
     std::optional<ZoomDrag> m_zoomDrag;
     bool m_shiftHeld = false;
     // Document point where a drag of the outline began.
