@@ -119,6 +119,13 @@ void CameraRawTablesTests::theAdaptiveSlidersBlendAcrossBrightness()
     settings.shadows = 25;
     const std::vector<CameraRawStage> on = CameraRawTables::stages(settings, {0, 104, 0});
     QCOMPARE(four(on[0]), (std::vector<double>{246, 247, 253, 254, 0, 0, 0, 1}));
+    // Two colours: Python's own reading of each measure.
+    QImage two = BrushRaster::context(2, 1, false);
+    two.setPixelColor(0, 0, QColor(200, 40, 20));
+    two.setPixelColor(1, 0, QColor(20, 100, 180));
+    const CameraRawTables::Brightness colours = CameraRawTables::brightness(two.constBits(), 2, 1, two.bytesPerLine());
+    QVERIFY(std::abs(colours.brightest - 190.342675743) < 1e-6 && std::abs(colours.luminance - 101.694057272) < 1e-6);
+    QVERIFY(std::abs(colours.logBrightest - 189.755128630) < 1e-6);
     // A mid-gray picture reads 128 by every measure.
     const QImage mid = gray(8, 8);
     const CameraRawTables::Brightness read = CameraRawTables::brightness(mid.constBits(), 8, 8, mid.bytesPerLine());

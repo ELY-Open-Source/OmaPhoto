@@ -65,6 +65,13 @@ void CameraRawTests::tonalSlidersMoveTheEndTheyName()
     const auto recovered = pixels(settings.apply(brightAndMid));
     // Photoshop: 230 to 209, mid gray kept.
     QVERIFY(recovered[0][0] < 222 && std::abs(recovered[1][0] - 128) <= 4);
+    // Highlights alone reads the picture's log brightness.
+    const auto bright = pixels(settings.apply(pair(220, 250)));
+    QVERIFY(bright[0][0] == 197 && bright[1][0] == 240);
+    // Highlights before Whites, as Camera Raw orders them.
+    settings.whites = 100;
+    const auto both = pixels(settings.apply(pair(128, 230)));
+    QVERIFY(both[0][0] == 177 && both[1][0] == 255);
     settings = CameraRawSettings();
     settings.whites = 100;
     const auto clipped = pixels(settings.apply(brightAndMid));
@@ -319,6 +326,13 @@ void CameraRawTests::detailSharpeningNoiseAndMaskingPreview()
     settings.detail.sharpenAmount = 150;
     settings.detail.sharpenRadius = 50;
     QVERIFY(pixels(settings.apply(edge)) != pixels(edge));
+    // A faint step sharpens too: Masking 0 masks nothing.
+    QImage faint = BrushRaster::context(24, 4, false);
+    for (int y = 0; y < 4; ++y)
+        for (int x = 0; x < 24; ++x)
+            faint.setPixelColor(x, y, x < 12 ? QColor(128, 128, 128) : QColor(136, 136, 136));
+    const auto sharpened = pixels(settings.apply(faint));
+    QVERIFY2(sharpened[11][0] == 121 && sharpened[12][0] == 143, qPrintable(QStringLiteral("%1, %2").arg(sharpened[11][0]).arg(sharpened[12][0])));
     settings = CameraRawSettings();
     settings.detail.noiseLuminance = 80;
     QVERIFY2(pixels(settings.apply(gray(8, 8))) == pixels(gray(8, 8)), "luminance NR leaves a flat field alone");
