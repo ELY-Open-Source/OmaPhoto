@@ -56,6 +56,8 @@ LayerCell::LayerCell(NativeLayerList &list)
     m_dimensions->setObjectName(QStringLiteral("layerDimensions"));
     m_editor->setObjectName(QStringLiteral("layerNameEditor"));
     m_editor->setFont(name);
+    // Swift 1.4.7: no bezel; the field keeps the name's size.
+    m_editor->setFrame(false);
     m_editor->hide();
     m_editor->installEventFilter(this);
 }
@@ -179,7 +181,8 @@ void LayerCell::relayout()
     m_disabledMaskMark->move(m_maskThumbnail->geometry().center() - QPoint(m_disabledMaskMark->width() / 2, m_disabledMaskMark->height() / 2));
     const int nameLeft = maskSlot + maskWidth + 5, nameWidth = std::max(10, width() - nameLeft - 8);
     m_name->setGeometry(nameLeft, 9, nameWidth, 17);
-    m_editor->setGeometry(nameLeft - 2, 6, nameWidth + 2, 23);
+    // Two left, so the text stays where the name's was.
+    m_editor->setGeometry(nameLeft - 2, 9, nameWidth + 2, 17);
     m_dimensions->setGeometry(nameLeft, 29, nameWidth, 14);
     for (size_t each = 0; each < m_effectButtons.size(); ++each)
         m_effectButtons[each]->setGeometry(0, rowHeight + int(each) * effectHeight, width(), effectHeight);
@@ -283,6 +286,12 @@ void LayerCell::beginRenaming()
     if (m_renaming || !session.document() || session.isProjectBusy() || session.isImporting())
         return;
     m_renaming = true;
+    // Swift's quaternary label colour marks the editing.
+    QPalette editing = m_editor->palette();
+    QColor tint = palette().color(QPalette::Active, QPalette::WindowText);
+    tint.setAlphaF(0.1f);
+    editing.setColor(QPalette::Base, tint);
+    m_editor->setPalette(editing);
     m_editor->setText(m_layerName);
     m_editor->show();
     m_editor->setFocus(Qt::OtherFocusReason);

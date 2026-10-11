@@ -63,6 +63,7 @@ private slots:
     void aSliderDragReleasedOverAPopupStillEnds();
     void anotherButtonsReleaseLeavesTheSwipe();
     void altDoubleClickOnTheStripClipsTwiceAndAltShowsAMaskAlone();
+    void theNameFieldKeepsTheNamesSizeAndPlace();
 };
 
 void LayerListFocusTests::aMenuBorrowingFocusKeepsTheRenameAndTheField()
@@ -384,6 +385,38 @@ void LayerListFocusTests::tabAndTheBrushKeysStayWithTheList()
     QKeyEvent digit(QEvent::KeyPress, Qt::Key_5, Qt::NoModifier, QStringLiteral("5"));
     QApplication::sendEvent(list, &digit);
     QVERIFY(!digit.isAccepted());
+}
+
+void LayerListFocusTests::theNameFieldKeepsTheNamesSizeAndPlace()
+{
+    const auto session = sessionWithLayers(1);
+    auto *panel = new LayersPanel(*session);
+    Framed framed(panel);
+    LayerCell &row = *panel->list().cells().at(0);
+    QLabel &name = *row.findChild<QLabel *>("layerName");
+    const QRect label = name.geometry();
+    QTest::mouseDClick(&row, Qt::LeftButton, Qt::NoModifier, QPoint(row.width() - 20, 20));
+    auto *editor = row.findChild<QLineEdit *>("layerNameEditor");
+    QTRY_VERIFY(editor->isVisible() && editor->hasFocus());
+    // Swift 1.4.7: no bezel, the name's height, its text unmoved.
+    QVERIFY(!editor->hasFrame());
+    QCOMPARE(editor->geometry(), label.adjusted(-2, 0, 0, 0));
+    QCOMPARE(name.geometry(), label);
+    // Swift 1.4.7: no bezel, the name's height, text unmoved.
+    QColor tint = row.palette().color(QPalette::Active, QPalette::WindowText);
+    tint.setAlphaF(0.1f);
+    QCOMPARE(editor->palette().color(QPalette::Base), tint);
+    // A tenth of the ink marks it: quaternary label colour.
+    editor->deselect();
+    const QImage drawn = row.grab().toImage();
+    const QColor ground = drawn.pixelColor(row.width() - 3, label.center().y());
+    const QColor inside = drawn.pixelColor(label.right() - 2, label.top() + 1);
+    const QColor ink = row.palette().color(QPalette::Active, QPalette::WindowText);
+    const auto near = [](int value, double expected) { return std::abs(value - expected) <= 2; };
+    QVERIFY2(near(inside.red(), ground.red() * 0.9 + ink.red() * 0.1) && near(inside.green(), ground.green() * 0.9 + ink.green() * 0.1)
+                 && near(inside.blue(), ground.blue() * 0.9 + ink.blue() * 0.1),
+             qPrintable(inside.name() + " over " + ground.name()));
+    QTest::keyClick(editor, Qt::Key_Escape);
 }
 
 QTEST_MAIN(LayerListFocusTests)
