@@ -47,10 +47,18 @@ double startQuality()
     return number && std::isfinite(saved) ? std::clamp(saved, 0.0, 1.0) : JPEGOptions().quality;
 }
 
-// Swift's 0...2 decimals, trailing zeros dropped.
+// Swift's 0...2 decimals: its shortest digits, halves to even.
 QString inches(double value)
 {
-    QString shown = QLocale(QLocale::English, QLocale::UnitedStates).toString(value, 'f', 2);
+    const QString digits = QString::number(value, 'f', QLocale::FloatingPointShortest);
+    const qsizetype point = digits.indexOf(QLatin1Char('.'));
+    const QString fraction = point < 0 ? QString() : digits.mid(point + 1);
+    qint64 hundredths = digits.left(point < 0 ? digits.size() : point).toLongLong() * 100 + fraction.left(2).leftJustified(2, QLatin1Char('0')).toLongLong();
+    const QString rest = fraction.mid(2);
+    const int half = rest.isEmpty() ? -1 : QString(rest).compare(QStringLiteral("5").leftJustified(rest.size(), QLatin1Char('0')));
+    if (half > 0 || (half == 0 && hundredths % 2 == 1))
+        ++hundredths;
+    QString shown = QLocale(QLocale::English, QLocale::UnitedStates).toString(hundredths / 100.0, 'f', 2);
     while (shown.contains(QLatin1Char('.')) && (shown.endsWith(QLatin1Char('0')) || shown.endsWith(QLatin1Char('.'))))
         shown.chop(1);
     return shown;

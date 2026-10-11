@@ -53,7 +53,7 @@ The screenshots come from Qt's offscreen platform, so floating panels appear wit
 | Blending and a sharper canvas | Soft Light and a clipping stack in Linear Dodge show on the canvas as exported. | — | `SharpCanvasTests`, `BlendingTests`, `ClippingStackTests` | pass |
 | Camera Raw curves | Lifts a region of the parametric curve and adds a point on the point curve, then OK; the ground brightens. | — | `CameraRawCurveTests`, `CameraRawCurveGraphTests` | pass |
 | Dither ASCII and Scanlines | In the Dither sheet, ASCII of "@" draws that letter, holes and all, about twice as tall at a text size of 28; Scanlines draws dark gaps between rows. | — | `DitherTests`, `ScanlinesTests` | pass |
-| Export JPEG preview | The View keys zoom the preview to 100%, in, and back to Fit. | — | `JPEGPreviewTests`, `JPEGExportSheetTests` | pass |
+| Export JPEG preview | The View keys zoom the preview to 100%, in, and back to Fit. | — | `JPEGPreviewTests`, `ExportAsSheetTests` | pass |
 | Quit mid-edit | Quits with a gradient pending: it is applied before the one question. With Levels open, Levels closes and the window goes. | — | `QuitPendingEditsTests`, `WindowTeardownTests` | pass |
 
 ## Known differences from Compositor

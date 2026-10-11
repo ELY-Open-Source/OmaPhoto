@@ -30,6 +30,7 @@ private slots:
     void eachFormatShowsItsRowsAndWritesItsBytes();
     void theSizeKeepsTheProportionsWithinTheLimits();
     void aClearPNGShowsTheCheckerboard();
+    void thePageRoundsAsSwiftsFormatter();
 };
 
 namespace {
@@ -380,6 +381,21 @@ void ExportAsSheetTests::aClearPNGShowsTheCheckerboard()
     QCOMPARE(shown.previewAt({126, 11}).rgb(), QColor::fromRgbF(0.35f, 0.35f, 0.35f).rgb());
     // Outside the image, the frame's own gray.
     QCOMPARE(shown.previewAt({100, 165}), QColor(31, 31, 31));
+}
+
+// Swift 6.0.3's formatter, measured: halves of its digits to even.
+void ExportAsSheetTests::thePageRoundsAsSwiftsFormatter()
+{
+    const auto page = [](int width, int height, double dpi) {
+        Sheet shown({halfRed(width, height).image, dpi}, ExportFormat::pdf);
+        return shown.find<QLabel>("exportPage").text();
+    };
+    QCOMPARE(page(45, 9, 72), QString("0.62 × 0.12 in at 72 DPI"));
+    QCOMPARE(page(27, 1, 72), QString("0.38 × 0.01 in at 72 DPI"));
+    QCOMPARE(page(1, 3, 200), QString("0 × 0.02 in at 200 DPI"));
+    QCOMPARE(page(27, 29, 200), QString("0.14 × 0.14 in at 200 DPI"));
+    QCOMPARE(page(100, 2999, 300), QString("0.33 × 10 in at 300 DPI"));
+    QCOMPARE(page(30000, 1, 1), QString("30,000 × 1 in at 1 DPI"));
 }
 
 QTEST_MAIN(ExportAsSheetTests)

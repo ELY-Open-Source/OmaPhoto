@@ -24,6 +24,7 @@ private slots:
     void aJPEGNeedsAWindowAndADocument();
     void theFileMenuOffersBothExports();
     void exportAsWritesEachFormatAndRemembersTheLast();
+    void theMenuOpensExportAsOnTheLastFormat();
 };
 
 namespace {
@@ -322,6 +323,43 @@ void ProjectExportTests::exportAsWritesEachFormatAndRemembersTheLast()
     QTRY_VERIFY(desk.done);
     QCOMPARE(desk.dialogs.seen, QStringList{"panel|Export PNG|save|file|Untitled.png|png|PNG image (*.png)"});
     QCOMPARE(contents(Desk::path("half.png")), ImageExporter::pngData(ImageExporter::resized(raster, 20, 10)));
+}
+
+void ProjectExportTests::theMenuOpensExportAsOnTheLastFormat()
+{
+    QTemporaryDir folder;
+    Bar bar;
+    bar.session().createDocument(8, 8);
+    bar.window.show();
+    DialogDesk desk;
+    const auto shown = [&bar]() -> ExportAsSheet & {
+        if (!QTest::qWaitFor([&bar] { return bar.window.findChild<ExportAsSheet *>() && bar.window.findChild<ExportAsSheet *>()->isVisible(); }))
+            throw std::runtime_error("no sheet");
+        return *bar.window.findChild<ExportAsSheet *>();
+    };
+    const auto checked = [](ExportAsSheet &sheet, const char *name) { return sheet.findChild<QAbstractButton *>(QString::fromLatin1(name))->isChecked(); };
+    const auto closed = [&bar] { return !bar.session().isProjectBusy() && !bar.window.findChild<ExportAsSheet *>(); };
+    // PNG first; a PDF written through the menu comes next.
+    bar.action("exportAs").trigger();
+    QVERIFY(checked(shown(), "exportFormatPNG"));
+    shown().findChild<QAbstractButton *>("exportFormatPDF")->click();
+    desk.replies = {folder.filePath("Page")};
+    QTRY_VERIFY(shown().findChild<QPushButton *>("exportExport")->isEnabled());
+    shown().findChild<QPushButton *>("exportExport")->click();
+    QTRY_VERIFY(QFileInfo::exists(folder.filePath("Page.pdf")) && closed());
+    bar.action("exportAs").trigger();
+    QVERIFY(checked(shown(), "exportFormatPDF"));
+    QTest::keyClick(&shown(), Qt::Key_Escape);
+    QTRY_VERIFY(closed());
+    // Export JPEG starts on JPEG; Export As stays on PDF.
+    bar.action("exportJPEG").trigger();
+    QVERIFY(checked(shown(), "exportFormatJPEG"));
+    QTest::keyClick(&shown(), Qt::Key_Escape);
+    QTRY_VERIFY(closed());
+    bar.action("exportAs").trigger();
+    QVERIFY(checked(shown(), "exportFormatPDF"));
+    QTest::keyClick(&shown(), Qt::Key_Escape);
+    QTRY_VERIFY(closed());
 }
 
 QTEST_MAIN(ProjectExportTests)

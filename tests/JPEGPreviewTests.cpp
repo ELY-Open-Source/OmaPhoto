@@ -21,6 +21,7 @@ private slots:
     void theUpdatingPlateSitsInTheMiddle();
     void zoomKeepsTheMiddleAndDragsMoveIt();
     void theSheetsButtonsAndKeysZoomIt();
+    void aZoomBeforeTheFirstImageCentresIt();
 };
 
 namespace {
@@ -301,6 +302,35 @@ void JPEGPreviewTests::theSheetsButtonsAndKeysZoomIt()
     QCOMPARE(preview.zoom(), std::optional(0.5));
     QSettings().remove(QLatin1String(ShortcutSettings::storageKey));
     ShortcutSettings::shared().reload();
+}
+
+// Swift makes the preview with its first result, centred.
+void JPEGPreviewTests::aZoomBeforeTheFirstImageCentresIt()
+{
+    EditorSession session;
+    QImage red(1200, 800, QImage::Format_RGBA8888_Premultiplied);
+    red.fill(Qt::red);
+    const auto offsets = [&](bool early) {
+        ExportAsSheet sheet({red, 72}, session, ExportFormat::png, [](std::optional<ExportAsSheet::Chosen>) {});
+        sheet.show();
+        auto &exporting = *sheet.findChild<QPushButton *>(QStringLiteral("exportExport"));
+        if (early) {
+            if (!QTest::qWaitForWindowActive(&sheet) || exporting.isEnabled())
+                throw std::runtime_error("ready before the key");
+            QTest::keyClick(&sheet, Qt::Key_1, Qt::ControlModifier);
+        }
+        if (!QTest::qWaitFor([&] { return exporting.isEnabled(); }))
+            throw std::runtime_error("never ready");
+        auto &preview = *sheet.findChild<JPEGPreview *>();
+        if (!early)
+            preview.setZoom(1);
+        const QSize view = preview.viewport()->size();
+        return std::array<int, 4>{preview.horizontalScrollBar()->value(), preview.verticalScrollBar()->value(), view.width(), view.height()};
+    };
+    const std::array<int, 4> early = offsets(true), late = offsets(false);
+    QCOMPARE(early, late);
+    QVERIFY(early[0] == int(std::lround(600 - early[2] / 2.0)) && early[1] == int(std::lround(400 - early[3] / 2.0)));
+    QVERIFY(early[0] > 300 && early[1] > 200);
 }
 
 QTEST_MAIN(JPEGPreviewTests)

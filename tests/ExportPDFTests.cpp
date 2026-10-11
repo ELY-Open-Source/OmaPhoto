@@ -79,6 +79,14 @@ void ExportPDFTests::pdfIsOnePageAtThePrintedSizeWithLosslessPixels()
     QCOMPARE(at(0, 0)[3], 0);
     // The page draws the image over it, nothing beneath.
     QCOMPARE(streamOf(object(pdf, 4)), QByteArray("q\n2.8800 0 0 2.8800 0 0 cm /Im0 Do\nQ"));
+    // Rows top first, each channel its own, as drawn.
+    QImage grid = BrushRaster::context(2, 3, false);
+    for (int y = 0; y < 3; ++y)
+        for (int x = 0; x < 2; ++x)
+            grid.setPixel(x, y, qRgba(10 + 40 * y + 20 * x, 100 + 30 * y - 10 * x, 200 - 50 * y + 5 * x, 255));
+    const QByteArray rows = ImageExporter::pdfData(ExportRaster{grid, 72});
+    QCOMPARE(streamOf(object(rows, 5)), QByteArray("\x0a\x64\xc8\x1e\x5a\xcd\x32\x82\x96\x46\x78\x9b\x5a\xa0\x64\x6e\x96\x69", 18));
+    QVERIFY(object(rows, 5).contains("/Width 2 /Height 3"));
     // A soft edge goes straight: colour whole, alpha apart.
     QImage soft = BrushRaster::context(1, 1, false);
     soft.setPixelColor(0, 0, QColor(255, 0, 0, 128));

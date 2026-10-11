@@ -258,7 +258,11 @@ try {
     content += pageWidth + " 0 0 " + pageHeight + " 0 0 cm /Im0 Do\nQ";
     // zlib's stream, without Qt's four-byte length.
     const auto stream = [](const QByteArray &dictionary, const QByteArray &bytes, bool deflate) {
-        const QByteArray body = deflate ? qCompress(bytes, 9).mid(4) : bytes;
+        const QByteArray compressed = deflate ? qCompress(bytes, 9) : QByteArray();
+        // qCompress says no memory with an empty array.
+        if (deflate && compressed.isEmpty())
+            throw ExportError(ExportError::Kind::render);
+        const QByteArray body = deflate ? compressed.mid(4) : bytes;
         return "<< " + dictionary + (deflate ? " /Filter /FlateDecode" : "") + " /Length " + QByteArray::number(body.size()) + " >>\nstream\n" + body
             + "\nendstream";
     };

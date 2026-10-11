@@ -51,8 +51,12 @@ void JPEGPreview::setImage(const QImage &image, QSize pixels, bool updating)
     m_image = image;
     m_updating = updating;
     if (pixels != m_pixels) {
+        // Swift's onAppear: a zoom set before the first image centres.
+        const bool first = m_pixels.isEmpty();
         m_pixels = pixels;
         updateRanges();
+        if (first && m_zoom)
+            scrollTo(QPointF(0.5, 0.5));
     }
     viewport()->update();
 }
@@ -82,18 +86,23 @@ void JPEGPreview::setZoom(std::optional<double> zoom)
     }
     m_zoom = zoom;
     updateRanges();
-    if (m_zoom) {
-        const QSizeF size = shownSize(*m_zoom);
-        const QSizeF shown(viewport()->size());
-        const double x = std::clamp(fraction.x() * size.width() - shown.width() / 2, 0.0, std::max(0.0, size.width() - shown.width()));
-        const double y = std::clamp(fraction.y() * size.height() - shown.height() / 2, 0.0, std::max(0.0, size.height() - shown.height()));
-        horizontalScrollBar()->setValue(int(std::lround(x)));
-        verticalScrollBar()->setValue(int(std::lround(y)));
-    }
+    if (m_zoom)
+        scrollTo(fraction);
     m_drag.reset();
     showCursor(false);
     viewport()->update();
     m_zoomChanged();
+}
+
+// Puts `fraction` of the image in the view's middle.
+void JPEGPreview::scrollTo(QPointF fraction)
+{
+    const QSizeF size = shownSize(m_zoom.value());
+    const QSizeF shown(viewport()->size());
+    const double x = std::clamp(fraction.x() * size.width() - shown.width() / 2, 0.0, std::max(0.0, size.width() - shown.width()));
+    const double y = std::clamp(fraction.y() * size.height() - shown.height() / 2, 0.0, std::max(0.0, size.height() - shown.height()));
+    horizontalScrollBar()->setValue(int(std::lround(x)));
+    verticalScrollBar()->setValue(int(std::lround(y)));
 }
 
 // The image's size on screen at `zoom`, in points.

@@ -54,6 +54,7 @@ protected:
 private:
     static QPixmap checkerboard(double ratio);
     QSizeF shownSize(double zoom) const;
+    void scrollTo(QPointF fraction);
     void updateRanges();
     void showCursor(bool grabbing);
 

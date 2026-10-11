@@ -101,6 +101,13 @@ void KeyboardShortcutsTests::theListIsSwiftsWithoutHide()
     QVERIFY(!ids.contains("Menus:Hide Compositor"));
     QCOMPARE(named("Export JPEG").original, ShortcutChord("s", 11));
     QVERIFY(named("Export JPEG").isMenu());
+    // Swift 1.4.8's Export As follows Export JPEG.
+    QCOMPARE(named("Export As").original, ShortcutChord("w", 11));
+    QVERIFY(named("Export As").isMenu() && named("Export As").group == named("Export JPEG").group);
+    const auto position = [&all](const char *title) {
+        return std::find_if(all.begin(), all.end(), [title](const ShortcutDefinition &each) { return each.id() == QStringLiteral("Menus:") + QLatin1String(title); }) - all.begin();
+    };
+    QCOMPARE(position("Export As"), position("Export JPEG") + 1);
     QCOMPARE(named("Content-Aware Fill").original, ShortcutChord("\x7f", 8));
     QCOMPARE(named("Temporary Hand tool (hold)").original, ShortcutChord(" "));
     QCOMPARE(named("Opacity digit 7 (type two for exact %)").original, ShortcutChord("7"));
