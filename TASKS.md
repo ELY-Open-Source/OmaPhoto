@@ -548,7 +548,8 @@ Compositor 1.4.7:
 
 Compositor 1.4.8:
 
-- [ ] 14.15 Layers selected on the canvas are revealed in the Layers panel (`d2b8aaf`, `b4e147b`).
+- [x] 14.15 Layers selected on the canvas are revealed in the Layers panel (`d2b8aaf`, `b4e147b`).
+- 14.15 work: `revealActiveLayer` after both selections, a second signal when a folder opens; the list scrolls a newly active row in once it exists. 14 mutants, all caught but one equivalent. Review: round 1 FAIL (a child of a shut folder never scrolled in), round 2 PASS.
 - [ ] 14.16 Camera Raw's Shadows and Highlights keep tones in order (`0b4c56c`).
 - [ ] 14.17 The Layers panel grays only for what lasts (`06313a9`).
 - [ ] 14.18 File › Export As…: PNG, JPEG or PDF, sized and previewed over the checkerboard (`9287cf1`, `450af5f`, `b1db93d`).
