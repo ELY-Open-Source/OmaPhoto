@@ -391,4 +391,5 @@ compositor_test(SliderSnapTests)
 compositor_test(ProjectResizeFailureTests)
 
 # The `.svgz` fixture is gzip, written through zlib.
+find_package(ZLIB REQUIRED)
 target_link_libraries(SVGImportTests PRIVATE ZLIB::ZLIB)

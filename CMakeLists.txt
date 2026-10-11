@@ -256,10 +256,10 @@ set_property(SOURCE ${OMAPHOTO_KERNELS}/AdjustPixels.c APPEND PROPERTY COMPILE_O
 # The per-pixel loops vectorise only at -O3.
 set_source_files_properties(src/Rendering/BrushCoverage.cpp src/Rendering/DownsampleCache.cpp PROPERTIES COMPILE_OPTIONS -O3)
 target_include_directories(compositor_core PUBLIC src PRIVATE ${OMAPHOTO_KERNELS})
-find_package(ZLIB REQUIRED)
+find_package(LibLZMA REQUIRED)
 # Swift's bundled resource, inside the binary.
 qt_add_resources(compositor_core camera_raw_tables PREFIX "/" BASE src/Resources FILES src/Resources/CameraRawTables.bin)
-target_link_libraries(compositor_core PUBLIC Qt6::Widgets Qt6::Concurrent PRIVATE ZLIB::ZLIB Qt6::Svg heif Fontconfig::Fontconfig onnxruntime::onnxruntime PkgConfig::LIBRAW)
+target_link_libraries(compositor_core PUBLIC Qt6::Widgets Qt6::Concurrent PRIVATE LibLZMA::LibLZMA Qt6::Svg heif Fontconfig::Fontconfig onnxruntime::onnxruntime PkgConfig::LIBRAW)
 target_compile_options(compositor_core PUBLIC -Wall -Wextra
     $<$<BOOL:${OMAPHOTO_WERROR}>:-Werror>)
 # Empty optionals and bad indexes abort, not pass by luck.

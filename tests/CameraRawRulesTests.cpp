@@ -102,8 +102,10 @@ void CameraRawRulesTests::anUntouchedGradeHandsTheImageBack()
 void CameraRawRulesTests::theClippingAndMaskViewsShowNothingElse()
 {
     const QImage picture = colourful();
+    // Calibration's primaries ride in the Light table, as Swift's.
     CameraRawSettings light;
     light.whites = 100;
+    light.calibration.redHue = 80;
     const CameraRawSettings all = everything();
     QVERIFY(pixels(all.apply(picture, CameraRawClipping::highlights)) == pixels(light.apply(picture, CameraRawClipping::highlights)));
     QVERIFY(pixels(all.apply(picture, CameraRawClipping::shadows)) == pixels(light.apply(picture, CameraRawClipping::shadows)));

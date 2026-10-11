@@ -1,5 +1,6 @@
 #include "Document/CameraRawDetailOptics.h"
 #include "Document/CameraRaw.h"
+#include "Document/CameraRawTables.h"
 #include "Document/ImageAdjustments.h"
 #include <utility>
 extern "C" {
@@ -77,7 +78,8 @@ void CameraRawSettings::applyDetailOptics(uchar *pixels, int width, int height, 
     if (lens.adjusts())
         adjust_camera_raw_optics(pixels, w, h, s, lens.removeChromaticAberration ? 1 : 0, lens.enableLensProfile ? 1 : 0, lens.profileDistortion,
                                  lens.profileVignetting, lens.distortionK(profileStrength), lens.purpleAmount, lens.purpleHueLow, lens.purpleHueHigh,
-                                 lens.greenAmount, lens.greenHueLow, lens.greenHueHigh, lens.vignetteAmount, lens.vignetteMidpoint, scale);
+                                 lens.greenAmount, lens.greenHueLow, lens.greenHueHigh, lens.vignetteAmount, lens.vignetteMidpoint, scale,
+                                 CameraRawTables::exposureTables(), CameraRawTables::size);
     if (sharpening.adjusts())
         adjust_camera_raw_detail(pixels, w, h, s, sharpening.sharpenAmount, sharpening.sharpenRadius, sharpening.sharpenDetail,
                                  sharpening.sharpenMasking, sharpening.noiseLuminance, sharpening.noiseLuminanceDetail,

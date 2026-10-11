@@ -20,7 +20,7 @@
           filter = path: type: !(builtins.elem path [ "${toString self}/build" "${toString self}/Compositor-Ref" ]);
         };
         nativeBuildInputs = with pkgs; [ cmake ninja pkg-config qt6.wrapQtAppsHook ];
-        buildInputs = with pkgs; [ qt6.qtbase qt6.qtsvg qt6.qtimageformats libheif libde265 libraw fontconfig zlib onnxruntime ];
+        buildInputs = with pkgs; [ qt6.qtbase qt6.qtsvg qt6.qtimageformats libheif libde265 libraw fontconfig xz onnxruntime ];
         cmakeFlags = [ "-DOMAPHOTO_MODEL=${model}" ];
         ninjaFlags = [ "omaphoto" ];
         # Staged: profiles build MIME caches outside the store.

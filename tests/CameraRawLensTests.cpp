@@ -1,4 +1,5 @@
 #include "CameraRawFixtures.h"
+#include "Document/CameraRawTables.h"
 #include <QtTest>
 #include <cmath>
 extern "C" {
@@ -178,8 +179,11 @@ void CameraRawLensTests::calibrationRunsAtItsProcessVersion()
     for (const CameraRawProcessVersion version : {CameraRawProcessVersion::version1, CameraRawProcessVersion::version4, CameraRawProcessVersion::version6}) {
         CameraRawSettings settings;
         settings.calibration = {version, 20, 80, 30, -40, 60, -70, 50};
+        // Shadows Tint by the kernel; the primaries from Photoshop's tables.
         QImage direct = red.copy();
-        adjust_camera_raw_calibration(direct.bits(), 3, 1, size_t(direct.bytesPerLine()), 20, 80, 30, -40, 60, -70, 50, int(version) + 1);
+        adjust_camera_raw_calibration(direct.bits(), 3, 1, size_t(direct.bytesPerLine()), 20, 0, 0, 0, 0, 0, 0, int(version) + 1);
+        const std::vector<float> table = CameraRawTables::compose(CameraRawTables::stages(settings.normalized(), {}));
+        adjust_camera_raw(direct.bits(), 3, 1, size_t(direct.bytesPerLine()), table.data(), CameraRawTables::grid, 0);
         QVERIFY(pixels(settings.apply(red)) == pixels(direct));
     }
     QCOMPARE(rawValue(CameraRawProcessVersion::version3), QString("Version 3"));

@@ -12,6 +12,7 @@ private slots:
     void aStageBlendsTheTablesAroundItsValue();
     void eachSliderPicksItsOwnTables();
     void theAdaptiveSlidersBlendAcrossBrightness();
+    void theColourGroupsPickTheirTables();
     void neutralizeFindsTheGridsGrayest();
     void identitySlidersComposeNothing();
 };
@@ -33,16 +34,18 @@ int indexOf(const uint8_t *table)
 void CameraRawTablesTests::theTablesDecodeAsWritten()
 {
     const std::vector<uint8_t> &tables = CameraRawTables::tables();
-    QCOMPARE(tables.size(), size_t(285) * 17 * 17 * 17 * 3);
+    QCOMPARE(tables.size(), size_t(763) * 17 * 17 * 17 * 3);
     quint64 hash = 0xcbf29ce484222325ULL;
     for (const uint8_t byte : tables)
         hash = (hash ^ byte) * 0x100000001b3ULL;
-    QCOMPARE(hash, quint64(0x770d674136320424ULL));
+    QCOMPARE(hash, quint64(0x4967372b0e6d3d38ULL));
     QCOMPARE(std::vector<int>(entry(40, 2456), entry(40, 2456) + 3), (std::vector<int>{128, 128, 128}));
-    QCOMPARE(std::vector<int>(entry(81, 100), entry(81, 100) + 3), (std::vector<int>{0, 4, 32}));
+    QCOMPARE(std::vector<int>(entry(81, 100), entry(81, 100) + 3), (std::vector<int>{0, 5, 32}));
     QCOMPARE(std::vector<int>(entry(146, 4912), entry(146, 4912) + 3), (std::vector<int>{255, 255, 255}));
-    QCOMPARE(std::vector<int>(entry(200, 2456), entry(200, 2456) + 3), (std::vector<int>{172, 172, 172}));
-    QCOMPARE(std::vector<int>(entry(284, 100), entry(284, 100) + 3), (std::vector<int>{70, 108, 255}));
+    QCOMPARE(std::vector<int>(entry(200, 2456), entry(200, 2456) + 3), (std::vector<int>{173, 173, 173}));
+    QCOMPARE(std::vector<int>(entry(284, 100), entry(284, 100) + 3), (std::vector<int>{69, 107, 255}));
+    QCOMPARE(std::vector<int>(entry(500, 1000), entry(500, 1000) + 3), (std::vector<int>{63, 112, 211}));
+    QCOMPARE(std::vector<int>(entry(762, 4000), entry(762, 4000) + 3), (std::vector<int>{228, 235, 110}));
 }
 
 void CameraRawTablesTests::aStageBlendsTheTablesAroundItsValue()
@@ -132,26 +135,92 @@ void CameraRawTablesTests::theAdaptiveSlidersBlendAcrossBrightness()
     QVERIFY(std::abs(read.brightest - 128) < 0.01 && std::abs(read.luminance - 128) < 0.01 && std::abs(read.logBrightest - 128) < 0.01);
 }
 
+namespace {
+// Each slot: index and weight, a null table reading −1.
+std::vector<double> listed(const CameraRawStage &stage, int filled)
+{
+    std::vector<double> out;
+    for (int slot = 0; slot < filled; ++slot) {
+        out.push_back(indexOf(stage.table[slot]));
+        out.push_back(stage.weight[slot]);
+    }
+    return out;
+}
+}
+
+// Mixer, Calibration, the parametric curve and Grading, against Python.
+void CameraRawTablesTests::theColourGroupsPickTheirTables()
+{
+    CameraRawGradingSettings grading{{210, 40, -20}, {100, 25, 10}, {30, 55, 15}, {300, 10, -5}, 70, -30};
+    const std::vector<CameraRawStage> graded = CameraRawTables::gradingStages(grading);
+    QCOMPARE(graded.size(), size_t(8));
+    QCOMPARE(listed(graded[0], 2), (std::vector<double>{744, 0.4f, 745, 0.6f}));
+    QCOMPARE(listed(graded[3], 2), (std::vector<double>{759, 0.1f, 760, 0.9f}));
+    QCOMPARE(listed(graded[4], 4), (std::vector<double>{-1, 0.6f, 665, 0.4f, -1, 0, 668, 0}));
+    QCOMPARE(listed(graded[5], 4), (std::vector<double>{-1, 0, 608, 0.6666666865348816, -1, 0, 611, 0.3333333432674408}));
+    QCOMPARE(listed(graded[6], 8), (std::vector<double>{566, 0.4343999922275543, 567, 0.1656000018119812, 569, 0, 570, 0, 710, 0.2896000146865845, 711,
+                                                         0.1103999987244606, 713, 0, 714, 0}));
+    QCOMPARE(listed(graded[7], 8), (std::vector<double>{549, 0.5472000241279602, 550, 0.052799999713897705, 552, 0, 553, 0, 693, 0.36480000615119934, 694,
+                                                         0.03519999980926514, 696, 0, 697, 0}));
+    // Past 330 a wheel wraps round to red's tables.
+    CameraRawGradingSettings wrapped;
+    wrapped.global = {345, 50, 0};
+    QCOMPARE(listed(CameraRawTables::gradingStages(wrapped).at(0), 4), (std::vector<double>{668, 0, 669, 0.5, 635, 0, 636, 0.5}));
+    // Balance +100 leaves the shadow wheel no share at all.
+    CameraRawGradingSettings balanced;
+    balanced.shadows = {200, 40, 0};
+    balanced.highlights = {30, 20, 0};
+    balanced.balance = 100;
+    QCOMPARE(CameraRawTables::gradingStages(balanced).size(), size_t(1));
+    CameraRawMixerSettings mixer;
+    for (size_t index = 0; index < 8; ++index) {
+        mixer.hue[index] = 5 + double(index);
+        mixer.saturation[index] = -30 + 7 * double(index);
+        mixer.luminance[index] = 20 - 4 * double(index);
+    }
+    const std::vector<CameraRawStage> mixed = CameraRawTables::mixerStages(mixer);
+    QCOMPARE(mixed.size(), size_t(23));
+    QCOMPARE(listed(mixed[0], 2), (std::vector<double>{287, 0.6f, 288, 0.4f}));
+    QCOMPARE(listed(mixed[5], 2), (std::vector<double>{316, 0.08f, 317, 0.92f}));
+    QCOMPARE(listed(mixed[22], 2), (std::vector<double>{402, 0.76f, 403, 0.24f}));
+    CameraRawSettings settings;
+    settings.calibration = {CameraRawProcessVersion::version6, 15, 80, -40, 30, 0, -70, 50};
+    settings.curve.shadows = -60;
+    settings.curve.darks = 10;
+    settings.curve.highlights = 75;
+    const std::vector<CameraRawStage> stages = CameraRawTables::stages(settings, {});
+    QCOMPARE(stages.size(), size_t(8));
+    QCOMPARE(listed(stages[0], 2), (std::vector<double>{408, 0.4f, 409, 0.6f}));
+    QCOMPARE(listed(stages[2], 2), (std::vector<double>{417, 0.4f, 418, 0.6f}));
+    QCOMPARE(listed(stages[4], 2), (std::vector<double>{433, 1, 434, 0}));
+    QCOMPARE(listed(stages[5], 2), (std::vector<double>{435, 0.2f, 436, 0.8f}));
+    QCOMPARE(listed(stages[7], 2), (std::vector<double>{453, 0.5f, 454, 0.5f}));
+    // Moved dividers leave the curve to the formula.
+    settings.curve.lightSplit = 70;
+    QCOMPARE(CameraRawTables::stages(settings, {}).size(), size_t(5));
+    QCOMPARE(indexOf(CameraRawTables::exposureTables()), 81);
+}
+
 void CameraRawTablesTests::neutralizeFindsTheGridsGrayest()
 {
     // Python's own search over the same tables found these.
     const CameraRawSettings::Balance warm = CameraRawTables::neutralize(160 / 255.0, 140 / 255.0, 120 / 255.0).value();
-    QVERIFY(warm.temperature == -19 && warm.tint == -7);
+    QVERIFY(warm.temperature == -19 && warm.tint == -6);
     const CameraRawSettings::Balance blue = CameraRawTables::neutralize(0.2, 0.45, 0.8).value();
-    QVERIFY(blue.temperature == 100 && blue.tint == 25.5);
+    QVERIFY(blue.temperature == 100 && blue.tint == 26);
     const CameraRawSettings::Balance green = CameraRawTables::neutralize(0.3, 0.5, 0.25).value();
-    QVERIFY(green.temperature == 5 && green.tint == 90.5);
+    QVERIFY(green.temperature == 5 && green.tint == 91);
     // White stays white anywhere: the first of the ties wins.
     const CameraRawSettings::Balance white = CameraRawTables::neutralize(1, 1, 1).value();
     QVERIFY(white.temperature == 0 && white.tint == 0);
     // A refinement past −100 keeps to the range.
     const CameraRawSettings::Balance edge = CameraRawTables::neutralize(84 / 255.0, 1 / 255.0, 97 / 255.0).value();
-    QVERIFY(edge.temperature == -14.5 && edge.tint == -100);
+    QVERIFY(edge.temperature == -16 && edge.tint == -100);
     const CameraRawSettings::Balance hot = CameraRawTables::neutralize(240 / 255.0, 80 / 255.0, 40 / 255.0).value();
     QVERIFY(hot.temperature == -100 && hot.tint == -13.5);
     // Ties among searched points: tint rising within each temperature.
     const CameraRawSettings::Balance tie = CameraRawTables::neutralize(144 / 255.0, 216 / 255.0, 47 / 255.0).value();
-    QVERIFY(tie.temperature == -100 && tie.tint == 60);
+    QVERIFY(tie.temperature == -100 && tie.tint == 82);
     // Any channel missing leaves nothing to balance from.
     QVERIFY(!CameraRawTables::neutralize(0.5, 0.0001, 0.5));
     QVERIFY(!CameraRawTables::neutralize(0, 128 / 255.0, 128 / 255.0));
@@ -182,8 +251,8 @@ void CameraRawTablesTests::identitySlidersComposeNothing()
     const auto near = [](std::array<float, 3> got, std::array<float, 3> expected) {
         return std::abs(got[0] - expected[0]) < 1e-6f && std::abs(got[1] - expected[1]) < 1e-6f && std::abs(got[2] - expected[2]) < 1e-6f;
     };
-    QVERIFY(near(at(16, 16, 16), {0.94272572f, 0.86208665f, 0.74603087f}));
-    QVERIFY(near(at(16, 4, 28), {0.86772656f, 0.55830115f, 0.98769760f}));
+    QVERIFY(near(at(16, 16, 16), {0.94676805f, 0.86324614f, 0.75338721f}));
+    QVERIFY(near(at(16, 4, 28), {0.87189686f, 0.55294615f, 0.98683822f}));
 }
 
 QTEST_GUILESS_MAIN(CameraRawTablesTests)

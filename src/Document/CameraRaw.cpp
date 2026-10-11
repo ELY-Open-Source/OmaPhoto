@@ -134,7 +134,8 @@ QImage CameraRawSettings::apply(const QImage &image, std::optional<CameraRawClip
         const size_t w = size_t(width), h = size_t(height), s = size_t(stride);
         if (!clipping && !sharpenMask && settings.calibration.adjusts())
             settings.applyCalibration(pixels, width, height, stride);
-        if (settings.adjustsLight() || settings.adjustsColor() || clipping) {
+        if (settings.adjustsLight() || settings.adjustsColor() || settings.calibration.adjusts()
+            || (settings.curve.hasMeasuredDividers() && settings.curve.adjusts()) || clipping) {
             const CameraRawTables::Brightness brightness = settings.contrast != 0 || settings.highlights != 0 || settings.shadows != 0
                 ? CameraRawTables::brightness(pixels, width, height, stride)
                 : CameraRawTables::Brightness();

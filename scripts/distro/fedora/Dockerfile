@@ -3,7 +3,7 @@ ARG RELEASE=43
 FROM fedora:${RELEASE}
 ARG RELEASE
 RUN dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${RELEASE}.noarch.rpm \
-    && dnf install -y gcc-c++ cmake ninja-build pkgconf qt6-qtbase-devel qt6-qtsvg-devel qt6-qtimageformats libheif-devel LibRaw-devel libheif-freeworld \
+    && dnf install -y gcc-c++ cmake ninja-build pkgconf qt6-qtbase-devel qt6-qtsvg-devel qt6-qtimageformats libheif-devel LibRaw-devel xz-devel libheif-freeworld \
         fontconfig-devel dejavu-sans-fonts dejavu-serif-fonts dejavu-sans-mono-fonts curl rpm-build file \
     && dnf clean all
 # The ONNX Runtime the packages carry: Microsoft's own build.

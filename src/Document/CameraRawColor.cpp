@@ -1,5 +1,6 @@
 #include "Document/CameraRawColor.h"
 #include "Document/CameraRaw.h"
+#include "Document/CameraRawTables.h"
 #include "Document/ImageAdjustments.h"
 #include <algorithm>
 #include <cmath>
@@ -106,11 +107,17 @@ double CameraRawCurveSettings::parametric(double tone) const
     return point(tone, anchors);
 }
 
+bool CameraRawCurveSettings::hasMeasuredDividers() const
+{
+    return shadowSplit == 25 && darkSplit == 50 && lightSplit == 75 && refineSaturation == 0;
+}
+
 std::vector<float> CameraRawCurveSettings::toneTable() const
 {
+    const bool measured = hasMeasuredDividers();
     std::vector<float> table(256);
     for (int index = 0; index < 256; ++index)
-        table[size_t(index)] = float(point(parametric(index / 255.0), rgb));
+        table[size_t(index)] = float(point(measured ? index / 255.0 : parametric(index / 255.0), rgb));
     return table;
 }
 
@@ -271,10 +278,13 @@ void CameraRawSettings::applyCurveColor(uchar *pixels, int width, int height, qs
     const CameraRawCurveSettings shape = curve.normalized();
     const CameraRawMixerSettings mixing = mixer.normalized();
     const CameraRawGradingSettings grade = grading.normalized();
+    // The eight colours and Color Grading come from Photoshop's tables.
     const std::vector<float> tone = shape.toneTable(), redTable = shape.channelTable(shape.red), greenTable = shape.channelTable(shape.green),
-                             blueTable = shape.channelTable(shape.blue), mixerFloats = mixing.mixerFloats(), pointFloats = mixing.pointFloats(),
-                             gradeFloats = grade.gradeFloats();
+                             blueTable = shape.channelTable(shape.blue), mixerFloats(24, 0), pointFloats = mixing.pointFloats(), gradeFloats(12, 0);
+    const std::vector<float> mixerTable = CameraRawTables::compose(CameraRawTables::mixerStages(mixing));
+    const std::vector<float> gradeTable = CameraRawTables::compose(CameraRawTables::gradingStages(grade));
     adjust_camera_raw_curve_color(pixels, size_t(width), size_t(height), size_t(stride), tone.data(), redTable.data(), greenTable.data(),
                                   blueTable.data(), shape.refineSaturation / 100, mixerFloats.data(), int(mixing.points.size()), pointFloats.data(),
-                                  gradeFloats.data(), grade.blending / 100, grade.balance / 100, visualize);
+                                  gradeFloats.data(), grade.blending / 100, grade.balance / 100, visualize, mixerTable.empty() ? nullptr : mixerTable.data(),
+                                  gradeTable.empty() ? nullptr : gradeTable.data(), CameraRawTables::grid);
 }

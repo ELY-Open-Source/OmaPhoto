@@ -126,13 +126,13 @@ void CameraRawColorTests::gradingWheelsAndBalanceReachTheKernel()
     // Balance runs in hundredths: half is between none and all.
     const int none = shadowTint(0), half = shadowTint(50), all = shadowTint(100);
     QVERIFY2(none > half && half > all, qPrintable(QStringLiteral("%1 %2 %3").arg(none).arg(half).arg(all)));
-    // Luminance runs in hundredths too: measured once, then held.
+    // Luminance comes from Photoshop's tables: Python's own lookup.
     const auto lifted = [](double luminance) {
         CameraRawSettings settings;
         settings.grading.shadows.luminance = luminance;
         return pixels(settings.apply(image(4, 4, 0.12, 0.12, 0.12)))[0][0];
     };
-    QVERIFY(lifted(0) == 31 && lifted(50) == 53 && lifted(100) == 76);
+    QVERIFY(lifted(0) == 31 && lifted(50) == 46 && lifted(100) == 56);
 }
 
 void CameraRawColorTests::aPointColorReachesOnlyItsRange()

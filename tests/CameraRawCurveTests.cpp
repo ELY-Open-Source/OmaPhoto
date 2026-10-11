@@ -1,5 +1,6 @@
 #include "CameraRawFixtures.h"
 #include <QtTest>
+#include <functional>
 #include <cmath>
 
 // Swift 1.4.5: Camera Raw's curves as Photoshop's, the model.
@@ -161,8 +162,10 @@ void CameraRawCurveTests::eachRegionBendsOnlyItsRange()
 
 void CameraRawCurveTests::theToneTableRunsThroughThePointCurve()
 {
+    // Dividers moved: the formula draws the parametric curve.
     CameraRawCurveSettings curve;
     curve.lights = 59;
+    curve.shadowSplit = 30;
     curve.rgb = {{0, 0}, {0.5, 0.6}, {1, 1}};
     const std::vector<float> table = curve.toneTable();
     QCOMPARE(table.size(), size_t(256));
@@ -175,6 +178,17 @@ void CameraRawCurveTests::theToneTableRunsThroughThePointCurve()
         QVERIFY2(std::abs(table[size_t(index)] - expected) < 0.01, qPrintable(QString::number(index)));
     }
     QCOMPARE(table[255], 1.0f);
+    // As measured, the tables draw it: the point curve alone.
+    CameraRawCurveSettings measured = curve;
+    measured.shadowSplit = 25;
+    QVERIFY(measured.hasMeasuredDividers() && measured.toneTable() == point.toneTable());
+    for (const auto &change : std::vector<std::function<void(CameraRawCurveSettings &)>>{[](CameraRawCurveSettings &c) { c.darkSplit = 49; },
+                                                                                       [](CameraRawCurveSettings &c) { c.lightSplit = 76; },
+                                                                                       [](CameraRawCurveSettings &c) { c.refineSaturation = 1; }}) {
+        CameraRawCurveSettings moved = measured;
+        change(moved);
+        QVERIFY(!moved.hasMeasuredDividers());
+    }
 }
 
 void CameraRawCurveTests::refineSaturationEasesOrStrengthens()
@@ -183,6 +197,7 @@ void CameraRawCurveTests::refineSaturationEasesOrStrengthens()
     CameraRawSettings settings;
     settings.curve.darks = -51;
     settings.curve.lights = 59;
+    settings.curve.darkSplit = 45;
     // At zero each channel runs through the tone curve alone.
     const std::vector<float> table = settings.curve.toneTable();
     const std::array<int, 4> source = pixels(orange)[0], curved = pixels(settings.apply(orange))[0];

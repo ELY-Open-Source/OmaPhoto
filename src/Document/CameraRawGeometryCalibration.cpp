@@ -192,9 +192,9 @@ CameraRawCalibrationSettings CameraRawCalibrationSettings::normalized() const
 void CameraRawSettings::applyCalibration(uchar *pixels, int width, int height, qsizetype stride) const
 {
     const CameraRawCalibrationSettings primaries = calibration.normalized();
-    if (!primaries.adjusts())
+    // The primaries come from Photoshop's tables; this draws Shadows Tint.
+    if (primaries.shadowTint == 0)
         return;
-    adjust_camera_raw_calibration(pixels, size_t(width), size_t(height), size_t(stride), primaries.shadowTint, primaries.redHue,
-                                  primaries.redSaturation, primaries.greenHue, primaries.greenSaturation, primaries.blueHue,
-                                  primaries.blueSaturation, int(primaries.process) + 1);
+    adjust_camera_raw_calibration(pixels, size_t(width), size_t(height), size_t(stride), primaries.shadowTint, 0, 0, 0, 0, 0, 0,
+                                  int(primaries.process) + 1);
 }

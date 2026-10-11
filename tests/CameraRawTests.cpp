@@ -14,6 +14,7 @@ private slots:
     void tonalSlidersMoveTheEndTheyName();
     void temperatureWarmsAndTintMovesTowardMagenta();
     void whiteBalanceAndVibranceMatchPhotoshop();
+    void mixerCalibrationCurveAndVignettesMatchPhotoshop();
     void vibranceFavorsDullColorsAndProtectsSkinWhileSaturationDoesNot();
     void textureAndClaritySharpenAnEdgeAndLeaveAFlatField();
     void dehazeDeepensOrLiftsAndKeepsAlpha();
@@ -67,11 +68,11 @@ void CameraRawTests::tonalSlidersMoveTheEndTheyName()
     QVERIFY(recovered[0][0] < 222 && std::abs(recovered[1][0] - 128) <= 4);
     // Highlights alone reads the picture's log brightness.
     const auto bright = pixels(settings.apply(pair(220, 250)));
-    QVERIFY(bright[0][0] == 197 && bright[1][0] == 240);
+    QVERIFY((bright[0] == std::array{197, 197, 197, 255}) && (bright[1] == std::array{239, 240, 240, 255}));
     // Highlights before Whites, as Camera Raw orders them.
     settings.whites = 100;
     const auto both = pixels(settings.apply(pair(128, 230)));
-    QVERIFY(both[0][0] == 177 && both[1][0] == 255);
+    QVERIFY(both[0][0] == 179 && both[1][0] == 255);
     settings = CameraRawSettings();
     settings.whites = 100;
     const auto clipped = pixels(settings.apply(brightAndMid));
@@ -130,6 +131,40 @@ void CameraRawTests::whiteBalanceAndVibranceMatchPhotoshop()
         for (int c = 0; c < 3; ++c)
             QVERIFY2(std::abs(got[c] - test.expected[c]) <= 4, test.name);
     }
+}
+
+// Photoshop's own measured numbers, as Swift's test holds them.
+void CameraRawTests::mixerCalibrationCurveAndVignettesMatchPhotoshop()
+{
+    struct Case {
+        const char *name;
+        std::array<int, 3> input;
+        std::function<void(CameraRawSettings &)> adjust;
+        std::array<int, 3> expected;
+    };
+    const std::vector<Case> cases{
+        {"orange saturation −60", {230, 115, 0}, [](CameraRawSettings &s) { s.mixer.saturation[1] = -60; }, {189, 130, 107}},
+        {"red hue +60", {230, 92, 92}, [](CameraRawSettings &s) { s.mixer.hue[0] = 60; }, {227, 125, 83}},
+        {"blue luminance +60", {92, 92, 230}, [](CameraRawSettings &s) { s.mixer.luminance[5] = 60; }, {142, 142, 248}},
+        {"blue primary saturation −60", {92, 92, 230}, [](CameraRawSettings &s) { s.calibration.blueSaturation = -60; }, {149, 149, 226}},
+        {"red primary hue +60", {230, 92, 92}, [](CameraRawSettings &s) { s.calibration.redHue = 60; }, {228, 118, 37}},
+        {"darks −60", {130, 130, 130}, [](CameraRawSettings &s) { s.curve.darks = -60; }, {101, 101, 101}},
+    };
+    for (const Case &test : cases) {
+        CameraRawSettings settings;
+        test.adjust(settings);
+        const std::array<int, 4> got = pixels(settings.apply(image(4, 4, test.input[0] / 255.0, test.input[1] / 255.0, test.input[2] / 255.0)))[0];
+        for (int c = 0; c < 3; ++c)
+            QVERIFY2(std::abs(got[c] - test.expected[c]) <= 4, test.name);
+    }
+    // Mid gray, 3:2, a corner: the lens lifts, post-crop darkens.
+    const QImage wide = image(300, 200, 128 / 255.0, 128 / 255.0, 128 / 255.0);
+    CameraRawSettings lens;
+    lens.optics.vignetteAmount = 100;
+    QVERIFY(std::abs(pixels(lens.apply(wide))[0][0] - 223) <= 6);
+    CameraRawSettings postCrop;
+    postCrop.vignetteAmount = -60;
+    QVERIFY(std::abs(pixels(postCrop.apply(wide))[0][0] - 30) <= 6);
 }
 
 void CameraRawTests::vibranceFavorsDullColorsAndProtectsSkinWhileSaturationDoesNot()

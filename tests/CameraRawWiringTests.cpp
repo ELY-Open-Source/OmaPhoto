@@ -130,7 +130,7 @@ void CameraRawWiringTests::autoAveragesLinearLight()
     QImage dark = BrushRaster::context(1, 1, false);
     dark.setPixelColor(0, 0, QColor(3, 5, 8));
     const CameraRawSettings::Balance shade = CameraRawSettings::autoBalance(dark).value();
-    QVERIFY(shade.temperature == 50.5 && shade.tint == 20);
+    QVERIFY(shade.temperature == 53 && shade.tint == 15.5);
 }
 
 void CameraRawWiringTests::eachEyeClearsEveryFieldOfItsGroup()
@@ -186,7 +186,8 @@ void CameraRawWiringTests::opticsAndDetailReachTheKernelsInOrder()
                        .noiseColorSmoothness = 80};
     const double k = settings.optics.distortionK(PixelFilter::lensStrength);
     const QImage direct = kernel(picture, [k](uchar *bytes, size_t w, size_t h, size_t s) {
-        adjust_camera_raw_optics(bytes, w, h, s, 1, 1, 60, 40, k, 30, 260, 320, 40, 50, 130, -45, 30, 1);
+        adjust_camera_raw_optics(bytes, w, h, s, 1, 1, 60, 40, k, 30, 260, 320, 40, 50, 130, -45, 30, 1, CameraRawTables::exposureTables(),
+                                 CameraRawTables::size);
         adjust_camera_raw_detail(bytes, w, h, s, 80, 30, 60, 20, 40, 70, 30, 50, 20, 80, 1);
     });
     QVERIFY(pixels(settings.apply(picture)) == pixels(direct));
@@ -269,21 +270,17 @@ void CameraRawWiringTests::curveMixerAndGradingReachTheKernelInOrder()
     const CameraRawCurveSettings shape = curve.normalized();
     const std::vector<float> tone = shape.toneTable(), red = shape.channelTable(shape.red), green = shape.channelTable(shape.green),
                              blue = shape.channelTable(shape.blue);
-    std::vector<float> mixer;
-    for (size_t index = 0; index < 8; ++index)
-        mixer.push_back(float((5 + double(index)) / 100));
-    for (size_t index = 0; index < 8; ++index)
-        mixer.push_back(float((-30 + 7 * double(index)) / 100));
-    for (size_t index = 0; index < 8; ++index)
-        mixer.push_back(float((20 - 4 * double(index)) / 100));
+    // The colours and wheels arrive as tables; formulas idle.
+    const std::vector<float> mixer(24, 0), grade(12, 0);
+    const std::vector<float> mixerTable = CameraRawTables::compose(CameraRawTables::mixerStages(settings.mixer.normalized()));
+    const std::vector<float> gradeTable = CameraRawTables::compose(CameraRawTables::gradingStages(settings.grading.normalized()));
+    QVERIFY(!mixerTable.empty() && !gradeTable.empty());
     const std::vector<float> points{float(200 / 360.0), 0.6f, 0.4f, 0.25f, -0.35f, 0.15f, float(40 / 360.0), 0.5f, 0.3f,
                                     float(40 / 360.0),  0.8f, 0.6f, -0.1f, 0.2f,  -0.45f, float(60 / 360.0), 0.3f, 0.6f};
-    const std::vector<float> grade{float(210 / 360.0), 0.4f,  -0.2f, float(100 / 360.0), 0.25f, 0.1f,
-                                   float(30 / 360.0),  0.55f, 0.15f, float(300 / 360.0), 0.1f,  -0.05f};
     for (const int visualize : {-1, 1}) {
         const QImage direct = kernel(picture, [&](uchar *bytes, size_t w, size_t h, size_t stride) {
             adjust_camera_raw_curve_color(bytes, w, h, stride, tone.data(), red.data(), green.data(), blue.data(), 0.4, mixer.data(), 2, points.data(),
-                                          grade.data(), 0.7, -0.3, visualize);
+                                          grade.data(), 0.7, -0.3, visualize, mixerTable.data(), gradeTable.data(), CameraRawTables::grid);
         });
         QVERIFY(pixels(settings.apply(picture, std::nullopt, 1, 0, visualize)) == pixels(direct));
     }
@@ -305,7 +302,8 @@ void CameraRawWiringTests::theSharpenMaskAndEachLensFlagReachTheirKernels()
         lens.optics.enableLensProfile = !chromatic;
         const double k = lens.optics.distortionK(PixelFilter::lensStrength);
         const QImage direct = kernel(picture, [&](uchar *bytes, size_t w, size_t h, size_t s) {
-            adjust_camera_raw_optics(bytes, w, h, s, chromatic ? 1 : 0, chromatic ? 0 : 1, 100, 100, k, 0, 270, 310, 0, 60, 120, 0, 50, 1);
+            adjust_camera_raw_optics(bytes, w, h, s, chromatic ? 1 : 0, chromatic ? 0 : 1, 100, 100, k, 0, 270, 310, 0, 60, 120, 0, 50, 1,
+                                     CameraRawTables::exposureTables(), CameraRawTables::size);
         });
         QVERIFY(pixels(lens.apply(picture)) == pixels(direct));
     }

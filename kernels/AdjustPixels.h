@@ -30,11 +30,11 @@ void adjust_color_balance(uint8_t *rgba, size_t width, size_t height, size_t str
 // After resampling with a filter that rings (Lanczos), premultiplied RGBA colors can exceed their alpha;
 // this clamps each channel back to its pixel's alpha. `count` is the number of pixels.
 void rgba_clamp_premultiplied(uint8_t *rgba, size_t count);
-// One step of Camera Raw's Light and Color: up to four measured color tables (`size`³ sRGB colors, red slowest,
-// 3 bytes each) blended by weight, for a slider value between the ones measured. A null table is no change.
+// One step of Camera Raw: up to eight measured color tables (`size`³ sRGB colors, red slowest, 3 bytes each) blended
+// by weight, for settings between the ones measured. A null table is no change.
 typedef struct {
-    const uint8_t *table[4];
-    float weight[4];
+    const uint8_t *table[8];
+    float weight[8];
 } CameraRawStage;
 // Runs `count` stages in order over a `grid`³ lattice of sRGB colors into `out` (3 floats per color, 0…1, red
 // slowest), so a whole run of stages costs a pixel one lookup.
@@ -62,10 +62,13 @@ void adjust_camera_raw_clip_overlay(uint8_t *rgba, size_t width, size_t height, 
 // entries. `mixer` is 24 floats: hue, saturation, luminance for eight families, −1…1. Each point color is
 // 9 floats (hue, saturation, luminance, three shifts −1…1, three range half-widths). `grade` is four wheels
 // of hue turns, saturation 0…1, and luminance −1…1. `visualize` darkens pixels outside that point color.
+// `mixerTable` and `gradeTable` (null for none) are the Color Mixer's and Color Grading's composed tables, `grid`³
+// colors, run after the curve and before the grading formula.
 void adjust_camera_raw_curve_color(uint8_t *rgba, size_t width, size_t height, size_t stride,
                                    const float *toneLut, const float *redLut, const float *greenLut, const float *blueLut,
                                    double refineSaturation, const float *mixer, int pointCount, const float *points,
-                                   const float *grade, double blending, double balance, int visualize);
+                                   const float *grade, double blending, double balance, int visualize,
+                                   const float *mixerTable, const float *gradeTable, int grid);
 void adjust_camera_raw_effects(uint8_t *rgba, size_t width, size_t height, size_t stride,
                                double texture, double clarity, double dehaze,
                                double glow, int glowStyle, double glowRange, double glowSpread, double glowWarmth,
@@ -98,7 +101,8 @@ void adjust_camera_raw_optics(uint8_t *rgba, size_t width, size_t height, size_t
                               int removeChromatic, int lensProfile, double profileDistortion, double profileVignetting,
                               double distortionK, double purpleAmount, double purpleHueLow, double purpleHueHigh,
                               double greenAmount, double greenHueLow, double greenHueHigh,
-                              double vignetteAmount, double vignetteMidpoint, double scale);
+                              double vignetteAmount, double vignetteMidpoint, double scale,
+                              const uint8_t *exposureTables, int tableSize);
 // Camera calibration before the main grade. Primary hue and saturation shifts are −100…100; shadow tint is green/magenta.
 void adjust_camera_raw_calibration(uint8_t *rgba, size_t width, size_t height, size_t stride,
                                    double shadowTint, double redHue, double redSaturation,

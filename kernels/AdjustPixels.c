@@ -272,7 +272,7 @@ void camera_raw_compose(float *out, int grid, const CameraRawStage *stages, int 
 
 void camera_raw_stage_color(const CameraRawStage *stage, int size, double *rgb) {
     double next[3] = {0, 0, 0};
-    for (int t = 0; t < 4; ++t) {
+    for (int t = 0; t < 8; ++t) {
         double w = stage->weight[t];
         if (w == 0) continue;
         double looked[3];
@@ -507,12 +507,28 @@ static void effects_vignette(double *r, double *g, double *b, size_t x, size_t y
                              double amount, double midpoint, double roundness, double feather, double highlights,
                              int style) {
     if (amount == 0 || width == 0 || height == 0) return;
-    double mask = vignette_mask(x, y, width, height, midpoint, roundness, feather);
+    // Photoshop's is an ellipse fitted to the frame at Roundness 0, toward a rectangle below it, and starts a little
+    // further out than the Midpoint alone puts it.
+    double mask = vignette_mask(x, y, width, height, midpoint + 5.9, fmin(100, 100 + roundness), feather);
     double effect = (amount / 100.0) * mask;
-    // Highlight Priority eases a darkening vignette off bright pixels. The other styles do not.
-    if (effect < 0 && style == 0) {
+    if (style == 0 && mask > 0) {
+        // Highlight Priority, measured against Photoshop's, in linear light: darkening is a gain, to near black at
+        // −100 in the corners, eased off bright pixels (and more so with Highlights); lightening blends toward white,
+        // starting further out the gentler it is.
+        double linear[3] = {srgb_decode(*r), srgb_decode(*g), srgb_decode(*b)};
         double bright = camera_clamp((rec709(*r, *g, *b) - 0.45) / 0.55);
-        effect *= 1.0 - (highlights / 100.0) * bright;
+        if (amount < 0) {
+            double ease = (1.0 - 0.3 * bright) * (1.0 - (highlights / 100.0) * bright);
+            double gain = exp(-5.8 * pow(-amount / 100.0, 1.43) * mask * ease);
+            for (int k = 0; k < 3; ++k) linear[k] *= gain;
+        } else {
+            double a = amount / 100.0, toward = pow(a, 0.85) * pow(mask, 1 + 1.5 * (1 - a));
+            for (int k = 0; k < 3; ++k) linear[k] += (1.0 - linear[k]) * toward;
+        }
+        *r = srgb_encode(linear[0]);
+        *g = srgb_encode(linear[1]);
+        *b = srgb_encode(linear[2]);
+        return;
     }
     if (effect < 0) {
         double factor = 1.0 + effect;
@@ -811,7 +827,8 @@ static double point_weight(double h, double s, double l, const float *point) {
 void adjust_camera_raw_curve_color(uint8_t *rgba, size_t width, size_t height, size_t stride,
                                    const float *toneLut, const float *redLut, const float *greenLut, const float *blueLut,
                                    double refineSaturation, const float *mixer, int pointCount, const float *points,
-                                   const float *grade, double blending, double balance, int visualize) {
+                                   const float *grade, double blending, double balance, int visualize,
+                                   const float *mixerTable, const float *gradeTable, int grid) {
     for (size_t y = 0; y < height; ++y) {
         uint8_t *row = rgba + y * stride;
         for (size_t x = 0; x < width; ++x) {
@@ -836,6 +853,7 @@ void adjust_camera_raw_curve_color(uint8_t *rgba, size_t width, size_t height, s
             }
             r = curvedR; g = curvedG; b = curvedB;
             r = lut_at(redLut, r); g = lut_at(greenLut, g); b = lut_at(blueLut, b);
+            if (mixerTable) composed_lookup(mixerTable, grid, &r, &g, &b);
             double h, s, l;
             rgb_to_hsl(r, g, b, &h, &s, &l);
             double sourceHue = h, sourceSat = s, sourceLum = l;
@@ -863,6 +881,7 @@ void adjust_camera_raw_curve_color(uint8_t *rgba, size_t width, size_t height, s
             }
             if (h < 0) h += 1; if (h >= 1) h -= 1;
             hsl_to_rgb(h, s, l, &r, &g, &b);
+            if (gradeTable) composed_lookup(gradeTable, grid, &r, &g, &b);
             // Balance moves the crossover between the shadow and highlight wheels. Toward highlights
             // it has to move down, so more of the picture counts as highlight and the shadow wheel
             // loses its hold; the other sign strengthened the shadow tint it was meant to weaken.
@@ -1164,31 +1183,32 @@ static void optics_chromatic(uint8_t *rgba, size_t width, size_t height, size_t 
     free(copy);
 }
 
+// Lens vignette correction, as Photoshop's: Exposure, through its measured tables (`exposure`, 21 of them −5…5 by
+// 0.5, `size`³ each), by an amount that grows with the distance from the middle (1 at the corners): two stops times
+// that distance to the 4.3 at ±100, less as the amount falls, and reaching further in as Midpoint does.
 static void optics_vignette_correct(double *r, double *g, double *b, size_t x, size_t y, size_t width, size_t height,
-                                    double amount, double midpoint) {
-    if (amount == 0 || width == 0 || height == 0) return;
-    double nx = ((double)x + 0.5) / (double)width * 2.0 - 1.0;
-    double ny = ((double)y + 0.5) / (double)height * 2.0 - 1.0;
-    double dist = hypot(nx, ny) / sqrt(2.0);
-    double start = (midpoint / 100.0) * 0.85;
-    double t = camera_clamp((dist - start) / 0.35);
-    double mask = t * t * (3.0 - 2.0 * t);
-    double lift = (amount / 100.0) * mask;
-    if (lift > 0) {
-        *r = camera_clamp(*r + (1.0 - *r) * lift);
-        *g = camera_clamp(*g + (1.0 - *g) * lift);
-        *b = camera_clamp(*b + (1.0 - *b) * lift);
-    } else {
-        double factor = 1.0 + lift;
-        *r *= factor; *g *= factor; *b *= factor;
-    }
+                                    double amount, double midpoint, const uint8_t *exposure, int size) {
+    if (amount == 0 || width == 0 || height == 0 || !exposure) return;
+    double dx = (double)x + 0.5 - width / 2.0, dy = (double)y + 0.5 - height / 2.0;
+    double distance = hypot(dx, dy) / hypot(width / 2.0, height / 2.0) * (1 + (50 - midpoint) / 100);
+    double stops = (amount > 0 ? 1 : -1) * pow(fabs(amount) / 100, 1.15) * 1.98 * pow(distance, 4.3);
+    double position = fmin(20, fmax(0, (stops + 5) / 0.5));
+    int index = position >= 20 ? 19 : (int)position;
+    double fraction = position - index, color[3] = {*r, *g, *b}, low[3], high[3];
+    size_t entries = (size_t)size * size * size * 3;
+    table_lookup(exposure + index * entries, size, color, low);
+    table_lookup(exposure + (index + 1) * entries, size, color, high);
+    *r = camera_clamp(low[0] + (high[0] - low[0]) * fraction);
+    *g = camera_clamp(low[1] + (high[1] - low[1]) * fraction);
+    *b = camera_clamp(low[2] + (high[2] - low[2]) * fraction);
 }
 
 void adjust_camera_raw_optics(uint8_t *rgba, size_t width, size_t height, size_t stride,
                               int removeChromatic, int lensProfile, double profileDistortion, double profileVignetting,
                               double distortionK, double purpleAmount, double purpleHueLow, double purpleHueHigh,
                               double greenAmount, double greenHueLow, double greenHueHigh,
-                              double vignetteAmount, double vignetteMidpoint, double scale) {
+                              double vignetteAmount, double vignetteMidpoint, double scale,
+                              const uint8_t *exposureTables, int tableSize) {
     if (width == 0 || height == 0) return;
     double profileVignette = lensProfile ? profileVignetting / 100.0 : 0;
     double vignette = vignetteAmount + profileVignette * 35.0;
@@ -1210,7 +1230,7 @@ void adjust_camera_raw_optics(uint8_t *rgba, size_t width, size_t height, size_t
             if (!alpha) continue;
             double r = fmin(1.0, p[0] / alpha), g = fmin(1.0, p[1] / alpha), b = fmin(1.0, p[2] / alpha);
             optics_defringe(&r, &g, &b, purpleAmount, purpleHueLow, purpleHueHigh, greenAmount, greenHueLow, greenHueHigh);
-            optics_vignette_correct(&r, &g, &b, x, y, width, height, vignette, vignetteMidpoint);
+            optics_vignette_correct(&r, &g, &b, x, y, width, height, vignette, vignetteMidpoint, exposureTables, tableSize);
             write_premultiplied(p, r, g, b, alpha);
         }
     }

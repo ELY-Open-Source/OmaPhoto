@@ -18,6 +18,8 @@ constexpr int grid = 33;
 const std::vector<uint8_t> &tables();
 // Temperature and Tint: the four grid tables around them.
 CameraRawStage whiteBalance(double temperature, double tint);
+// Exposure's 21 tables in turn, for the lens vignette.
+const uint8_t *exposureTables();
 // What adaptive sliders read first, in sRGB levels.
 struct Brightness {
     double brightest = 128;
@@ -27,6 +29,10 @@ struct Brightness {
 Brightness brightness(const uchar *pixels, int width, int height, qsizetype stride);
 // Camera Raw's order, sliders at zero left out.
 std::vector<CameraRawStage> stages(const CameraRawSettings &settings, const Brightness &brightness);
+// Color Grading's stages: luminance, global, midtones, highlights, shadows.
+std::vector<CameraRawStage> gradingStages(const CameraRawGradingSettings &grading);
+// The Mixer's stages: luminance, then saturation, then hue.
+std::vector<CameraRawStage> mixerStages(const CameraRawMixerSettings &mixer);
 // The stages over the composing grid; empty without stages.
 std::vector<float> compose(const std::vector<CameraRawStage> &stages);
 // Temperature and Tint turning a straight sRGB colour gray.

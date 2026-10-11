@@ -35,6 +35,8 @@ struct CameraRawCurveSettings {
     bool adjusts() const;
     // Photoshop's parametric curve: gamma bends, smoothed as Curves.
     double parametric(double tone) const;
+    // Photoshop's tables draw the parametric curve: dividers as measured.
+    bool hasMeasuredDividers() const;
     // Applied to red, green and blue alike.
     std::vector<float> toneTable() const;
     std::vector<float> channelTable(const std::vector<CurvePoint> &points) const;
