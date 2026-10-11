@@ -4,6 +4,7 @@
 #include "SessionRecord.h"
 #include <QFutureWatcher>
 #include <QTemporaryDir>
+#include <QPushButton>
 #include <QtTest>
 
 // Saving, and the question before unsaved work is dropped.
@@ -52,6 +53,7 @@ private slots:
     void aNewCanvasAsksThenClears();
     void closingAsksThenClearsAndClosesTheWindow();
     void aSessionThatEndsMidSaveCallsNobody();
+    void saveIsTheOneDefaultAndDontSaveIsAsPlainAsCancel();
 };
 
 void ProjectControllerTests::theFirstSaveAsksWhereAndLaterSavesDoNot()
@@ -384,6 +386,30 @@ void ProjectControllerTests::aSessionThatEndsMidSaveCallsNobody()
     QVERIFY(QThreadPool::globalInstance()->waitForDone(10'000));
     QTest::qWait(50);
     QCOMPARE(calls, 0);
+}
+
+void ProjectControllerTests::saveIsTheOneDefaultAndDontSaveIsAsPlainAsCancel()
+{
+    // Swift 1.4.7: no destructive colour; Save alone stands out.
+    EditorSession session;
+    ProjectController controller(session);
+    DialogDesk desk;
+    paint(session);
+    desk.note = [] {
+        for (QWidget *widget : QApplication::topLevelWidgets())
+            if (auto *alert = qobject_cast<QMessageBox *>(widget); alert && alert->isVisible()) {
+                QStringList looks;
+                for (QAbstractButton *each : alert->buttons()) {
+                    const auto *button = qobject_cast<QPushButton *>(each);
+                    looks << QStringLiteral("%1:%2%3").arg(button->text()).arg(button->isDefault()).arg(button->isFlat());
+                }
+                return looks.join(',');
+            }
+        return QStringLiteral("none");
+    };
+    desk.replies = {"Cancel"};
+    QCOMPARE(answered([&](auto done) { controller.confirmQuit(done); }), std::optional(false));
+    QCOMPARE(desk.seen.value(0).section('|', 5), QStringLiteral("Save:10,Cancel:00,Don’t Save:00"));
 }
 
 QTEST_MAIN(ProjectControllerTests)
