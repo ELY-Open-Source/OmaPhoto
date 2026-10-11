@@ -434,7 +434,7 @@ void ContentView::showWelcome(bool shown)
     if (!shown)
         return;
     m_welcome = new NewCanvasSheet(
-        m_session, [this](int width, int height) { m_session.createNewProject(width, height); },
+        m_session, [this](int width, int height, double resolution, std::optional<QColor> background) { m_session.createNewProject(width, height, resolution, background); },
         [this] {
             if (m_projects)
                 m_projects->open();

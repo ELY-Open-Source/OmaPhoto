@@ -1,6 +1,8 @@
 #include "Document/EditorSession.h"
 #include "Document/DocumentLimits.h"
 #include "Document/Crop.h"
+#include "Document/PixelAdjust.h"
+#include "IO/ImageExporter.h"
 #include "Logging.h"
 #include <cmath>
 
@@ -281,17 +283,18 @@ void EditorSession::insert(const ImportedImage &asset, std::optional<QPointF> ce
     endEdit();
 }
 
-void EditorSession::createDocument(int width, int height, bool emptyLayer)
+void EditorSession::createDocument(int width, int height, bool emptyLayer, double resolution, std::optional<QColor> background)
 {
     if (m_isProjectBusy || m_isImporting || width < 1 || width > DocumentLimits::maxSide || height < 1 || height > DocumentLimits::maxSide)
         return;
     commitTransform();
     beginEdit(QStringLiteral("New Canvas"));
     CanvasDocument document(width, height);
-    // File > New starts with a selected blank "Layer 1".
+    document.resolution = resolution >= 1 && resolution <= 9600 ? resolution : 72;
+    // File > New starts with a selected first layer.
     std::optional<QUuid> selected;
     if (emptyLayer) {
-        document.layers.push_back(ImageLayer(QStringLiteral("Layer 1"), document.size()));
+        document.layers.push_back(firstLayer(document.size(), background));
         selected = document.layers.back().id;
     }
     m_document = document;
@@ -303,6 +306,23 @@ void EditorSession::createDocument(int width, int height, bool emptyLayer)
     resumeFileRequests();
     qCInfo(lcApp) << "new canvas" << width << "x" << height;
     endEdit();
+}
+
+// Empty, or the background in full-size pixels, as Photoshop's.
+ImageLayer EditorSession::firstLayer(QSizeF size, const std::optional<QColor> &background)
+{
+    if (!background)
+        return ImageLayer(QStringLiteral("Layer 1"), size);
+    try {
+        QImage image = BrushRaster::context(int(size.width()), int(size.height()), false);
+        image.fill(*background);
+        ImageLayer layer(QStringLiteral("Background"), size);
+        layer.asset = ImportedImage(image, PixelAdjust::thumbnail(image), QStringLiteral("Background"));
+        return layer;
+    } catch (const ExportError &error) {
+        qCWarning(lcApp) << "a new canvas's background could not be made:" << error.what();
+        return ImageLayer(QStringLiteral("Layer 1"), size);
+    }
 }
 
 void EditorSession::fit()

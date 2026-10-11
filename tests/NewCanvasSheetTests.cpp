@@ -11,8 +11,16 @@ namespace {
 struct Sheet {
     EditorSession session;
     QList<QSize> created;
+    QList<double> resolutions;
+    QList<std::optional<QColor>> backgrounds;
     int opened = 0;
-    NewCanvasSheet sheet{session, [this](int width, int height) { created << QSize(width, height); }, [this] { opened += 1; }};
+    NewCanvasSheet sheet{session,
+                         [this](int width, int height, double resolution, std::optional<QColor> background) {
+                             created << QSize(width, height);
+                             resolutions << resolution;
+                             backgrounds << background;
+                         },
+                         [this] { opened += 1; }};
     QLineEdit &width = *sheet.findChild<QLineEdit *>("widthInput");
     QLineEdit &height = *sheet.findChild<QLineEdit *>("heightInput");
     QLabel &note = *sheet.findChild<QLabel *>("canvasNote");
@@ -71,6 +79,8 @@ private slots:
     void presetsAreSwiftsGroups();
     void aPresetFillsTheFieldsAndTheMatchIsChecked();
     void theMoreButtonDrawsThreeDotsAndOpensTheMenu();
+    void thePillsStepThroughTheirChoices();
+    void printUnitsWriteTheSameCanvas();
 };
 
 void NewCanvasSheetTests::cleanup()
@@ -85,12 +95,13 @@ void NewCanvasSheetTests::itStartsAtFullHighDefinition()
     QVERIFY(QTest::qWaitForWindowExposed(&fixture.sheet));
     QCOMPARE(fixture.width.text(), QString("1920"));
     QCOMPARE(fixture.height.text(), QString("1080"));
-    QCOMPARE(fixture.note.text(), QString("Transparent canvas · sRGB"));
-    QCOMPARE(fixture.note.foregroundRole(), QPalette::PlaceholderText);
+    QVERIFY(fixture.note.isHidden());
     QVERIFY(fixture.create.isEnabled() && fixture.create.isDefault() && fixture.width.hasFocus());
     QCOMPARE(fixture.sheet.width(), 500);
     QTest::mouseClick(&fixture.create, Qt::LeftButton);
     QCOMPARE(fixture.created, (QList<QSize>{QSize(1920, 1080)}));
+    QCOMPARE(fixture.resolutions, QList<double>{72});
+    QCOMPARE(fixture.backgrounds, QList<std::optional<QColor>>{std::nullopt});
 }
 
 void NewCanvasSheetTests::onlyWholeNumbersInRangeMayCreate()
@@ -110,7 +121,8 @@ void NewCanvasSheetTests::onlyWholeNumbersInRangeMayCreate()
     QVERIFY(valid(" 640 ", "480"));
     // Either field alone refuses, by button, Return and Enter.
     const auto refused = [&] {
-        const bool warned = fixture.note.text() == "Enter whole numbers from 1 to 30,000 pixels." && fixture.note.foregroundRole() == QPalette::BrightText;
+        const bool warned = fixture.note.text() == "Enter whole numbers from 1 to 30,000 pixels." && fixture.note.foregroundRole() == QPalette::BrightText
+            && !fixture.note.isHidden();
         fixture.create.click();
         QTest::keyClick(&fixture.width, Qt::Key_Return);
         QTest::keyClick(&fixture.height, Qt::Key_Enter);
@@ -118,13 +130,16 @@ void NewCanvasSheetTests::onlyWholeNumbersInRangeMayCreate()
         QTest::keyClick(&fixture.sheet, Qt::Key_Return);
         return warned && fixture.created.isEmpty();
     };
-    for (const QString &bad : {QString("0"), QString("30001"), QString(""), QString("12.5"), QString("-4"), QString("1e3"), QString("wide")}) {
+    // Swift's Double(text): whole numbers written any way pass.
+    QVERIFY(valid("1e3", "480.0") && valid("6,4e2", "480"));
+    for (const QString &bad : {QString("0"), QString("30001"), QString(""), QString("12.5"), QString("-4"), QString("3e4.5"), QString("wide"),
+                               QString("inf"), QString("nan"), QString("\n640"), QString("640\n")}) {
         QVERIFY2(!valid(bad, "480") && refused(), qPrintable(bad));
         QVERIFY2(!valid("640", bad) && refused(), qPrintable(bad));
     }
     QVERIFY(fixture.created.isEmpty() && fixture.opened == 0);
     QVERIFY(valid("640", "480"));
-    QCOMPARE(fixture.note.text(), QString("Transparent canvas · sRGB"));
+    QVERIFY(fixture.note.isHidden());
 }
 
 void NewCanvasSheetTests::returnInEitherFieldCreates()
@@ -211,7 +226,7 @@ void NewCanvasSheetTests::theFirstTabSkipsTheClipboardOnce()
     QCOMPARE(first.width.text(), QString("1920"));
     QVERIFY(!first.session.skipsInitialClipboardCanvasSize);
     // The session's next sheet reads the clipboard again.
-    NewCanvasSheet later(first.session, [](int, int) {}, [] {});
+    NewCanvasSheet later(first.session, [](int, int, double, std::optional<QColor>) {}, [] {});
     later.show();
     QVERIFY(QTest::qWaitForWindowExposed(&later));
     QCOMPARE(later.findChild<QLineEdit *>("widthInput")->text(), QString("640"));
@@ -290,12 +305,14 @@ void NewCanvasSheetTests::aPresetFillsTheFieldsAndTheMatchIsChecked()
     fixture.entry("Studio Display").trigger();
     QCOMPARE(fixture.width.text() + "x" + fixture.height.text(), QString("5120x2880"));
     QCOMPARE(fixture.checked(), QString("Studio Display"));
-    // A size no preset has is Custom, matched as text.
+    // No preset has it: Custom. Presets match by pixels.
     fixture.height.setText("2881");
     QCOMPARE(fixture.checked(), QString("Custom"));
     fixture.height.setText("2880");
     QCOMPARE(fixture.checked(), QString("Studio Display"));
-    fixture.width.setText("05120");
+    fixture.width.setText("05120.0");
+    QCOMPARE(fixture.checked(), QString("Studio Display"));
+    fixture.width.setText("5121");
     QCOMPARE(fixture.checked(), QString("Custom"));
     fixture.width.setText("1080");
     fixture.height.setText("608");
@@ -338,6 +355,105 @@ void NewCanvasSheetTests::theMoreButtonDrawsThreeDotsAndOpensTheMenu()
     });
     QTest::mouseClick(&fixture.presets, Qt::LeftButton);
     QVERIFY(shown);
+}
+
+void NewCanvasSheetTests::thePillsStepThroughTheirChoices()
+{
+    Sheet fixture;
+    fixture.sheet.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&fixture.sheet));
+    QAbstractButton &background = *fixture.sheet.findChild<QAbstractButton *>("canvasBackground");
+    QAbstractButton &unit = *fixture.sheet.findChild<QAbstractButton *>("canvasUnit");
+    QAbstractButton &resolution = *fixture.sheet.findChild<QAbstractButton *>("canvasResolution");
+    QCOMPARE(background.text(), QString("Transparent canvas"));
+    QCOMPARE(unit.text(), QString("Pixels"));
+    QCOMPARE(resolution.text(), QString("72 DPI"));
+    QCOMPARE(background.toolTip(), QString("Start see-through, or with a white or black Background layer. Click to switch."));
+    QCOMPARE(unit.toolTip(), QString("Units: pixels, inches, centimeters or millimeters. Click to switch."));
+    QCOMPARE(resolution.toolTip(), QString("Resolution: 72 for screens, 300 for print. Click to switch."));
+    // Each pill steps to the next and back round.
+    QTest::mouseClick(&background, Qt::LeftButton);
+    QCOMPARE(background.text(), QString("White canvas"));
+    fixture.create.click();
+    QTest::mouseClick(&background, Qt::LeftButton);
+    QCOMPARE(background.text(), QString("Black canvas"));
+    QTest::mouseClick(&resolution, Qt::LeftButton);
+    QCOMPARE(resolution.text(), QString("300 DPI"));
+    fixture.create.click();
+    QTest::mouseClick(&background, Qt::LeftButton);
+    QTest::mouseClick(&resolution, Qt::LeftButton);
+    QCOMPARE(background.text(), QString("Transparent canvas"));
+    QCOMPARE(resolution.text(), QString("72 DPI"));
+    fixture.create.click();
+    QCOMPARE(fixture.created, (QList<QSize>{QSize(1920, 1080), QSize(1920, 1080), QSize(1920, 1080)}));
+    QCOMPARE(fixture.resolutions, (QList<double>{72, 300, 72}));
+    QCOMPARE(fixture.backgrounds, (QList<std::optional<QColor>>{QColor(255, 255, 255), QColor(0, 0, 0), std::nullopt}));
+    // A pill is text alone; hovered, a capsule shows.
+    const QImage plain = background.grab().toImage();
+    QTest::mouseMove(&background);
+    QTRY_VERIFY(background.underMouse());
+    background.repaint();
+    QVERIFY(background.grab().toImage() != plain);
+}
+
+void NewCanvasSheetTests::printUnitsWriteTheSameCanvas()
+{
+    Sheet fixture;
+    fixture.sheet.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&fixture.sheet));
+    QAbstractButton &unit = *fixture.sheet.findChild<QAbstractButton *>("canvasUnit");
+    QAbstractButton &resolution = *fixture.sheet.findChild<QAbstractButton *>("canvasResolution");
+    QStringList labels;
+    for (const QLabel *label : fixture.sheet.findChildren<QLabel *>())
+        labels << label->text();
+    QCOMPARE(labels.count("px"), qsizetype(2));
+    unit.click();
+    QCOMPARE(unit.text(), QString("Inches"));
+    QCOMPARE(fixture.width.text(), QString("26.67"));
+    QCOMPARE(fixture.height.text(), QString("15"));
+    labels.clear();
+    for (const QLabel *label : fixture.sheet.findChildren<QLabel *>())
+        labels << label->text();
+    QCOMPARE(labels.count("in"), qsizetype(2));
+    QCOMPARE(fixture.checked(), QString("1080p"));
+    fixture.create.click();
+    // At 300 DPI the same inches make more pixels.
+    resolution.click();
+    QCOMPARE(resolution.toolTip(), QString("Resolution: 72 for screens, 300 for print. Click to switch. · 300 DPI: 8001 × 4500 pixels"));
+    QCOMPARE(fixture.checked(), QString("Custom"));
+    fixture.create.click();
+    QCOMPARE(fixture.created, (QList<QSize>{QSize(1920, 1080), QSize(8001, 4500)}));
+    // A preset is written in the unit in use.
+    fixture.entry("Instagram Square").trigger();
+    QCOMPARE(fixture.width.text(), QString("3.6"));
+    QCOMPARE(fixture.height.text(), QString("3.6"));
+    QCOMPARE(fixture.checked(), QString("Instagram Square"));
+    // With the height unreadable, a change of unit rewrites neither.
+    fixture.height.setText("tall");
+    unit.click();
+    QCOMPARE(fixture.width.text() + "x" + fixture.height.text(), QString("3.6xtall"));
+    unit.click();
+    unit.click();
+    unit.click();
+    QCOMPARE(unit.text(), QString("Inches"));
+    fixture.height.setText("3.6");
+    fixture.width.setText("200");
+    QVERIFY(!fixture.create.isEnabled() && !fixture.note.isHidden());
+    QCOMPARE(fixture.note.text(), QString("Enter a size up to 30,000 pixels at this DPI."));
+    // One side unreadable: a unit change rewrites neither.
+    unit.click();
+    QCOMPARE(unit.text(), QString("Centimeters"));
+    QCOMPARE(fixture.width.text(), QString("200"));
+    QCOMPARE(fixture.height.text(), QString("3.6"));
+    fixture.width.setText("30.48");
+    unit.click();
+    unit.click();
+    QCOMPARE(unit.text(), QString("Pixels"));
+    // The height's 3.6 was read in centimeters: 425 pixels.
+    QCOMPARE(fixture.width.text(), QString("3600"));
+    QCOMPARE(fixture.height.text(), QString("425"));
+    QCOMPARE(resolution.toolTip(), QString("Resolution: 72 for screens, 300 for print. Click to switch."));
+    QVERIFY(fixture.note.isHidden());
 }
 
 QTEST_MAIN(NewCanvasSheetTests)

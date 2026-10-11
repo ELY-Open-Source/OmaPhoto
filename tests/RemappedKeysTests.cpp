@@ -235,7 +235,7 @@ void RemappedKeysTests::everySheetBindsSwiftsKeys()
     const QSet<QString> zooms{"Ctrl+K", "Ctrl+Q", "Ctrl+0", "Ctrl+1", "Ctrl+=", "Ctrl+-"};
     QCOMPARE(keys(JPEGExportSheet(ExportRaster{red, 72}, session, [](std::optional<QByteArray>) {})), zooms);
     QCOMPARE(keys(ColorPickerSheet(session, [](bool) {})), both);
-    QCOMPARE(keys(NewCanvasSheet(session, [](int, int) {}, [] {})), QSet<QString>{"Ctrl+K"});
+    QCOMPARE(keys(NewCanvasSheet(session, [](int, int, double, std::optional<QColor>) {}, [] {})), QSet<QString>{"Ctrl+K"});
     QCOMPARE(keys(TransformInspector(session)), both);
     QCOMPARE(keys(SelectionAmountSheet(session, SelectionAmountOperation::expand)), both);
     session.addEffect(LayerEffectKind::stroke);

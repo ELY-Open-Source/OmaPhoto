@@ -6,4 +6,4 @@ public:
     // Swift's reloadProject: what the package holds now, the view kept.
     void reloadProject(const ProjectSnapshot &snapshot);
     void clearProject();
-    void createNewProject(int width, int height);
+    void createNewProject(int width, int height, double resolution = 72, std::optional<QColor> background = std::nullopt);

@@ -91,10 +91,10 @@ void EditorSession::clearProject()
     notify();
 }
 
-void EditorSession::createNewProject(int width, int height)
+void EditorSession::createNewProject(int width, int height, double resolution, std::optional<QColor> background)
 {
     if (m_isProjectBusy || m_isImporting || width < 1 || width > DocumentLimits::maxSide || height < 1 || height > DocumentLimits::maxSide)
         return;
     clearProject();
-    createDocument(width, height, true);
+    createDocument(width, height, true, resolution, background);
 }

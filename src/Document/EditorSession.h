@@ -234,7 +234,8 @@ public:
     void moveActiveLayer(int offset);
 
     void insert(const ImportedImage &asset, std::optional<QPointF> centeredAt = std::nullopt);
-    void createDocument(int width, int height, bool emptyLayer = false);
+    // White or black fills a Background layer; none stays clear.
+    void createDocument(int width, int height, bool emptyLayer = false, double resolution = 72, std::optional<QColor> background = std::nullopt);
     void fit();
     void zoom(double value, std::optional<QPointF> anchor = std::nullopt);
     // Swift's stepped keyboard zoom about the view's centre.
@@ -313,6 +314,7 @@ private:
     void resumeFileRequests();
     void updateBusyIndicator();
     void endDuplicateTransform();
+    static ImageLayer firstLayer(QSizeF size, const std::optional<QColor> &background);
     // Clone Stamp is family 1, the Smear 2, others 0.
     static int tipFamily(NavigationTool tool);
 

@@ -12,6 +12,10 @@
 #include <QShortcut>
 #include <QVBoxLayout>
 #include <algorithm>
+#include <cctype>
+#include <clocale>
+#include <cmath>
+#include <cstdlib>
 
 namespace {
 QLabel *text(const QString &words, int pixels, QFont::Weight weight, QPalette::ColorRole role, QWidget *parent)
@@ -42,6 +46,147 @@ protected:
             painter.drawEllipse(QRectF(width() - dot, top + 2 * dot * index, dot, dot));
     }
 };
+
+// Swift's CyclePill: plain text, a soft capsule on hover.
+class CyclePill : public QAbstractButton {
+public:
+    CyclePill(const QString &name, QWidget *parent) : QAbstractButton(parent)
+    {
+        setObjectName(name);
+        setAttribute(Qt::WA_Hover);
+        setFocusPolicy(Qt::NoFocus);
+        QFont font = this->font();
+        font.setPixelSize(12);
+        setFont(font);
+    }
+    QSize sizeHint() const override { return fontMetrics().size(Qt::TextSingleLine, text()) + QSize(12, 4); }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        if (underMouse()) {
+            // macOS's quaternary label: the text colour at 10%.
+            QColor capsule = palette().color(QPalette::WindowText);
+            capsule.setAlphaF(0.1f);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(capsule);
+            painter.drawRoundedRect(QRectF(rect()), height() / 2.0, height() / 2.0);
+        }
+        painter.setPen(palette().color(QPalette::PlaceholderText));
+        painter.drawText(rect(), Qt::AlignCenter, text());
+    }
+};
+
+// Swift's Double(text): the whole text, C numbers.
+std::optional<double> number(const QString &typed)
+{
+    static const locale_t c = newlocale(LC_ALL_MASK, "C", locale_t(nullptr));
+    const QByteArray bytes = typed.toUtf8();
+    if (bytes.isEmpty() || std::isspace(uchar(bytes.front())))
+        return std::nullopt;
+    char *end = nullptr;
+    const double value = strtod_l(bytes.constData(), &end, c);
+    if (end != bytes.constData() + bytes.size())
+        return std::nullopt;
+    return value;
+}
+
+std::optional<double> perInch(NewCanvasUnit unit)
+{
+    switch (unit) {
+    case NewCanvasUnit::pixels: return std::nullopt;
+    case NewCanvasUnit::inches: return 1.0;
+    case NewCanvasUnit::centimeters: return 2.54;
+    case NewCanvasUnit::millimeters: return 25.4;
+    }
+    throw std::logic_error("an unknown unit");
+}
+}
+
+QString rawValue(NewCanvasUnit unit)
+{
+    switch (unit) {
+    case NewCanvasUnit::pixels: return QStringLiteral("px");
+    case NewCanvasUnit::inches: return QStringLiteral("in");
+    case NewCanvasUnit::centimeters: return QStringLiteral("cm");
+    case NewCanvasUnit::millimeters: return QStringLiteral("mm");
+    }
+    throw std::logic_error("an unknown unit");
+}
+
+QString name(NewCanvasUnit unit)
+{
+    switch (unit) {
+    case NewCanvasUnit::pixels: return QStringLiteral("Pixels");
+    case NewCanvasUnit::inches: return QStringLiteral("Inches");
+    case NewCanvasUnit::centimeters: return QStringLiteral("Centimeters");
+    case NewCanvasUnit::millimeters: return QStringLiteral("Millimeters");
+    }
+    throw std::logic_error("an unknown unit");
+}
+
+NewCanvasUnit next(NewCanvasUnit unit)
+{
+    return NewCanvasUnit((int(unit) + 1) % 4);
+}
+
+std::optional<int> pixels(NewCanvasUnit unit, const QString &text, double resolution)
+{
+    QString trimmed = text;
+    // Spaces and tabs trimmed; a comma is the point.
+    while (!trimmed.isEmpty() && (trimmed.front() == u'\t' || trimmed.front().category() == QChar::Separator_Space))
+        trimmed.remove(0, 1);
+    while (!trimmed.isEmpty() && (trimmed.back() == u'\t' || trimmed.back().category() == QChar::Separator_Space))
+        trimmed.chop(1);
+    const std::optional<double> value = number(trimmed.replace(u',', u'.'));
+    if (!value || *value <= 0)
+        return std::nullopt;
+    const std::optional<double> inch = perInch(unit);
+    const double count = inch ? std::round(*value / *inch * resolution) : *value;
+    if (count != std::round(count) || count < 1 || count > DocumentLimits::maxSide)
+        return std::nullopt;
+    return int(count);
+}
+
+QString text(NewCanvasUnit unit, int pixels, double resolution)
+{
+    const std::optional<double> inch = perInch(unit);
+    if (!inch)
+        return QString::number(pixels);
+    // Two decimals at most, none trailing, never grouped.
+    QString written = QString::number(double(pixels) / resolution * *inch, 'f', 2);
+    while (written.endsWith(u'0'))
+        written.chop(1);
+    if (written.endsWith(u'.'))
+        written.chop(1);
+    return written;
+}
+
+QString title(NewCanvasBackground background)
+{
+    switch (background) {
+    case NewCanvasBackground::transparent: return QStringLiteral("Transparent canvas");
+    case NewCanvasBackground::white: return QStringLiteral("White canvas");
+    case NewCanvasBackground::black: return QStringLiteral("Black canvas");
+    }
+    throw std::logic_error("an unknown background");
+}
+
+NewCanvasBackground next(NewCanvasBackground background)
+{
+    return NewCanvasBackground((int(background) + 1) % 3);
+}
+
+std::optional<QColor> color(NewCanvasBackground background)
+{
+    switch (background) {
+    case NewCanvasBackground::transparent: return std::nullopt;
+    case NewCanvasBackground::white: return QColor(255, 255, 255);
+    case NewCanvasBackground::black: return QColor(0, 0, 0);
+    }
+    throw std::logic_error("an unknown background");
 }
 
 const std::vector<std::vector<CanvasPreset>> CanvasPreset::groups = {
@@ -72,10 +217,12 @@ const std::vector<CanvasPreset> CanvasPreset::all = [] {
     return presets;
 }();
 
-NewCanvasSheet::NewCanvasSheet(EditorSession &session, std::function<void(int, int)> onCreate, std::function<void()> onOpen, QWidget *parent)
+NewCanvasSheet::NewCanvasSheet(EditorSession &session, Create onCreate, std::function<void()> onOpen, QWidget *parent)
     : QWidget(parent), m_session(session), m_onCreate(std::move(onCreate)), m_width(new QLineEdit(QStringLiteral("1920"), this)),
-      m_height(new QLineEdit(QStringLiteral("1080"), this)), m_note(text(QString(), 12, QFont::Normal, QPalette::PlaceholderText, this)),
-      m_create(new QPushButton(QStringLiteral("Create canvas"), this)), m_presets(new MoreButton(this))
+      m_height(new QLineEdit(QStringLiteral("1080"), this)), m_note(text(QString(), 12, QFont::Normal, QPalette::BrightText, this)),
+      m_create(new QPushButton(QStringLiteral("Create canvas"), this)), m_presets(new MoreButton(this)),
+      m_backgroundPill(new CyclePill(QStringLiteral("canvasBackground"), this)), m_unitPill(new CyclePill(QStringLiteral("canvasUnit"), this)),
+      m_resolutionPill(new CyclePill(QStringLiteral("canvasResolution"), this))
 {
     // Swift's fields stretch the sheet to its full 500 points.
     setFixedWidth(500);
@@ -96,11 +243,34 @@ NewCanvasSheet::NewCanvasSheet(EditorSession &session, std::function<void(int, i
     fields->setVerticalSpacing(8);
     fields->addWidget(text(QStringLiteral("Width"), 12, QFont::Medium, QPalette::WindowText, this), 0, 0);
     fields->addWidget(text(QStringLiteral("Height"), 12, QFont::Medium, QPalette::WindowText, this), 0, 3);
+    m_unitLabels = {text(QString(), 12, QFont::Normal, QPalette::PlaceholderText, this), text(QString(), 12, QFont::Normal, QPalette::PlaceholderText, this)};
     fields->addWidget(m_width, 1, 0);
-    fields->addWidget(text(QStringLiteral("px"), 12, QFont::Normal, QPalette::PlaceholderText, this), 1, 1);
+    fields->addWidget(m_unitLabels[0], 1, 1);
     fields->addWidget(text(QStringLiteral("×"), 14, QFont::Normal, QPalette::PlaceholderText, this), 1, 2);
     fields->addWidget(m_height, 1, 3);
-    fields->addWidget(text(QStringLiteral("px"), 12, QFont::Normal, QPalette::PlaceholderText, this), 1, 4);
+    fields->addWidget(m_unitLabels[1], 1, 4);
+
+    // Swift's pills: each click steps to the next choice.
+    auto *pills = new QHBoxLayout;
+    pills->setSpacing(4);
+    for (QAbstractButton *pill : {m_backgroundPill, m_unitPill, m_resolutionPill}) {
+        if (pill != m_backgroundPill)
+            pills->addWidget(text(QStringLiteral("·"), 12, QFont::Normal, QPalette::PlaceholderText, this));
+        pills->addWidget(pill);
+    }
+    pills->addStretch(1);
+    m_backgroundPill->setToolTip(QStringLiteral("Start see-through, or with a white or black Background layer. Click to switch."));
+    m_unitPill->setToolTip(QStringLiteral("Units: pixels, inches, centimeters or millimeters. Click to switch."));
+    connect(m_backgroundPill, &QAbstractButton::clicked, this, [this] {
+        m_background = next(m_background);
+        validate();
+    });
+    connect(m_unitPill, &QAbstractButton::clicked, this, [this] { switchUnit(next(m_unit)); });
+    connect(m_resolutionPill, &QAbstractButton::clicked, this, [this] {
+        m_resolution = m_resolution == 300 ? 72 : 300;
+        validate();
+        checkPreset();
+    });
 
     auto *buttons = new QHBoxLayout;
     buttons->setSpacing(10);
@@ -118,6 +288,7 @@ NewCanvasSheet::NewCanvasSheet(EditorSession &session, std::function<void(int, i
     heading->addWidget(m_presets);
     column->addLayout(heading);
     column->addLayout(fields);
+    column->addLayout(pills);
     column->addWidget(m_note);
     column->addLayout(buttons);
 
@@ -140,10 +311,7 @@ NewCanvasSheet::NewCanvasSheet(EditorSession &session, std::function<void(int, i
             QAction *action = choices->addAction(menu->addAction(preset.title));
             action->setCheckable(true);
             action->setData(index++);
-            connect(action, &QAction::triggered, this, [this, preset] {
-                m_width->setText(QString::number(preset.width));
-                m_height->setText(QString::number(preset.height));
-            });
+            connect(action, &QAction::triggered, this, [this, preset] { setPixels(preset.width, preset.height); });
         }
     }
     m_presets->setMenu(menu);
@@ -175,7 +343,7 @@ NewCanvasSheet::NewCanvasSheet(EditorSession &session, std::function<void(int, i
 void NewCanvasSheet::checkPreset()
 {
     const auto matched = std::ranges::find_if(CanvasPreset::all, [this](const CanvasPreset &preset) {
-        return QString::number(preset.width) == m_width->text() && QString::number(preset.height) == m_height->text();
+        return std::optional(preset.width) == pixelWidth() && std::optional(preset.height) == pixelHeight();
     });
     const QVariant index(matched == CanvasPreset::all.end() ? -1 : int(matched - CanvasPreset::all.begin()));
     for (QAction *action : m_presets->menu()->actions())
@@ -188,20 +356,59 @@ void NewCanvasSheet::synchronize()
     setEnabled(!m_session.isImporting() && !m_session.showsBusy());
 }
 
+std::optional<int> NewCanvasSheet::pixelWidth() const
+{
+    return pixels(m_unit, m_width->text(), m_resolution);
+}
+
+std::optional<int> NewCanvasSheet::pixelHeight() const
+{
+    return pixels(m_unit, m_height->text(), m_resolution);
+}
+
+void NewCanvasSheet::switchUnit(NewCanvasUnit unit)
+{
+    if (const std::optional<int> width = pixelWidth(), height = pixelHeight(); width && height) {
+        m_width->setText(text(unit, *width, m_resolution));
+        m_height->setText(text(unit, *height, m_resolution));
+    }
+    m_unit = unit;
+    validate();
+    checkPreset();
+}
+
+void NewCanvasSheet::setPixels(int width, int height)
+{
+    m_width->setText(text(m_unit, width, m_resolution));
+    m_height->setText(text(m_unit, height, m_resolution));
+}
+
 void NewCanvasSheet::validate()
 {
-    const bool valid = CanvasDocument::validDimension(m_width->text()) && CanvasDocument::validDimension(m_height->text());
-    m_note->setText(valid ? QStringLiteral("Transparent canvas · sRGB") : QStringLiteral("Enter whole numbers from 1 to %1 pixels.").arg(DocumentLimits::maxSideText()));
+    const std::optional<int> width = pixelWidth(), height = pixelHeight();
+    const bool valid = width && height;
     // The palette's bright text is the theme's warning colour.
-    m_note->setForegroundRole(valid ? QPalette::PlaceholderText : QPalette::BrightText);
+    m_note->setText(m_unit == NewCanvasUnit::pixels ? QStringLiteral("Enter whole numbers from 1 to %1 pixels.").arg(DocumentLimits::maxSideText())
+                                                    : QStringLiteral("Enter a size up to %1 pixels at this DPI.").arg(DocumentLimits::maxSideText()));
+    m_note->setVisible(!valid);
     m_create->setEnabled(valid);
+    for (QLabel *label : m_unitLabels)
+        label->setText(rawValue(m_unit));
+    m_backgroundPill->setText(title(m_background));
+    m_unitPill->setText(name(m_unit));
+    m_resolutionPill->setText(QStringLiteral("%1 DPI").arg(int(m_resolution)));
+    // In print units the pixels it makes show on hover.
+    const QString size = m_unit != NewCanvasUnit::pixels && valid ? QStringLiteral(" · %1 DPI: %2 × %3 pixels").arg(int(m_resolution)).arg(*width).arg(*height) : QString();
+    m_resolutionPill->setToolTip(QStringLiteral("Resolution: 72 for screens, 300 for print. Click to switch.") + size);
+    for (QAbstractButton *pill : {m_backgroundPill, m_unitPill, m_resolutionPill})
+        pill->updateGeometry();
 }
 
 void NewCanvasSheet::create()
 {
-    const std::optional<int> width = CanvasDocument::validDimension(m_width->text()), height = CanvasDocument::validDimension(m_height->text());
+    const std::optional<int> width = pixelWidth(), height = pixelHeight();
     if (width && height)
-        m_onCreate(*width, *height);
+        m_onCreate(*width, *height, m_resolution, color(m_background));
 }
 
 void NewCanvasSheet::showEvent(QShowEvent *event)
@@ -212,8 +419,7 @@ void NewCanvasSheet::showEvent(QShowEvent *event)
         if (m_session.skipsInitialClipboardCanvasSize) {
             m_session.skipsInitialClipboardCanvasSize = false;
         } else if (const std::optional<QSize> size = clipboardDimensions(QApplication::clipboard()->mimeData())) {
-            m_width->setText(QString::number(size->width()));
-            m_height->setText(QString::number(size->height()));
+            setPixels(size->width(), size->height());
         }
     }
     m_width->setFocus();
