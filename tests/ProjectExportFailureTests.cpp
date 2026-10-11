@@ -2,7 +2,7 @@
 #include "DialogDesk.h"
 #include "IO/ImageExporter.h"
 #include "IO/ProjectController.h"
-#include "UI/JPEGExportSheet.h"
+#include "UI/ExportAsSheet.h"
 #include <QApplication>
 #include <QSemaphore>
 #include <QTemporaryDir>
@@ -105,12 +105,12 @@ void ProjectExportFailureTests::aSnapshotThatFindsNoMemoryIsExplained()
             malloc_trim(0);
             const AddressSpaceLimit limit(512ll * 1024);
             if (jpeg)
-                desk.controller.exportJPEG([&desk] { desk.done = true; });
+                desk.controller.exportAs(ExportFormat::jpeg, [&desk] { desk.done = true; });
             else
                 desk.controller.exportPNG([&desk] { desk.done = true; });
         }
         QTRY_VERIFY(desk.done);
-        QCOMPARE(desk.alerts.seen, desk.explained(jpeg ? QStringLiteral("Couldn’t export JPEG") : QStringLiteral("Couldn’t export PNG")));
+        QCOMPARE(desk.alerts.seen, desk.explained(jpeg ? QStringLiteral("Couldn’t export") : QStringLiteral("Couldn’t export PNG")));
         QVERIFY(!desk.session.isProjectBusy());
     }
 }
@@ -127,7 +127,7 @@ void ProjectExportFailureTests::aJPEGRenderThatFindsNoMemoryIsExplained()
         release.acquire();
     });
     entered.acquire();
-    desk.controller.exportJPEG([&desk] { desk.done = true; });
+    desk.controller.exportAs(ExportFormat::jpeg, [&desk] { desk.done = true; });
     {
         malloc_trim(0);
         const AddressSpaceLimit limit(512ll * 1024);
@@ -135,7 +135,7 @@ void ProjectExportFailureTests::aJPEGRenderThatFindsNoMemoryIsExplained()
         pool->waitForDone();
     }
     QTRY_VERIFY(desk.done);
-    QCOMPARE(desk.alerts.seen, desk.explained(QStringLiteral("Couldn’t export JPEG")));
+    QCOMPARE(desk.alerts.seen, desk.explained(QStringLiteral("Couldn’t export")));
     QVERIFY(!desk.session.isProjectBusy());
 }
 
@@ -200,11 +200,11 @@ void ProjectExportFailureTests::theJPEGRenderTakesTheSnapshotWithoutACopy()
     {
         malloc_trim(0);
         const AddressSpaceLimit limit(5120ll * 1024);
-        desk.controller.exportJPEG([&desk] { desk.done = true; });
+        desk.controller.exportAs(ExportFormat::jpeg, [&desk] { desk.done = true; });
     }
     release.release();
-    QTRY_VERIFY(desk.window.findChild<JPEGExportSheet *>());
-    QTest::keyClick(desk.window.findChild<JPEGExportSheet *>(), Qt::Key_Escape);
+    QTRY_VERIFY(desk.window.findChild<ExportAsSheet *>());
+    QTest::keyClick(desk.window.findChild<ExportAsSheet *>(), Qt::Key_Escape);
     QTRY_VERIFY(desk.done);
     QVERIFY(desk.alerts.seen.isEmpty() && !desk.session.isProjectBusy());
 }

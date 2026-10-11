@@ -40,7 +40,9 @@ CompositorMenus::CompositorMenus(ProjectWorkspace &workspace, QMenuBar &bar, Pro
     file->addSeparator();
     add(file, QStringLiteral("exportPNG"), QStringLiteral("Export PNG…"), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_E), [this] { projects().exportPNG(); });
     add(file, QStringLiteral("exportJPEG"), QStringLiteral("Export JPEG…"), QKeySequence(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_S),
-        [this] { projects().exportJPEG(); });
+        [this] { projects().exportAs(ExportFormat::jpeg); });
+    // Swift 1.4.8: Photoshop's Ctrl+Alt+Shift+W.
+    add(file, QStringLiteral("exportAs"), QStringLiteral("Export As…"), QKeySequence(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_W), [this] { projects().exportAs(); });
     file->addSeparator();
     add(file, QStringLiteral("closeProject"), QStringLiteral("Close Project"), QKeySequence(Qt::CTRL | Qt::Key_W), [this] { projects().close(&m_window); });
 
@@ -356,6 +358,7 @@ void CompositorMenus::synchronize()
     action(QStringLiteral("saveAs"))->setEnabled(drawn && p.canStart());
     action(QStringLiteral("exportPNG"))->setEnabled(drawn && p.canStart());
     action(QStringLiteral("exportJPEG"))->setEnabled(drawn && p.canStart());
+    action(QStringLiteral("exportAs"))->setEnabled(drawn && p.canStart());
     action(QStringLiteral("closeProject"))->setEnabled(p.canStart());
     // A step's ampersand, doubled: a lone one is a mnemonic.
     const auto shown = [](QString name) { return name.replace(QLatin1Char('&'), QStringLiteral("&&")); };

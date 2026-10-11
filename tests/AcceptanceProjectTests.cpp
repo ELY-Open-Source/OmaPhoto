@@ -88,10 +88,10 @@ void AcceptanceProjectTests::cropSizesAndExports()
     QCOMPARE(QImage(app.path("scene.png")).size(), QSize(600, 300));
     desk.replies = {app.path("scene.jpg")};
     done = false;
-    controller.exportJPEG([&done] { done = true; });
+    controller.exportAs(ExportFormat::jpeg, [&done] { done = true; });
     QTRY_VERIFY(app.window.findChild<QDialog *>());
     app.shot(QStringLiteral("11-export-jpeg"));
-    QPushButton *exported = app.window.findChild<QDialog *>()->findChild<QPushButton *>(QStringLiteral("jpegExport"));
+    QPushButton *exported = app.window.findChild<QDialog *>()->findChild<QPushButton *>(QStringLiteral("exportExport"));
     QVERIFY(exported);
     QTRY_VERIFY_WITH_TIMEOUT(exported->isEnabled(), 30000);
     exported->click();

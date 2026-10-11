@@ -1,9 +1,21 @@
-#include "UI/JPEGExportSheet.h"
+#include "UI/ExportAsSheet.h"
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollBar>
 #include <algorithm>
 #include <cmath>
+
+// Swift's tile: 10-point squares of grays 0.30 and 0.35.
+QPixmap JPEGPreview::checkerboard(double ratio)
+{
+    QPixmap tile(QSize(20, 20) * ratio);
+    tile.setDevicePixelRatio(ratio);
+    QPainter painter(&tile);
+    painter.fillRect(QRectF(0, 0, 20, 20), QColor::fromRgbF(0.30f, 0.30f, 0.30f));
+    painter.fillRect(QRectF(0, 0, 10, 10), QColor::fromRgbF(0.35f, 0.35f, 0.35f));
+    painter.fillRect(QRectF(10, 10, 10, 10), QColor::fromRgbF(0.35f, 0.35f, 0.35f));
+    return tile;
+}
 
 double JPEGPreview::fitZoom(int width, int height, QSizeF frame, double displayScale)
 {
@@ -21,8 +33,8 @@ std::optional<double> JPEGPreview::step(double zoom, int direction)
     return next == steps.rend() ? std::nullopt : std::optional(*next);
 }
 
-JPEGPreview::JPEGPreview(QSize pixels, std::function<void()> zoomChanged, QWidget *parent)
-    : QAbstractScrollArea(parent), m_pixels(pixels), m_zoomChanged(std::move(zoomChanged))
+JPEGPreview::JPEGPreview(std::function<void()> zoomChanged, QWidget *parent)
+    : QAbstractScrollArea(parent), m_zoomChanged(std::move(zoomChanged))
 {
     setFixedSize(frame);
     setFrameShape(QFrame::NoFrame);
@@ -31,13 +43,17 @@ JPEGPreview::JPEGPreview(QSize pixels, std::function<void()> zoomChanged, QWidge
     verticalScrollBar()->setSingleStep(20);
 }
 
-void JPEGPreview::setImage(const QImage &image, bool updating)
+void JPEGPreview::setImage(const QImage &image, QSize pixels, bool updating)
 {
     // A new image only: the averaged copy still holds.
     if (image.cacheKey() != m_image.cacheKey())
         m_reduced = QImage();
     m_image = image;
     m_updating = updating;
+    if (pixels != m_pixels) {
+        m_pixels = pixels;
+        updateRanges();
+    }
     viewport()->update();
 }
 
@@ -118,6 +134,11 @@ void JPEGPreview::paintEvent(QPaintEvent *)
             target = QRectF(QPointF(), QSizeF(m_image.size()).scaled(view.size(), Qt::KeepAspectRatio));
             target.moveCenter(view.center());
         }
+        // Swift 1.4.8: the canvas's checkerboard shows what is clear.
+        painter.save();
+        painter.setBrushOrigin(target.topLeft());
+        painter.fillRect(target, QBrush(checkerboard(devicePixelRatioF())));
+        painter.restore();
         // Nearest from 100% up: each JPEG pixel as it is.
         if (m_zoom && *m_zoom >= 1) {
             painter.drawImage(target, m_image);

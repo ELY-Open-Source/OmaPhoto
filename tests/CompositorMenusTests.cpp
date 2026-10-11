@@ -27,7 +27,7 @@ void CompositorMenusTests::everyEntryHasSwiftsShortcutWithCtrlForCommand()
     Bar bar;
     const std::pair<const char *, const char *> keys[] = {
         {"newCanvas", "Ctrl+N"}, {"openProject", "Ctrl+O"}, {"importImages", ""}, {"save", "Ctrl+S"}, {"saveAs", "Ctrl+Shift+S"},
-        {"exportPNG", "Ctrl+Shift+E"}, {"exportJPEG", "Ctrl+Alt+Shift+S"},
+        {"exportPNG", "Ctrl+Shift+E"}, {"exportJPEG", "Ctrl+Alt+Shift+S"}, {"exportAs", "Ctrl+Alt+Shift+W"},
         {"closeProject", "Ctrl+W"}, {"undo", "Ctrl+Z"}, {"redo", "Ctrl+Shift+Z"}, {"fit", "Ctrl+0"}, {"actualPixels", "Ctrl+1"},
         {"zoomIn", "Ctrl+="}, {"zoomOut", "Ctrl+-"}, {"pixelGrid", ""}, {"showGrid", "Ctrl+'"}, {"showGuides", "Ctrl+;"}, {"gridSettings", ""}, {"showRulers", "Ctrl+R"}, {"snapEnabled", "Ctrl+Shift+;"}, {"snapToGuides", ""}, {"snapToGrid", ""}, {"snapToLayers", ""}, {"snapToDocumentBounds", ""}, {"lockGuides", "Ctrl+Alt+;"}, {"clearGuides", ""}, {"transformControls", "Ctrl+H"}, {"transformLayer", "Ctrl+T"},
         {"layerViaCopy", "Ctrl+J"}, {"cut", "Ctrl+X"}, {"copy", "Ctrl+C"}, {"copyMerged", "Ctrl+Shift+C"}, {"paste", "Ctrl+V"}, {"keyboardShortcuts", ""}, {"fillForeground", "Alt+Backspace"}, {"fillBackground", "Ctrl+Backspace"}, {"clearSelectionPixels", ""}, {"contentAwareFill", "Shift+Backspace"}, {"clippingMask", "Ctrl+Alt+G"}, {"groupLayers", "Ctrl+G"},
@@ -49,7 +49,7 @@ void CompositorMenusTests::everyEntryHasSwiftsShortcutWithCtrlForCommand()
     for (const QMenu *menu : menus)
         titles << menu->title();
     QCOMPARE(titles, (QStringList{"&File", "&Edit", "&View", "&Select", "&Image", "Fil&ter", "&Layer"}));
-    QCOMPARE(menus[0]->actions().size(), 12);
+    QCOMPARE(menus[0]->actions().size(), 13);
     QCOMPARE(menus[1]->actions().size(), 13);
     QCOMPARE(menus[2]->actions().size(), 19);
     QCOMPARE(menus[3]->actions().size(), 11);

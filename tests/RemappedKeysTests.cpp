@@ -7,7 +7,7 @@
 #include "UI/FilterSheet.h"
 #include "UI/HueSaturationSheet.h"
 #include "UI/ImageSizeSheet.h"
-#include "UI/JPEGExportSheet.h"
+#include "UI/ExportAsSheet.h"
 #include "UI/KeyboardShortcuts.h"
 #include "UI/LevelsSheet.h"
 #include "UI/NewCanvasSheet.h"
@@ -231,9 +231,9 @@ void RemappedKeysTests::everySheetBindsSwiftsKeys()
     QCOMPARE(keys(GridSettingsSheet(session, LayoutGrid(), GridAppearance(), [](const GridSettingsSheet::Settings &) {}, [](std::optional<GridSettingsSheet::Settings>) {})), both);
     QCOMPARE(keys(ImageSizeSheet(canvas, [](std::optional<ImageSizeOptions>) {})), both);
     QCOMPARE(keys(TrimSheet([](std::optional<TrimOptions>) {})), both);
-    // Export JPEG also takes the View menu's four zoom keys.
+    // Export As also takes the View menu's four zoom keys.
     const QSet<QString> zooms{"Ctrl+K", "Ctrl+Q", "Ctrl+0", "Ctrl+1", "Ctrl+=", "Ctrl+-"};
-    QCOMPARE(keys(JPEGExportSheet(ExportRaster{red, 72}, session, [](std::optional<QByteArray>) {})), zooms);
+    QCOMPARE(keys(ExportAsSheet(ExportRaster{red, 72}, session, ExportFormat::jpeg, [](std::optional<ExportAsSheet::Chosen>) {})), zooms);
     QCOMPARE(keys(ColorPickerSheet(session, [](bool) {})), both);
     QCOMPARE(keys(NewCanvasSheet(session, [](int, int, double, std::optional<QColor>) {}, [] {})), QSet<QString>{"Ctrl+K"});
     QCOMPARE(keys(TransformInspector(session)), both);

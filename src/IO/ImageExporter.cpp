@@ -153,8 +153,41 @@ std::optional<QuickLookImages> ImageExporter::quickLookImages(const ProjectSnaps
 
 QByteArray ImageExporter::pngData(const ProjectSnapshot &snapshot)
 {
-    const ExportRaster raster = render(snapshot);
+    return pngData(render(snapshot));
+}
+
+QByteArray ImageExporter::pngData(const ExportRaster &raster)
+{
     return encode(raster.image, "png", -1, raster.resolution);
+}
+
+ExportRaster ImageExporter::resized(const ExportRaster &raster, int width, int height)
+try {
+    if (width == raster.image.width() && height == raster.image.height())
+        return raster;
+    if (width < 1 || width > DocumentLimits::maxSide || height < 1 || height > DocumentLimits::maxSide
+        || qint64(width) * height > DocumentLimits::maxSurfacePixels)
+        throw ExportError(ExportError::Kind::tooLarge);
+    // CoreGraphics' high quality: an area average shrinking.
+    const QImage image = raster.image.scaled(width, height, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    if (image.isNull())
+        throw ExportError(ExportError::Kind::render);
+    return {image, raster.resolution};
+} catch (const std::bad_alloc &) {
+    throw ExportError(ExportError::Kind::render);
+}
+
+QImage ImageExporter::flattened(const ExportRaster &raster, const QColor &background)
+try {
+    QImage flat(raster.image.size(), QImage::Format_RGB888);
+    if (flat.isNull())
+        throw ExportError(ExportError::Kind::render);
+    flat.fill(background);
+    QPainter painter(&flat);
+    painter.drawImage(QRectF(flat.rect()), raster.image);
+    return flat;
+} catch (const std::bad_alloc &) {
+    throw ExportError(ExportError::Kind::render);
 }
 
 JPEGResult ImageExporter::jpeg(const ExportRaster &raster, const JPEGOptions &options, const std::function<bool()> &cancelled)
@@ -190,6 +223,71 @@ try {
     return {data, preview};
 } catch (const std::bad_alloc &) {
     throw ExportError(ExportError::Kind::render);
+}
+
+QByteArray ImageExporter::pdfData(const ProjectSnapshot &snapshot)
+{
+    return pdfData(render(snapshot));
+}
+
+// Swift's Core Graphics PDF context: one page, one Flate image.
+QByteArray ImageExporter::pdfData(const ExportRaster &raster, std::optional<QColor> background)
+try {
+    const QImage straight = raster.image.convertToFormat(QImage::Format_RGBA8888);
+    if (straight.isNull())
+        throw ExportError(ExportError::Kind::render);
+    const int width = straight.width(), height = straight.height();
+    QByteArray colour, alpha;
+    colour.reserve(qsizetype(width) * height * 3);
+    alpha.reserve(qsizetype(width) * height);
+    for (int y = 0; y < height; ++y) {
+        const uchar *row = straight.constScanLine(y);
+        for (int x = 0; x < width; ++x) {
+            colour.append(reinterpret_cast<const char *>(row + x * 4), 3);
+            alpha.append(char(row[x * 4 + 3]));
+        }
+    }
+    // Pixels at the document's resolution: points are 1/72 inch.
+    const double points = 72 / (raster.resolution > 0 ? raster.resolution : 72);
+    const auto number = [](double value) { return QByteArray::number(value, 'f', 4); };
+    const QByteArray pageWidth = number(width * points), pageHeight = number(height * points);
+    QByteArray content = "q\n";
+    if (background)
+        content += number(background->redF()) + ' ' + number(background->greenF()) + ' ' + number(background->blueF()) + " rg 0 0 " + pageWidth + ' '
+            + pageHeight + " re f\n";
+    content += pageWidth + " 0 0 " + pageHeight + " 0 0 cm /Im0 Do\nQ";
+    // zlib's stream, without Qt's four-byte length.
+    const auto stream = [](const QByteArray &dictionary, const QByteArray &bytes, bool deflate) {
+        const QByteArray body = deflate ? qCompress(bytes, 9).mid(4) : bytes;
+        return "<< " + dictionary + (deflate ? " /Filter /FlateDecode" : "") + " /Length " + QByteArray::number(body.size()) + " >>\nstream\n" + body
+            + "\nendstream";
+    };
+    const QByteArray image = "/Type /XObject /Subtype /Image /Width " + QByteArray::number(width) + " /Height " + QByteArray::number(height)
+        + " /BitsPerComponent 8";
+    const std::vector<QByteArray> objects{"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                                          "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + pageWidth + ' ' + pageHeight
+                                              + "] /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>",
+                                          stream("", content, false), stream(image + " /ColorSpace /DeviceRGB /SMask 6 0 R", colour, true),
+                                          stream(image + " /ColorSpace /DeviceGray", alpha, true)};
+    QByteArray pdf = "%PDF-1.4\n";
+    std::vector<qsizetype> offsets;
+    for (size_t index = 0; index < objects.size(); ++index) {
+        offsets.push_back(pdf.size());
+        pdf += QByteArray::number(qsizetype(index + 1)) + " 0 obj\n" + objects[index] + "\nendobj\n";
+    }
+    const qsizetype table = pdf.size();
+    pdf += "xref\n0 " + QByteArray::number(qsizetype(objects.size() + 1)) + "\n0000000000 65535 f \n";
+    for (const qsizetype offset : offsets)
+        pdf += QByteArray::number(offset).rightJustified(10, '0') + " 00000 n \n";
+    pdf += "trailer\n<< /Size " + QByteArray::number(qsizetype(objects.size() + 1)) + " /Root 1 0 R >>\nstartxref\n" + QByteArray::number(table) + "\n%%EOF\n";
+    return pdf;
+} catch (const std::bad_alloc &) {
+    throw ExportError(ExportError::Kind::render);
+}
+
+void ImageExporter::exportPDF(const ProjectSnapshot &snapshot, const QString &path)
+{
+    write(pdfData(snapshot), path);
 }
 
 void ImageExporter::exportPNG(const ProjectSnapshot &snapshot, const QString &path)

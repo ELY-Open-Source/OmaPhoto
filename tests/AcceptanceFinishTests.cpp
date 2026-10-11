@@ -1,6 +1,6 @@
 #include "AcceptanceFixtures.h"
 #include "DialogDesk.h"
-#include "UI/JPEGExportSheet.h"
+#include "UI/ExportAsSheet.h"
 #include <QComboBox>
 #include <map>
 #include <QLineEdit>
@@ -164,11 +164,11 @@ void AcceptanceFinishTests::jpegPreviewAndQuitMidEdit()
     photo(app);
     // Export JPEG: View keys zoom to 100% and back.
     bool done = false;
-    app.workspace.current().controller.exportJPEG([&done] { done = true; });
-    QTRY_VERIFY(app.window.findChild<JPEGExportSheet *>());
+    app.workspace.current().controller.exportAs(ExportFormat::jpeg, [&done] { done = true; });
+    QTRY_VERIFY(app.window.findChild<ExportAsSheet *>());
     auto *preview = app.window.findChild<JPEGPreview *>();
     QVERIFY(preview && !preview->zoom());
-    JPEGExportSheet *sheet = app.window.findChild<JPEGExportSheet *>();
+    ExportAsSheet *sheet = app.window.findChild<ExportAsSheet *>();
     QTest::keyClick(sheet, Qt::Key_1, Qt::ControlModifier);
     QCOMPARE(preview->zoom(), std::optional<double>(1));
     QTest::keyClick(sheet, Qt::Key_Equal, Qt::ControlModifier);

@@ -104,8 +104,8 @@ add_library(compositor_core STATIC
     src/UI/GridSettingsSheet.cpp
     src/UI/ImageSizeSheet.cpp
     src/UI/TrimSheet.cpp
-    src/UI/JPEGExportSheet.cpp
-    src/UI/JPEGExportSheet+Preview.cpp
+    src/UI/ExportAsSheet.cpp
+    src/UI/ExportAsSheet+Preview.cpp
     src/UI/ByteCounts.cpp
     src/UI/SliderSnap.cpp
     src/UI/GradientControls.cpp

@@ -124,7 +124,7 @@ const std::vector<ShortcutDefinition> &ShortcutDefinition::all()
         std::vector<ShortcutDefinition> result{
             entry("Undo", "z", 1, true), entry("Redo", "z", 9, true), entry("New Canvas", "n", 1, true),
             entry("Open Project", "o", 1, true), entry("Save", "s", 1, true), entry("Save As", "s", 9, true),
-            entry("Export PNG", "e", 9, true), entry("Export JPEG", "s", 11, true), entry("Close Project", "w", 1, true),
+            entry("Export PNG", "e", 9, true), entry("Export JPEG", "s", 11, true), entry("Export As", "w", 11, true), entry("Close Project", "w", 1, true),
             entry("Fit Canvas", "0", 1, true), entry("Search Commands", "f", 1, true), entry("Actual Pixels", "1", 1, true), entry("Zoom In", "=", 1, true),
             entry("Zoom Out", "-", 1, true), entry("Show Transform Controls", "h", 1, true), entry("Cut", "x", 1, true),
             entry("Copy", "c", 1, true), entry("Copy Merged", "c", 9, true), entry("Paste", "v", 1, true),

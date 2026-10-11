@@ -1,7 +1,7 @@
 #include "Document/ProjectWorkspace.h"
 #include "IO/ImageExporter.h"
 #include "IO/ProjectController.h"
-#include "UI/JPEGExportSheet.h"
+#include "UI/ExportAsSheet.h"
 #include <QDialog>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -15,18 +15,45 @@ QString suggested(const std::optional<QString> &project, const QString &suffix)
 {
     return (project ? ProjectTab::nameWithoutSuffix(*project) : QStringLiteral("Untitled")) + suffix;
 }
+
+// The panel's filter and a name's suffixes, preferred first.
+std::pair<QString, QStringList> filtering(ExportFormat format)
+{
+    switch (format) {
+    case ExportFormat::png:
+        return {QStringLiteral("PNG image (*.png)"), {QStringLiteral("png")}};
+    case ExportFormat::jpeg:
+        return {QStringLiteral("JPEG image (*.jpeg *.jpg *.jpe)"), {QStringLiteral("jpeg"), QStringLiteral("jpg"), QStringLiteral("jpe")}};
+    case ExportFormat::pdf:
+        return {QStringLiteral("PDF document (*.pdf)"), {QStringLiteral("pdf")}};
+    }
+    throw std::logic_error("unknown export format");
+}
+}
+
+QString rawValue(ExportFormat format)
+{
+    switch (format) {
+    case ExportFormat::png:
+        return QStringLiteral("PNG");
+    case ExportFormat::jpeg:
+        return QStringLiteral("JPEG");
+    case ExportFormat::pdf:
+        return QStringLiteral("PDF");
+    }
+    throw std::logic_error("unknown export format");
 }
 
 // Swift's NSSavePanel for one type, whose suffix a name needs.
-void ProjectController::exportPanel(const QString &title, const QString &filter, const QStringList &suffixes, const QString &name, const QString &failure,
-                                    std::function<void(std::optional<QString>)> then)
+void ProjectController::exportPanel(ExportFormat format, const QString &failure, std::function<void(std::optional<QString>)> then)
 {
-    auto *panel = new QFileDialog(window, title);
+    const auto [filter, suffixes] = filtering(format);
+    auto *panel = new QFileDialog(window, QStringLiteral("Export ") + rawValue(format));
     panel->setAttribute(Qt::WA_DeleteOnClose);
     panel->setAcceptMode(QFileDialog::AcceptSave);
     panel->setNameFilter(filter);
     panel->setDefaultSuffix(suffixes.first());
-    panel->selectFile(name);
+    panel->selectFile(suggested(session.projectPath(), QLatin1Char('.') + suffixes.first()));
     // Moved, never copied: `then` may hold a whole snapshot.
     connect(panel, &QDialog::finished, this, [this, panel, suffixes, failure, then = std::move(then)](int result) mutable {
         if (result != QDialog::Accepted) {
@@ -94,22 +121,21 @@ void ProjectController::exportPNG(std::function<void()> done)
         showError(failure, QString::fromUtf8(ExportError(ExportError::Kind::render).what()), end);
         return;
     }
-    exportPanel(QStringLiteral("Export PNG"), QStringLiteral("PNG image (*.png)"), {QStringLiteral("png")}, suggested(session.projectPath(), QStringLiteral(".png")),
-                failure, [this, snapshot = std::move(snapshot.value()), failure, end](std::optional<QString> path) {
-                    if (!path) {
-                        end();
-                        return;
-                    }
-                    // The snapshot's copy may find no memory.
-                    try {
-                        exportWork([snapshot, path = *path] { ImageExporter::exportPNG(snapshot, path); }, failure, end);
-                    } catch (const std::bad_alloc &) {
-                        showError(failure, QString::fromUtf8(ExportError(ExportError::Kind::render).what()), end);
-                    }
-                });
+    exportPanel(ExportFormat::png, failure, [this, snapshot = std::move(snapshot.value()), failure, end](std::optional<QString> path) {
+        if (!path) {
+            end();
+            return;
+        }
+        // The snapshot's copy may find no memory.
+        try {
+            exportWork([snapshot, path = *path] { ImageExporter::exportPNG(snapshot, path); }, failure, end);
+        } catch (const std::bad_alloc &) {
+            showError(failure, QString::fromUtf8(ExportError(ExportError::Kind::render).what()), end);
+        }
+    });
 }
 
-void ProjectController::exportJPEG(std::function<void()> done)
+void ProjectController::exportAs(std::optional<ExportFormat> start, std::function<void()> done)
 {
     if (!window || !session.document() || !begin()) {
         if (done)
@@ -121,7 +147,7 @@ void ProjectController::exportJPEG(std::function<void()> done)
         if (done)
             QMetaObject::invokeMethod(this, done, Qt::QueuedConnection);
     };
-    const QString failure = QStringLiteral("Couldn’t export JPEG");
+    const QString failure = QStringLiteral("Couldn’t export");
     const QString render = QString::fromUtf8(ExportError(ExportError::Kind::render).what());
     std::optional<ProjectSnapshot> snapshot;
     try {
@@ -131,17 +157,17 @@ void ProjectController::exportJPEG(std::function<void()> done)
         return;
     }
     auto *watcher = new QFutureWatcher<Rendered>(this);
-    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, failure, end] {
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, failure, end, format = start.value_or(m_lastExportFormat)] {
         watcher->deleteLater();
         Rendered rendered = watcher->future().takeResult();
         if (!rendered.raster) {
             showError(failure, rendered.failure, end);
             return;
         }
-        QDialog *dialog = sheet(QStringLiteral("Export JPEG"));
-        auto chosen = std::make_shared<std::optional<QByteArray>>();
-        dialog->layout()->addWidget(new JPEGExportSheet(std::move(*rendered.raster), session, [dialog, chosen](std::optional<QByteArray> data) {
-            *chosen = std::move(data);
+        QDialog *dialog = sheet(QStringLiteral("Export As"));
+        auto chosen = std::make_shared<std::optional<ExportAsSheet::Chosen>>();
+        dialog->layout()->addWidget(new ExportAsSheet(std::move(*rendered.raster), session, format, [dialog, chosen](std::optional<ExportAsSheet::Chosen> picked) {
+            *chosen = std::move(picked);
             dialog->done(*chosen ? QDialog::Accepted : QDialog::Rejected);
         }, dialog));
         connect(dialog, &QDialog::finished, this, [this, chosen, failure, end] {
@@ -149,15 +175,14 @@ void ProjectController::exportJPEG(std::function<void()> done)
                 end();
                 return;
             }
-            exportPanel(QStringLiteral("Export JPEG"), QStringLiteral("JPEG image (*.jpeg *.jpg *.jpe)"),
-                        {QStringLiteral("jpeg"), QStringLiteral("jpg"), QStringLiteral("jpe")}, suggested(session.projectPath(), QStringLiteral(".jpg")), failure,
-                        [this, data = **chosen, failure, end](std::optional<QString> path) {
-                            if (!path) {
-                                end();
-                                return;
-                            }
-                            exportWork([data, path = *path] { ImageExporter::write(data, path); }, failure, end);
-                        });
+            m_lastExportFormat = (*chosen)->format;
+            exportPanel((*chosen)->format, failure, [this, data = (*chosen)->data, failure, end](std::optional<QString> path) {
+                if (!path) {
+                    end();
+                    return;
+                }
+                exportWork([data, path = *path] { ImageExporter::write(data, path); }, failure, end);
+            });
         });
         dialog->open();
     });

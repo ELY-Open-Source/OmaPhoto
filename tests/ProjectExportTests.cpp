@@ -2,8 +2,9 @@
 #include "MenuFixtures.h"
 #include "IO/ImageExporter.h"
 #include "IO/ProjectController.h"
-#include "UI/JPEGExportSheet.h"
+#include "UI/ExportAsSheet.h"
 #include <QDialog>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QSettings>
 #include <QSlider>
@@ -22,6 +23,7 @@ private slots:
     void aJPEGPassesThroughItsSheet();
     void aJPEGNeedsAWindowAndADocument();
     void theFileMenuOffersBothExports();
+    void exportAsWritesEachFormatAndRemembersTheLast();
 };
 
 namespace {
@@ -49,9 +51,9 @@ struct Desk {
     }
     static QString path(const QString &name) { return QDir::current().absoluteFilePath(name); }
     // The shown sheet; a closed one may await deletion.
-    JPEGExportSheet *sheet()
+    ExportAsSheet *sheet()
     {
-        for (JPEGExportSheet *shown : window.findChildren<JPEGExportSheet *>())
+        for (ExportAsSheet *shown : window.findChildren<ExportAsSheet *>())
             if (shown->isVisible())
                 return shown;
         return nullptr;
@@ -141,20 +143,20 @@ void ProjectExportTests::aCancelledExportWritesNothing()
     QCOMPARE(QDir::current().entryList(QDir::Files), QStringList());
     // A JPEG cancelled at its sheet opens no panel.
     desk.controller.window = &desk.window;
-    desk.controller.exportJPEG(desk.finished());
+    desk.controller.exportAs(ExportFormat::jpeg, desk.finished());
     QTRY_VERIFY(desk.sheet());
     QTest::keyClick(desk.sheet(), Qt::Key_Escape);
     QTRY_VERIFY(desk.done);
     QCOMPARE(desk.dialogs.seen.size(), 1);
     QVERIFY(!desk.session.isProjectBusy());
-    QVERIFY(!QSettings().contains(JPEGExportSheet::qualityKey));
+    QVERIFY(!QSettings().contains(ExportAsSheet::qualityKey));
     // Cancelled at its panel, nothing is written.
     desk.dialogs.replies = {"<cancel>"};
-    desk.controller.exportJPEG(desk.finished());
-    QTRY_VERIFY(desk.sheet() && desk.sheet()->findChild<QPushButton *>("jpegExport")->isEnabled());
-    desk.sheet()->findChild<QPushButton *>("jpegExport")->click();
+    desk.controller.exportAs(ExportFormat::jpeg, desk.finished());
+    QTRY_VERIFY(desk.sheet() && desk.sheet()->findChild<QPushButton *>("exportExport")->isEnabled());
+    desk.sheet()->findChild<QPushButton *>("exportExport")->click();
     QTRY_VERIFY(desk.done);
-    QCOMPARE(desk.dialogs.seen.value(1), QString("panel|Export JPEG|save|file|Untitled.jpg|jpeg|busy 1"));
+    QCOMPARE(desk.dialogs.seen.value(1), QString("panel|Export JPEG|save|file|Untitled.jpeg|jpeg|busy 1"));
     QCOMPARE(QDir::current().entryList(QDir::Files), QStringList());
     QVERIFY(!desk.session.isProjectBusy());
 }
@@ -178,33 +180,33 @@ void ProjectExportTests::aFailedWriteIsExplained()
 void ProjectExportTests::aJPEGPassesThroughItsSheet()
 {
     Desk desk;
-    QSettings().remove(JPEGExportSheet::qualityKey);
+    QSettings().remove(ExportAsSheet::qualityKey);
     desk.dialogs.replies = {Desk::path("photo")};
     desk.dialogs.note = panelFilters;
-    desk.controller.exportJPEG(desk.finished());
+    desk.controller.exportAs(ExportFormat::jpeg, desk.finished());
     QVERIFY(desk.session.isProjectBusy());
     // The render runs aside; then the sheet holds the window.
     QTRY_VERIFY(desk.sheet());
     auto *dialog = qobject_cast<QDialog *>(desk.sheet()->parentWidget());
     QVERIFY(dialog && dialog->isVisible() && dialog->windowModality() == Qt::WindowModal);
-    QCOMPARE(dialog->windowTitle(), QString("Export JPEG"));
+    QCOMPARE(dialog->windowTitle(), QString("Export As"));
     QCOMPARE(dialog->minimumSize(), dialog->maximumSize());
-    auto *exporting = desk.sheet()->findChild<QPushButton *>("jpegExport");
-    desk.sheet()->findChild<QSlider *>("jpegQuality")->setValue(50);
+    auto *exporting = desk.sheet()->findChild<QPushButton *>("exportExport");
+    desk.sheet()->findChild<QSlider *>("exportQuality")->setValue(50);
     QTRY_VERIFY(exporting->isEnabled());
     exporting->click();
     QTRY_VERIFY(desk.done);
-    QCOMPARE(desk.dialogs.seen, QStringList{"panel|Export JPEG|save|file|Untitled.jpg|jpeg|JPEG image (*.jpeg *.jpg *.jpe)"});
+    QCOMPARE(desk.dialogs.seen, QStringList{"panel|Export JPEG|save|file|Untitled.jpeg|jpeg|JPEG image (*.jpeg *.jpg *.jpe)"});
     const ExportRaster raster = ImageExporter::render(desk.session.projectSnapshot().value());
     QCOMPARE(contents(Desk::path("photo.jpeg")), ImageExporter::jpeg(raster, {.quality = 0.5}).data);
-    QCOMPARE(QSettings().value(JPEGExportSheet::qualityKey).toDouble(), 0.5);
+    QCOMPARE(QSettings().value(ExportAsSheet::qualityKey).toDouble(), 0.5);
     QVERIFY(!desk.session.isProjectBusy());
     // Every JPEG suffix is one; another gains the preferred.
     for (const QString &name : {QStringLiteral("a.jpg"), QStringLiteral("b.JPE"), QStringLiteral("c.png")}) {
         desk.dialogs.replies = {Desk::path(name)};
-        desk.controller.exportJPEG(desk.finished());
-        QTRY_VERIFY(desk.sheet() && desk.sheet()->findChild<QPushButton *>("jpegExport")->isEnabled());
-        desk.sheet()->findChild<QPushButton *>("jpegExport")->click();
+        desk.controller.exportAs(ExportFormat::jpeg, desk.finished());
+        QTRY_VERIFY(desk.sheet() && desk.sheet()->findChild<QPushButton *>("exportExport")->isEnabled());
+        desk.sheet()->findChild<QPushButton *>("exportExport")->click();
         QTRY_VERIFY(desk.done);
     }
     QVERIFY(QFileInfo::exists(Desk::path("a.jpg")) && QFileInfo::exists(Desk::path("b.JPE")) && QFileInfo::exists(Desk::path("c.png.jpeg")));
@@ -214,14 +216,14 @@ void ProjectExportTests::aJPEGNeedsAWindowAndADocument()
 {
     Desk desk;
     desk.controller.window = nullptr;
-    desk.controller.exportJPEG(desk.finished());
+    desk.controller.exportAs(ExportFormat::jpeg, desk.finished());
     QVERIFY(!desk.session.isProjectBusy());
     QTRY_VERIFY(desk.done);
     EditorSession empty;
     ProjectController idle(empty);
     idle.window = &desk.window;
     bool refused = false;
-    idle.exportJPEG([&refused] { refused = true; });
+    idle.exportAs(ExportFormat::jpeg, [&refused] { refused = true; });
     idle.exportPNG([&refused] { refused = true; });
     QTRY_VERIFY(refused);
     QVERIFY(desk.dialogs.seen.isEmpty() && !empty.isProjectBusy());
@@ -239,11 +241,14 @@ void ProjectExportTests::theFileMenuOffersBothExports()
 {
     QTemporaryDir folder;
     Bar bar;
-    QVERIFY(!bar.action("exportPNG").isEnabled() && !bar.action("exportJPEG").isEnabled());
+    const auto all = [&](bool enabled) {
+        return bar.action("exportPNG").isEnabled() == enabled && bar.action("exportJPEG").isEnabled() == enabled && bar.action("exportAs").isEnabled() == enabled;
+    };
+    QVERIFY(all(false));
     bar.session().createDocument(8, 8);
-    QVERIFY(bar.action("exportPNG").isEnabled() && bar.action("exportJPEG").isEnabled());
+    QVERIFY(all(true));
     bar.session().setIsProjectBusy(true);
-    QVERIFY(!bar.action("exportPNG").isEnabled() && !bar.action("exportJPEG").isEnabled());
+    QVERIFY(all(false));
     bar.session().setIsProjectBusy(false);
     DialogDesk desk;
     desk.replies = {folder.filePath("Shot.png")};
@@ -251,20 +256,72 @@ void ProjectExportTests::theFileMenuOffersBothExports()
     QTRY_VERIFY(QFileInfo::exists(folder.filePath("Shot.png")) && !bar.session().isProjectBusy());
     bar.window.show();
     bar.action("exportJPEG").trigger();
-    QTRY_VERIFY(bar.window.findChild<JPEGExportSheet *>());
+    QTRY_VERIFY(bar.window.findChild<ExportAsSheet *>());
     // The menus' zoom keys reach the preview, not the canvas.
-    JPEGExportSheet &sheet = *bar.window.findChild<JPEGExportSheet *>();
+    ExportAsSheet &sheet = *bar.window.findChild<ExportAsSheet *>();
     QTRY_COMPARE(QApplication::activeWindow(), sheet.window());
     const double zoom = bar.session().viewport.zoom();
     QTest::keyClick(&sheet, Qt::Key_1, Qt::ControlModifier);
     QCOMPARE(sheet.findChild<JPEGPreview *>()->zoom(), std::optional(1.0));
     QCOMPARE(bar.session().viewport.zoom(), zoom);
     // In the dialog only Export takes Return.
-    for (const char *name : {"jpegFit", "jpegZoomIn", "jpegZoomOut"})
+    for (const char *name : {"exportFit", "exportZoomIn", "exportZoomOut"})
         QVERIFY(!sheet.findChild<QPushButton *>(QString::fromLatin1(name))->autoDefault());
     QTest::keyClick(&sheet, Qt::Key_Escape);
     QTRY_VERIFY(!bar.session().isProjectBusy());
     QCOMPARE(desk.seen.size(), 1);
+}
+
+void ProjectExportTests::exportAsWritesEachFormatAndRemembersTheLast()
+{
+    Desk desk;
+    const auto checked = [&desk] {
+        for (const ExportFormat format : allExportFormats)
+            if (desk.sheet()->findChild<QAbstractButton *>(QStringLiteral("exportFormat") + rawValue(format))->isChecked())
+                return format;
+        throw std::runtime_error("no format checked");
+    };
+    // First, PNG; a PDF written then starts the next.
+    desk.dialogs.replies = {Desk::path("page")};
+    desk.dialogs.note = panelFilters;
+    desk.controller.exportAs(std::nullopt, desk.finished());
+    QTRY_VERIFY(desk.sheet());
+    QCOMPARE(checked(), ExportFormat::png);
+    desk.sheet()->findChild<QAbstractButton *>("exportFormatPDF")->click();
+    auto *exporting = desk.sheet()->findChild<QPushButton *>("exportExport");
+    QTRY_VERIFY(exporting->isEnabled());
+    exporting->click();
+    QTRY_VERIFY(desk.done);
+    QCOMPARE(desk.dialogs.seen, QStringList{"panel|Export PDF|save|file|Untitled.pdf|pdf|PDF document (*.pdf)"});
+    const ExportRaster raster = ImageExporter::render(desk.session.projectSnapshot().value());
+    QCOMPARE(contents(Desk::path("page.pdf")), ImageExporter::pdfData(raster, QColor(Qt::white)));
+    QVERIFY(!desk.session.isProjectBusy());
+    desk.controller.exportAs(std::nullopt, desk.finished());
+    QTRY_VERIFY(desk.sheet());
+    QCOMPARE(checked(), ExportFormat::pdf);
+    QTest::keyClick(desk.sheet(), Qt::Key_Escape);
+    QTRY_VERIFY(desk.done);
+    // Export JPEG starts on JPEG, whatever came last.
+    desk.controller.exportAs(ExportFormat::jpeg, desk.finished());
+    QTRY_VERIFY(desk.sheet());
+    QCOMPARE(checked(), ExportFormat::jpeg);
+    QTest::keyClick(desk.sheet(), Qt::Key_Escape);
+    QTRY_VERIFY(desk.done);
+    // A PNG through Export As, scaled to half.
+    desk.dialogs.seen.clear();
+    desk.dialogs.replies = {Desk::path("half")};
+    desk.controller.exportAs(ExportFormat::png, desk.finished());
+    QTRY_VERIFY(desk.sheet());
+    auto *width = desk.sheet()->findChild<QLineEdit *>("exportWidth");
+    width->setFocus();
+    width->selectAll();
+    QTest::keyClicks(width, "20");
+    QTest::keyClick(width, Qt::Key_Return);
+    QTRY_VERIFY(desk.sheet()->findChild<QPushButton *>("exportExport")->isEnabled());
+    desk.sheet()->findChild<QPushButton *>("exportExport")->click();
+    QTRY_VERIFY(desk.done);
+    QCOMPARE(desk.dialogs.seen, QStringList{"panel|Export PNG|save|file|Untitled.png|png|PNG image (*.png)"});
+    QCOMPARE(contents(Desk::path("half.png")), ImageExporter::pngData(ImageExporter::resized(raster, 20, 10)));
 }
 
 QTEST_MAIN(ProjectExportTests)

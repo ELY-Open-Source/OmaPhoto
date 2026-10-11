@@ -2,7 +2,7 @@
 #include "Rendering/AdjustmentSurface.h"
 #include "Rendering/EditorCanvas.h"
 #include "RenderFixtures.h"
-#include "UI/JPEGExportSheet.h"
+#include "UI/ExportAsSheet.h"
 #include "UI/LevelsSheet.h"
 #include <QScrollBar>
 #include <QtTest>
@@ -178,8 +178,8 @@ void HighDpiCanvasTests::theJPEGPreviewCountsDevicePixels()
     for (int y = 0; y < 800; ++y)
         for (int x = 0; x < 1200; ++x)
             image.setPixelColor(x, y, QColor((x * 7 + y) % 256, (x + y * 3) % 256, (x * y) % 256));
-    JPEGPreview preview(QSize(1200, 800), [] {}, nullptr);
-    preview.setImage(image, false);
+    JPEGPreview preview([] {}, nullptr);
+    preview.setImage(image, QSize(1200, 800), false);
     preview.show();
     QVERIFY(QTest::qWaitForWindowExposed(&preview));
     // 600 by 400 points: Fit 0.825, averaged per device pixel.

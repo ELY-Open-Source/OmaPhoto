@@ -1,4 +1,4 @@
-#include "UI/JPEGExportSheet.h"
+#include "UI/ExportAsSheet.h"
 #include "Document/EditorSession.h"
 #include "UI/KeyboardShortcuts.h"
 #include <QHBoxLayout>
@@ -64,8 +64,10 @@ struct Paints : QObject {
 };
 
 struct Shown {
+    // The export's size, the preview's image at most that.
+    QSize pixels;
     JPEGPreview preview;
-    explicit Shown(QSize pixels, std::function<void()> zoomed = [] {}) : preview(pixels, std::move(zoomed), nullptr)
+    explicit Shown(QSize size, std::function<void()> zoomed = [] {}) : pixels(size), preview(std::move(zoomed), nullptr)
     {
         preview.show();
         if (!QTest::qWaitForWindowExposed(&preview))
@@ -110,14 +112,14 @@ void JPEGPreviewTests::itDrawsFittedAndBelowOneThroughAnAverage()
     QCOMPARE(drawn(preview).pixelColor(280, 165), QColor(31, 31, 31));
     Paints paints(preview.viewport());
     const QImage first = noise(1100, 660, 1);
-    preview.setImage(first, false);
+    preview.setImage(first, shown.pixels, false);
     QTRY_VERIFY(paints.count > 0);
     // Fitted, 550 by 330 in the middle, averaged down.
     QVERIFY(shows(preview, QRect(5, 0, 550, 330), first.scaled(550, 330, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)));
     QCOMPARE(drawn(preview).pixelColor(4, 165), QColor(31, 31, 31));
     // A new image of the same size is averaged anew.
     const QImage second = noise(1100, 660, 2);
-    preview.setImage(second, false);
+    preview.setImage(second, shown.pixels, false);
     QVERIFY(shows(preview, QRect(5, 0, 550, 330), second.scaled(550, 330, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)));
     // A quarter, then Fit again: each size averaged for itself.
     QCoreApplication::processEvents();
@@ -136,7 +138,7 @@ void JPEGPreviewTests::fromOneUpEachPixelShowsAsItIs()
     Shown shown(QSize(1100, 660));
     JPEGPreview &preview = shown.preview;
     const QImage image = noise(1100, 660, 3);
-    preview.setImage(image, false);
+    preview.setImage(image, shown.pixels, false);
     shown.zoom(2);
     // Bars come once laid out; ranges follow the view.
     QScrollBar &across = *preview.horizontalScrollBar(), &down = *preview.verticalScrollBar();
@@ -149,12 +151,12 @@ void JPEGPreviewTests::fromOneUpEachPixelShowsAsItIs()
     down.setValue(60);
     QVERIFY(shows(preview, QRect(0, 0, 200, 100), image.copy(50, 30, 100, 50).scaled(200, 100)));
     // A smaller decode still spans the export's pixels.
-    preview.setImage(image.scaled(550, 330), false);
+    preview.setImage(image.scaled(550, 330), shown.pixels, false);
     shown.zoom(1);
     QCOMPARE(down.maximum(), 660 - preview.viewport()->height());
     // A size between pixels reaches its last one.
     Shown odd(QSize(1201, 1201));
-    odd.preview.setImage(noise(1201, 1201, 4), false);
+    odd.preview.setImage(noise(1201, 1201, 4), odd.pixels, false);
     odd.zoom(0.5);
     QCOMPARE(odd.preview.horizontalScrollBar()->maximum(), int(std::ceil(600.5 - odd.preview.viewport()->width())));
 }
@@ -162,7 +164,7 @@ void JPEGPreviewTests::fromOneUpEachPixelShowsAsItIs()
 void JPEGPreviewTests::theUpdatingPlateSitsInTheMiddle()
 {
     Shown shown(QSize(1100, 660));
-    shown.preview.setImage(QImage(), true);
+    shown.preview.setImage(QImage(), shown.pixels, true);
     const QImage image = drawn(shown.preview);
     const QColor window = shown.preview.palette().color(QPalette::Window);
     const int plate = qRound(window.red() * 0.85 + 31 * 0.15);
@@ -181,7 +183,7 @@ void JPEGPreviewTests::zoomKeepsTheMiddleAndDragsMoveIt()
     int heard = 0;
     Shown shown(QSize(1200, 800), [&heard] { ++heard; });
     JPEGPreview &preview = shown.preview;
-    preview.setImage(noise(1200, 800, 5), false);
+    preview.setImage(noise(1200, 800, 5), shown.pixels, false);
     // From Fit, the middle of the image.
     Paints paints(preview.viewport());
     preview.setZoom(1);
@@ -204,6 +206,7 @@ void JPEGPreviewTests::zoomKeepsTheMiddleAndDragsMoveIt()
     QVERIFY(across.value() == 20 && down.value() == 35);
     // A half-pixel landing rounds, as Swift scrolls to it.
     Shown odd(QSize(1201, 801));
+    odd.preview.setImage(QImage(), odd.pixels, true);
     odd.preview.setZoom(1);
     QVERIFY(odd.preview.horizontalScrollBar()->value() == 321 && odd.preview.verticalScrollBar()->value() == 236);
     shown.zoom(2);
@@ -244,26 +247,26 @@ void JPEGPreviewTests::zoomKeepsTheMiddleAndDragsMoveIt()
 
 void JPEGPreviewTests::theSheetsButtonsAndKeysZoomIt()
 {
-    QSettings().remove(JPEGExportSheet::qualityKey);
+    QSettings().remove(ExportAsSheet::qualityKey);
     EditorSession session;
     QImage red(1200, 800, QImage::Format_RGBA8888_Premultiplied);
     red.fill(Qt::red);
-    JPEGExportSheet sheet({red, 72}, session, [](std::optional<QByteArray>) {});
+    ExportAsSheet sheet({red, 72}, session, ExportFormat::jpeg, [](std::optional<ExportAsSheet::Chosen>) {});
     sheet.show();
     QVERIFY(QTest::qWaitForWindowActive(&sheet));
     auto &preview = *sheet.findChild<JPEGPreview *>();
-    auto &fit = *sheet.findChild<QPushButton *>(QStringLiteral("jpegFit"));
-    auto &in = *sheet.findChild<QPushButton *>(QStringLiteral("jpegZoomIn"));
-    auto &out = *sheet.findChild<QPushButton *>(QStringLiteral("jpegZoomOut"));
+    auto &fit = *sheet.findChild<QPushButton *>(QStringLiteral("exportFit"));
+    auto &in = *sheet.findChild<QPushButton *>(QStringLiteral("exportZoomIn"));
+    auto &out = *sheet.findChild<QPushButton *>(QStringLiteral("exportZoomOut"));
     // Title row 8 above the preview; bottom row 12 apart.
     auto *top = qobject_cast<QVBoxLayout *>(sheet.layout()->itemAt(0)->layout());
     auto *title = qobject_cast<QHBoxLayout *>(top->itemAt(0)->layout());
     QVERIFY(top->spacing() == 8 && title->spacing() == 8 && title->itemAt(2)->widget() == &fit && title->itemAt(4)->widget() == &out);
-    auto *bottom = qobject_cast<QHBoxLayout *>(sheet.layout()->itemAt(3)->layout());
-    QVERIFY(bottom->spacing() == 12 && bottom->itemAt(0)->widget()->objectName() == QString("jpegSize") && bottom->itemAt(1)->spacerItem());
+    auto *bottom = qobject_cast<QHBoxLayout *>(sheet.layout()->itemAt(2)->layout());
+    QVERIFY(bottom->spacing() == 12 && bottom->itemAt(0)->widget()->objectName() == QString("exportNote") && bottom->itemAt(1)->spacerItem());
     QVERIFY(!fit.isEnabled() && in.isEnabled() && out.isEnabled() && in.accessibleName() == QString("Zoom in"));
     QCOMPARE(fit.toolTip(), QString("Show the whole image (Ctrl+0)"));
-    QCOMPARE(in.toolTip(), QString("Zoom in (Ctrl+=), now 41%. At 100% each pixel of the JPEG is one pixel of the screen, as on the canvas"));
+    QCOMPARE(in.toolTip(), QString("Zoom in (Ctrl+=), now 41%. At 100% each pixel of the export is one pixel of the screen"));
     QCOMPARE(out.toolTip(), QString("Zoom out (Ctrl+-), now 41%"));
     // The magnifiers in the button ink, redrawn with the theme.
     const QImage before = in.icon().pixmap(16).toImage();
@@ -273,7 +276,7 @@ void JPEGPreviewTests::theSheetsButtonsAndKeysZoomIt()
     QVERIFY(in.icon().pixmap(16).toImage() != before && out.icon().pixmap(16).toImage() != in.icon().pixmap(16).toImage());
     out.click();
     QVERIFY(preview.zoom() == std::optional(0.25) && !out.isEnabled() && fit.isEnabled());
-    QCOMPARE(in.toolTip(), QString("Zoom in (Ctrl+=), now 25%. At 100% each pixel of the JPEG is one pixel of the screen, as on the canvas"));
+    QCOMPARE(in.toolTip(), QString("Zoom in (Ctrl+=), now 25%. At 100% each pixel of the export is one pixel of the screen"));
     in.click();
     QCOMPARE(preview.zoom(), std::optional(0.5));
     fit.click();

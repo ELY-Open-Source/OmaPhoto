@@ -43,6 +43,16 @@ ExportRaster render(const ProjectSnapshot &snapshot);
 // Flattened on white, 1024 a side; none past 50 megapixels.
 std::optional<QuickLookImages> quickLookImages(const ProjectSnapshot &snapshot);
 QByteArray pngData(const ProjectSnapshot &snapshot);
+QByteArray pngData(const ExportRaster &raster);
+// Export As's size: resampled smooth, the resolution kept.
+ExportRaster resized(const ExportRaster &raster, int width, int height);
+// The picture over a solid colour, as pages show it.
+QImage flattened(const ExportRaster &raster, const QColor &background);
+// One page the printed size, the pixels lossless, alpha kept.
+QByteArray pdfData(const ProjectSnapshot &snapshot);
+// `background` fills the page under the picture; none stays clear.
+QByteArray pdfData(const ExportRaster &raster, std::optional<QColor> background = std::nullopt);
+void exportPDF(const ProjectSnapshot &snapshot, const QString &path);
 // Stops at Swift's three points once `cancelled` says so.
 JPEGResult jpeg(const ExportRaster &raster, const JPEGOptions &options, const std::function<bool()> &cancelled = {});
 void exportPNG(const ProjectSnapshot &snapshot, const QString &path);

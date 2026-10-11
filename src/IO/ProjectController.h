@@ -6,12 +6,18 @@
 #include <QPointer>
 #include <QUrl>
 #include <QWidget>
+#include <array>
 #include <deque>
 #include <functional>
 #include <optional>
 
 class ProjectWorkspace;
 class QDialog;
+
+// What File › Export As… writes.
+enum class ExportFormat { png, jpeg, pdf };
+inline constexpr std::array allExportFormats{ExportFormat::png, ExportFormat::jpeg, ExportFormat::pdf};
+QString rawValue(ExportFormat format);
 
 // One project's file operations: save, open, close, drops.
 class ProjectController : public QObject {
@@ -44,8 +50,10 @@ public:
     void gridSettings(std::function<void()> done = {});
     void imageSize(std::function<void()> done = {});
     void trim(std::function<void()> done = {});
+    // A quick, lossless save of the flattened canvas.
     void exportPNG(std::function<void()> done = {});
-    void exportJPEG(std::function<void()> done = {});
+    // PNG, JPEG or PDF, sized and previewed before writing.
+    void exportAs(std::optional<ExportFormat> start = std::nullopt, std::function<void()> done = {});
 
     // Swift's ProjectController+ExternalChanges: the package kept in step.
     ExternalChangeState externalChanges;
@@ -94,8 +102,8 @@ private:
     // Off the UI thread, then landed, skipped or explained.
     void resizeProject(std::function<std::optional<ProjectSnapshot>(const ProjectSnapshot &)> resize, std::function<void(const ProjectSnapshot &)> land,
                        const QString &failure, std::function<void()> done);
-    void exportPanel(const QString &title, const QString &filter, const QStringList &suffixes, const QString &name, const QString &failure,
-                     std::function<void(std::optional<QString>)> then);
+    // Swift's savePanel: the project's name, the format's suffix.
+    void exportPanel(ExportFormat format, const QString &failure, std::function<void(std::optional<QString>)> then);
     void exportWork(std::function<void()> work, const QString &failure, std::function<void()> end);
     void drainIncoming();
     void handle(const Incoming &request);
@@ -113,4 +121,6 @@ private:
     std::vector<std::function<void()>> m_writeWaiters;
     std::deque<Incoming> m_incoming;
     bool m_processing = false;
+    // The format Export As last wrote, offered first next time.
+    ExportFormat m_lastExportFormat = ExportFormat::png;
 };
