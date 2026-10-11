@@ -32,6 +32,10 @@ public:
     // The next stop past the zoom, else the zoom.
     double keyboardZoomTarget(int step) const;
     void translate(QSizeF by);
+    // Swift's NavigatorGeometry extension: what the canvas shows, in pixels.
+    QRectF visibleDocumentRect(QSizeF documentSize) const;
+    // `point` to the middle at the same zoom; Fit stops.
+    void centerView(QPointF point, QSizeF documentSize);
     friend bool operator==(const CanvasViewport &lhs, const CanvasViewport &rhs);
 
 private:

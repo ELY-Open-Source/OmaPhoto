@@ -31,6 +31,7 @@ add_library(compositor_core STATIC
     src/Document/Distort.cpp
     src/Document/DocumentHistory.cpp
     src/Document/EditorSession.cpp
+    src/Document/EditorSession+Navigator.cpp
     src/Document/EditorSession+Brush.cpp
     src/Document/EditorSession+Imports.cpp
     src/Document/EditorSession+Layers.cpp
@@ -123,6 +124,7 @@ add_library(compositor_core STATIC
     src/UI/LayerIcons.cpp
     src/UI/LassoControls.cpp
     src/UI/LayerMaskMenu.cpp
+    src/UI/NavigatorMinimap.cpp
     src/UI/LayersPanel.cpp
     src/UI/LevelsSheet.cpp
     src/UI/HueSaturationSheet.cpp
@@ -234,6 +236,7 @@ add_library(compositor_core STATIC
     src/Rendering/LayerEffectsKernel.cpp
     src/Rendering/LayerEffectsSurface.cpp
     src/Rendering/LayerRenderer.cpp
+    src/Rendering/NavigatorGeometry.cpp
     src/Rendering/LiveMaskRenderer.cpp
     src/Rendering/BrushCoverage.cpp
     src/Rendering/RasterSnapshot.cpp

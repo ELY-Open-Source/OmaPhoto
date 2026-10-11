@@ -2,6 +2,7 @@
 #include "IO/RecentProjects.h"
 #include "Logging.h"
 #include "UI/KeyboardShortcuts.h"
+#include "UI/NavigatorMinimap.h"
 #include "UI/ProjectWorkspaceView.h"
 #include <QApplication>
 #include <QMenu>
@@ -142,6 +143,10 @@ CompositorMenus::CompositorMenus(ProjectWorkspace &workspace, QMenuBar &bar, Pro
     };
     add(view, QStringLiteral("zoomIn"), QStringLiteral("Zoom In"), QKeySequence(Qt::CTRL | Qt::Key_Equal), [zoomBy] { zoomBy(1); });
     add(view, QStringLiteral("zoomOut"), QStringLiteral("Zoom Out"), QKeySequence(Qt::CTRL | Qt::Key_Minus), [zoomBy] { zoomBy(-1); });
+    add(view, QStringLiteral("navigator"), QStringLiteral("Navigator (300% and above)"), QKeySequence(), [this] {
+        NavigatorMinimap::setVisibleSetting(!NavigatorMinimap::visibleSetting());
+        session().notify();
+    })->setCheckable(true);
     add(view, QStringLiteral("pixelGrid"), QStringLiteral("Pixel Grid (800% and above)"), QKeySequence(), [this] { session().setShowsPixelGrid(!session().showsPixelGrid()); })
         ->setCheckable(true);
     // Ctrl+H: the Move tool's box; the desktop hides apps.
@@ -369,6 +374,7 @@ void CompositorMenus::synchronize()
     action(QStringLiteral("redo"))->setEnabled(typing || s.canRedo());
     for (const char *name : {"fit", "actualPixels", "zoomIn", "zoomOut"})
         action(QString::fromLatin1(name))->setEnabled(drawn);
+    action(QStringLiteral("navigator"))->setChecked(NavigatorMinimap::visibleSetting());
     action(QStringLiteral("pixelGrid"))->setChecked(s.showsPixelGrid());
     action(QStringLiteral("toggleFullscreen"))->setChecked(s.canvasOnly());
     action(QStringLiteral("toggleFullscreen"))->setEnabled(s.canToggleCanvasOnly());

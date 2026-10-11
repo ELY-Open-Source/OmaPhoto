@@ -1,6 +1,9 @@
 #include "MenuFixtures.h"
 #include "Rendering/EditorCanvas.h"
 #include "UI/GridSettingsSheet.h"
+#include "UI/NavigatorMinimap.h"
+#include <QSettings>
+#include <QStandardPaths>
 #include <QLineEdit>
 
 // The View menu: zoom, the pixel grid and Snap.
@@ -11,6 +14,7 @@ private slots:
     void thePixelGridEntryTogglesTheSession();
     void guideEntriesFollowTheSession();
     void gridSettingsOpensItsSheet();
+    void theNavigatorEntryShowsTheMinimap();
 };
 
 void ViewMenuTests::viewEntriesZoomTheFrontSession()
@@ -139,6 +143,37 @@ void ViewMenuTests::gridSettingsOpensItsSheet()
     QTest::keyClick(bar.window.findChild<GridSettingsSheet *>(), Qt::Key_Escape);
     QTRY_VERIFY(!bar.window.findChild<GridSettingsSheet *>());
     QVERIFY(!bar.session().showsGrid());
+}
+
+// Swift 1.4.9: off until turned on, then shown from 300%.
+void ViewMenuTests::theNavigatorEntryShowsTheMinimap()
+{
+    QStandardPaths::setTestModeEnabled(true);
+    QSettings().remove(QLatin1String(NavigatorMinimap::visibleKey));
+    Bar bar;
+    bar.window.resize(1180, 780);
+    bar.window.show();
+    QAction &entry = bar.action("navigator");
+    QVERIFY(entry.isCheckable() && !entry.isChecked() && entry.isEnabled());
+    QCOMPARE(entry.text(), QString("Navigator (300% and above)"));
+    // Before Pixel Grid, as Swift's.
+    const QList<QAction *> view = entry.associatedObjects().isEmpty() ? QList<QAction *>() : qobject_cast<QMenu *>(entry.associatedObjects().first())->actions();
+    QCOMPARE(view.indexOf(&entry) + 1, view.indexOf(&bar.action("pixelGrid")));
+    bar.session().createDocument(400, 300);
+    QTRY_VERIFY(bar.window.findChild<NavigatorMinimap *>());
+    auto *minimap = bar.window.findChild<NavigatorMinimap *>();
+    bar.session().zoom(4);
+    QVERIFY(minimap->isHidden());
+    entry.trigger();
+    QVERIFY(entry.isChecked() && NavigatorMinimap::visibleSetting() && !minimap->isHidden());
+    // At the canvas's top right, 12 points in.
+    QTRY_COMPARE(minimap->geometry(), QRect(minimap->parentWidget()->width() - 12 - 120, 12, 120, 90));
+    bar.session().zoom(2);
+    QVERIFY(minimap->isHidden());
+    bar.session().zoom(4);
+    entry.trigger();
+    QVERIFY(!entry.isChecked() && !NavigatorMinimap::visibleSetting() && minimap->isHidden());
+    QSettings().remove(QLatin1String(NavigatorMinimap::visibleKey));
 }
 
 QTEST_MAIN(ViewMenuTests)

@@ -12,6 +12,7 @@
 #include "UI/TypeControls.h"
 #include "UI/LassoControls.h"
 #include "UI/LayerMaskMenu.h"
+#include "UI/NavigatorMinimap.h"
 #include "UI/NavigationToolHeader.h"
 #include "UI/TransformInspector.h"
 #include "UI/NewCanvasSheet.h"
@@ -244,6 +245,9 @@ ContentView::ContentView(EditorSession &session, ProjectController *projects, QW
     m_canvasSlot->addWidget(m_dropRing, 0, 0);
     // A layout takes no clicks; the canvas keeps the rest.
     auto *foot = new QVBoxLayout;
+    // Swift's minimap sits 12 in, at the top right.
+    foot->setContentsMargins(12, 12, 12, 0);
+    foot->addWidget(new NavigatorMinimap(session, canvas), 0, Qt::AlignRight);
     foot->addStretch(1);
     foot->addWidget(m_maskAloneBadge, 0, Qt::AlignHCenter);
     foot->addSpacing(14);

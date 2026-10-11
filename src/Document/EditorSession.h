@@ -313,6 +313,7 @@ public:
 #include "Document/Guides+Session.h"
 #include "Document/ObjectSelection+Session.h"
 #include "Document/ColorRangeSelection+Session.h"
+#include "Document/EditorSession+Navigator.h"
 signals:
     void changed();
 
