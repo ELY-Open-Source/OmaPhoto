@@ -16,7 +16,7 @@ It is a Linux port of [Compositor](https://github.com/robbietilton/Compositor) b
 - Filters: Gaussian and motion blur, noise, lens correction, Vignette, Bloom / Glow, Tonal Contrast, Dither, Scanlines, Content-Aware Fill and Remove Background (U²-Net on ONNX Runtime, offline)
 - Last Filter (Ctrl+Meta+F) runs the last filter again with the same settings
 - Crop, trim, canvas size, image size; PNG, JPEG and one-page PDF export, scaled if you like, with a zoomable preview (File › Export As…); New Canvas presets for screens and social formats
-- Imports JPEG, PNG, TIFF, HEIC, SVG, Photoshop files (PSD and PSB) and camera RAW
+- Imports JPEG, PNG, TIFF, HEIC, WebP, SVG, Photoshop files (PSD and PSB) and camera RAW
 - A Navigator minimap in the canvas's corner from 300% zoom: the whole document in small with a box around the view; click or drag to move there (View › Navigator)
 - Open Recent, and a Keyboard Shortcuts window
 - Search Commands (Ctrl+F): find every menu command and tool by name and run it with Return

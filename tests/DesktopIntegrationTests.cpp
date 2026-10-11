@@ -71,7 +71,7 @@ void DesktopIntegrationTests::theEntryOpensSwiftsDocumentTypes()
     QCOMPARE(keys.value("Terminal"), QString("false"));
     QVERIFY(keys.value("Categories").split(QLatin1Char(';')).contains("Graphics"));
     // Swift's two document types: its projects, then four pictures.
-    QCOMPARE(keys.value("MimeType"), QString("application/x-compositor-project;image/png;image/jpeg;image/heic;image/tiff;image/vnd.adobe.photoshop;image/x-photoshop-large-image;image/svg+xml;image/svg+xml-compressed;image/x-dcraw;"));
+    QCOMPARE(keys.value("MimeType"), QString("application/x-compositor-project;image/png;image/jpeg;image/heic;image/tiff;image/webp;image/vnd.adobe.photoshop;image/x-photoshop-large-image;image/svg+xml;image/svg+xml-compressed;image/x-dcraw;"));
     // Each SVG suffix's type as the system names it.
     for (const char *name : {"icon.svg", "icon.svgz"}) {
         const QString type = QMimeDatabase().mimeTypeForFile(QString::fromLatin1(name), QMimeDatabase::MatchExtension).name();

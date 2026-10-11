@@ -23,7 +23,7 @@ QString description(ImageImportError::Kind kind)
     case ImageImportError::Kind::unreadable:
         return QStringLiteral("The image could not be read. It may be damaged or unavailable.");
     case ImageImportError::Kind::unsupported:
-        return QStringLiteral("Choose a JPEG, PNG, HEIC, TIFF, or Photoshop (PSD) file.");
+        return QStringLiteral("Choose a JPEG, PNG, HEIC, TIFF, WebP, or Photoshop (PSD) file.");
     case ImageImportError::Kind::tooLarge:
         return QStringLiteral("This import exceeds the current %1-megapixel document budget or %2-pixel side limit.").arg(DocumentLimits::documentBudgetMegapixels()).arg(DocumentLimits::maxSideText());
     case ImageImportError::Kind::whiteBalance:
@@ -244,7 +244,7 @@ ImportedImage ImageImporter::decode(const QString &path, qint64 remainingPixels,
         refuse(ImageImportError::Kind::unsupported, path, QStringLiteral("ISO media that is not HEIC"));
     if (!heic && format.isEmpty())
         refuse(ImageImportError::Kind::unreadable, path, QStringLiteral("no image format is recognised"));
-    if (!heic && format != "jpeg" && format != "png" && format != "tiff")
+    if (!heic && format != "jpeg" && format != "png" && format != "tiff" && format != "webp")
         refuse(ImageImportError::Kind::unsupported, path, QString::fromLatin1(format));
     // Qt's own turning drops the colour space: turn afterwards.
     QImageIOHandler::Transformations orientation = QImageIOHandler::TransformationNone;

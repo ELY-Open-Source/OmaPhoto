@@ -8,7 +8,7 @@
 // The session cases of Swift's ImageImportTests, and the queue.
 namespace {
 const QString unreadable = QStringLiteral("The image could not be read. It may be damaged or unavailable.");
-const QString unsupported = QStringLiteral("Choose a JPEG, PNG, HEIC, TIFF, or Photoshop (PSD) file.");
+const QString unsupported = QStringLiteral("Choose a JPEG, PNG, HEIC, TIFF, WebP, or Photoshop (PSD) file.");
 const QString tooLarge = QStringLiteral("This import exceeds the current %1-megapixel document budget or 30,000-pixel side limit.").arg(DocumentLimits::documentBudgetMegapixels());
 
 // A 64 by 32 PNG, as Swift's fixture is.

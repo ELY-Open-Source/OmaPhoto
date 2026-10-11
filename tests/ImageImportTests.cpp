@@ -385,8 +385,7 @@ void ImageImportTests::limitsAndInvalidFiles()
     const QByteArray gif = QByteArray::fromHex("47494638396101000100800000000000ffffff21f90401000000002c00000000010001000002024401003b");
     const QByteArray avif = QByteArray::fromHex("0000001c667479706176696600000000617669666d6966316d696166");
     const QList<std::pair<QString, QByteArray>> unwanted{{"tiny.gif", gif}, {"tiny.avif", avif},
-                                                         {"fixture.bmp", encoded(block(QImage::Format_RGB888, red, Qt::white), "bmp")},
-                                                         {"fixture.webp", encoded(block(QImage::Format_RGB888, red, Qt::white), "webp")}};
+                                                         {"fixture.bmp", encoded(block(QImage::Format_RGB888, red, Qt::white), "bmp")}};
     for (const auto &[name, data] : unwanted) {
         QTest::ignoreMessage(QtWarningMsg, refusal);
         QVERIFY2(importError(written(folder, name, data)) == std::optional(ImageImportError::Kind::unsupported), qPrintable(name));
@@ -460,7 +459,7 @@ void ImageImportTests::thumbnailsAreSmoothed()
 void ImageImportTests::errorsCarrySwiftsDescriptions()
 {
     QCOMPARE(QString(ImageImportError(ImageImportError::Kind::unreadable).what()), QString("The image could not be read. It may be damaged or unavailable."));
-    QCOMPARE(QString(ImageImportError(ImageImportError::Kind::unsupported).what()), QString("Choose a JPEG, PNG, HEIC, TIFF, or Photoshop (PSD) file."));
+    QCOMPARE(QString(ImageImportError(ImageImportError::Kind::unsupported).what()), QString("Choose a JPEG, PNG, HEIC, TIFF, WebP, or Photoshop (PSD) file."));
     QCOMPARE(QString(ImageImportError(ImageImportError::Kind::tooLarge).what()),
              QStringLiteral("This import exceeds the current %1-megapixel document budget or 30,000-pixel side limit.").arg(DocumentLimits::documentBudgetMegapixels()));
     QCOMPARE(ImageImportError(ImageImportError::Kind::tooLarge).kind, ImageImportError::Kind::tooLarge);
