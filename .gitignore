@@ -7,3 +7,7 @@
 /packaging/arch/u2net.onnx
 
 /Compositor-Ref/
+/build-appimage/
+/AppDir/
+/*.AppImage
+/release/

@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
-# Installs OmaPhoto's latest RPM on Fedora 43 or 44.
+# Installs OmaPhoto's newest RPM on Fedora 43 or 44.
 set -euo pipefail
-base=https://github.com/ZacharyZhang-NY/OmaPhoto/releases/latest/download
+repo=https://git.zacharyzhang.com/ZacharyZhang-NY/OmaPhoto
+# The newest release's tag, from Gitea's API.
+tag=$(curl -fsSL --proto '=https' https://git.zacharyzhang.com/api/v1/repos/ZacharyZhang-NY/OmaPhoto/releases/latest | grep -o '"tag_name":"v[^"]*"' | cut -d'"' -f4) || tag=
+if [ -z "$tag" ]; then
+    echo "No release found at $repo/releases." >&2
+    exit 1
+fi
+base=$repo/releases/download/$tag
 . /etc/os-release
 release=
 case " ${ID:-} ${ID_LIKE:-} " in

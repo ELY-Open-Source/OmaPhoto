@@ -503,7 +503,8 @@ Reviews for this section ran on codex `gpt-6.1-sol` at `max` (agent `codex-sol`)
   - 13.19i review: round 1 PASS (the Qt behaviour probed on 6.4.2, 6.10.2 and 6.11.2, six mutants caught).
   - 13.19j work: `versionupdate.md` gains 13.19i's blend menu fix; `v1.4.5` tagged on main and pushed; the workflow's run is checked below.
   - [ ] 13.19j Tag `v1.4.5`; the release workflow publishes every package.
-  - [ ] 13.19k Live installs from GitHub in fresh containers.
+  - 2026-10-11: GitHub suspended the account; the project moved to Gitea (git.zacharyzhang.com), the workflow became `scripts/release.sh`, and releases gain an AppImage.
+  - [ ] 13.19k Live installs from Gitea in fresh containers.
   - [ ] 13.19l The acceptance checklist.
 
 ## Skills by phase
