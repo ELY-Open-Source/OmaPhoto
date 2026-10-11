@@ -116,12 +116,22 @@ void CanvasNavigationTests::theHandToolAndSpaceDragTheView()
     QCOMPARE(canvas.cursor().shape(), Qt::OpenHandCursor);
     QTest::keyRelease(&canvas, Qt::Key_Space);
     QCOMPARE(canvas.cursor().shape(), Qt::ArrowCursor);
+    // Space let go mid-pan: the pan goes on, closed.
+    QTest::keyPress(&canvas, Qt::Key_Space);
+    QTest::mousePress(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(50, 50));
+    QTest::keyRelease(&canvas, Qt::Key_Space);
+    QCOMPARE(canvas.cursor().shape(), Qt::ClosedHandCursor);
+    drag(canvas, QPointF(55, 50));
+    QCOMPARE(canvas.cursor().shape(), Qt::ClosedHandCursor);
+    QCOMPARE(session.viewport.pan, pan + QSizeF(50, 40));
+    QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(55, 50));
+    QCOMPARE(canvas.cursor().shape(), Qt::ArrowCursor);
     // Importing, a press starts no drag.
     session.selectTool(NavigationTool::hand);
     session.setIsImporting(true);
     QTest::mousePress(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(50, 50));
     drag(canvas, QPointF(90, 90));
-    QCOMPARE(session.viewport.pan, pan + QSizeF(45, 40));
+    QCOMPARE(session.viewport.pan, pan + QSizeF(50, 40));
     QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(90, 90));
 }
 
