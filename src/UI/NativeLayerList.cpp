@@ -44,7 +44,8 @@ void NativeLayerList::update()
         next.push_back(layers[index]);
         m_details.insert_or_assign(entry.layer.id, entry);
     }
-    m_editingEnabled = m_session.canEditLayers();
+    // Swift 1.4.8: gray for what lasts; actions ask the gates.
+    m_editingEnabled = m_session.layersLookEditable();
     // The rows are made anew when the ids change.
     bool same = next.size() == m_rows.size();
     for (size_t row = 0; same && row < next.size(); ++row)

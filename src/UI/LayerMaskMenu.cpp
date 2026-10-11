@@ -21,7 +21,7 @@ LayerMaskMenu::LayerMaskMenu(EditorSession &session, QWidget *parent) : QToolBut
 void LayerMaskMenu::synchronize()
 {
     const std::optional<ImageLayer> active = m_session.activeLayer();
-    setEnabled(m_session.canEditMask() && !(active && active->mask));
+    setEnabled(m_session.layersLookEditable() && m_session.selectedLayerIDs().size() == 1 && active && !active->mask);
     setToolTip(m_session.selection() ? QStringLiteral("Add layer mask revealing the selection (Alt-click to hide it)")
                                      : QStringLiteral("Add layer mask (Alt-click for a black mask)"));
     setIcon(footerIcon(LayerIcon::addMask, *this));

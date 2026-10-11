@@ -160,8 +160,10 @@ void BlendModePickerTests::theMaskButtonAddsAWhiteMaskOnce()
     QVERIFY(!button.isEnabled());
     session.undo();
     QVERIFY(!session.activeLayer().value().mask.has_value() && button.isEnabled());
+    // A moment's work does not gray it; lasting work does.
     session.setIsProjectBusy(true);
-    QVERIFY(!button.isEnabled());
+    QVERIFY(button.isEnabled());
+    QTRY_VERIFY(session.showsBusy() && !button.isEnabled());
     session.setIsProjectBusy(false);
     QVERIFY(button.isEnabled());
 }

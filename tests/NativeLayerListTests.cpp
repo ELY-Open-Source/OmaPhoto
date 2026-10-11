@@ -241,9 +241,9 @@ void NativeLayerListTests::theEyeTogglesAndSwipesInOneStep()
     QCOMPARE(session->history.undoCount(), steps + 1);
     session->undo();
     QVERIFY(!layerWith(*session, shown.id(0)).isVisible && !layerWith(*session, shown.id(1)).isVisible);
-    // Busy, the eye is disabled.
+    // Busy, the eye rests once the indicator shows.
     session->setIsProjectBusy(true);
-    QVERIFY(!eye->isEnabled());
+    QTRY_VERIFY(session->showsBusy() && !eye->isEnabled());
 }
 
 void NativeLayerListTests::disclosureLinkAndTheMenuReachTheSession()

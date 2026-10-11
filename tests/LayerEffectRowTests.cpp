@@ -243,7 +243,7 @@ void LayerEffectRowTests::theEyeShowsOrHidesItsEffect()
     QVERIFY(layerWith(listed.session, top).effects.value().stroke.value().isEnabled() && listed.session.history.undoName() == "Show Stroke");
     // It rests while layers cannot be edited.
     listed.session.setIsProjectBusy(true);
-    QVERIFY(!listed.eye(stroke).isEnabled());
+    QTRY_VERIFY(listed.session.showsBusy() && !listed.eye(stroke).isEnabled());
     listed.click(listed.eye(stroke), QPoint(10, 11));
     QVERIFY(layerWith(listed.session, top).effects.value().stroke.value().isEnabled() && !listed.chosen());
     listed.session.setIsProjectBusy(false);

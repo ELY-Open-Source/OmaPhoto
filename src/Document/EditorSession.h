@@ -217,6 +217,8 @@ public:
     void beginEdit(const QString &name);
     void endEdit();
     bool canEditLayers() const;
+    // The panel grays for what lasts, not for a stroke.
+    bool layersLookEditable() const;
     void addBlankLayer();
     void deleteLayer(QUuid id);
     void deleteActiveLayer();

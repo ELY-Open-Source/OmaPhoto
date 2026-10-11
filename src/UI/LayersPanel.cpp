@@ -160,10 +160,13 @@ void LayersPanel::synchronize()
     m_count->setText(QString::number(count));
     m_body->setCurrentIndex(count > 0 ? 0 : 1);
     m_emptyHint->setText(document ? QStringLiteral("Import an image or add a blank layer.") : QStringLiteral("Create a canvas or import an image."));
-    m_addBlankLayer->setEnabled(m_session.canEditLayers());
-    m_group->setEnabled(m_session.canEditLayers());
-    m_effects->setEnabled(m_session.canEditEffects());
-    m_adjustments->setEnabled(m_session.canEditLayers());
+    // Swift 1.4.8: no flash for a stroke; the session refuses.
+    const bool editable = m_session.layersLookEditable();
+    const std::optional<ImageLayer> active = m_session.activeLayer();
+    m_addBlankLayer->setEnabled(editable);
+    m_group->setEnabled(editable);
+    m_effects->setEnabled(editable && active && active->asset);
+    m_adjustments->setEnabled(editable);
     const bool mask = m_session.isMaskSelected(), several = m_session.selectedLayerIDs().size() > 1;
     const QString what = m_session.selectedEffect() ? QStringLiteral("Delete selected effect")
         : mask                                    ? QStringLiteral("Delete layer mask")
@@ -171,7 +174,7 @@ void LayersPanel::synchronize()
                                                   : QStringLiteral("Delete selected layer");
     m_delete->setToolTip(what);
     m_delete->setAccessibleName(what);
-    m_delete->setEnabled(m_session.canEditLayers() && m_session.activeLayer().has_value());
+    m_delete->setEnabled(editable && active);
     // Swift's .task(id:): a new request begins its editor.
     if (m_session.adjustmentEditingID() != m_adjustmentTask) {
         m_adjustmentTask = m_session.adjustmentEditingID();

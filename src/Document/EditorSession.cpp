@@ -263,6 +263,13 @@ void EditorSession::endEdit()
     notify();
 }
 
+bool EditorSession::layersLookEditable() const
+{
+    return !m_selectionAmountOperation && !m_colorRange && !m_textDraft && m_document && !showsBusy() && !m_isImporting && !m_showsNewDocument
+        && !m_showsImporter && !m_renamingLayerID && !(m_transformEdit && m_transformEdit->persistent) && !m_cropRect && !m_gradientEdit && !m_hueSaturation
+        && !m_levels && !m_filterEdit && !m_adjustmentEditingID;
+}
+
 bool EditorSession::canEditLayers() const
 {
     return !m_selectionAmountOperation && !m_colorRange && !m_textDraft && m_document && !m_brushStroke && !m_warpStroke && !m_isProjectBusy && !m_isImporting

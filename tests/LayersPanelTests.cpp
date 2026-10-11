@@ -137,8 +137,12 @@ void LayersPanelTests::theFooterAddsGroupsAndDeletesWithSwiftsWords()
     QTest::mouseClick(&group, Qt::LeftButton);
     QCOMPARE(session.document().value().layers.size(), size_t(2));
     QVERIFY(session.activeLayer().value().isGroup);
-    // Busy, the footer waits.
+    // Busy a moment: no flash, and the session refuses.
     session.setIsProjectBusy(true);
+    QVERIFY(add.isEnabled() && group.isEnabled() && remove.isEnabled());
+    QTest::mouseClick(&add, Qt::LeftButton);
+    QCOMPARE(session.document().value().layers.size(), size_t(2));
+    QTRY_VERIFY(session.showsBusy());
     QVERIFY(!add.isEnabled() && !group.isEnabled() && !remove.isEnabled() && !mask.isEnabled());
 }
 
@@ -231,6 +235,7 @@ void LayersPanelTests::footerButtonsTakeThePrimaryInkAndDimAsTheMenus()
     QTRY_COMPARE(brightest(find<QToolButton>(live, "addBlankLayer").icon(), QIcon::Normal).rgb(), primary.rgb());
     QVERIFY(find<QToolButton>(live, "addBlankLayer").isEnabled() && find<QToolButton>(live, "addLayerMask").isEnabled());
     working.setIsProjectBusy(true);
+    QTRY_VERIFY(working.showsBusy());
     for (const auto &[name, shape] : buttons) {
         QToolButton &button = find<QToolButton>(live, name);
         QVERIFY2(!button.isEnabled(), name);
