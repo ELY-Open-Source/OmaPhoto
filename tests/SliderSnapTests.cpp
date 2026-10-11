@@ -65,7 +65,14 @@ void SliderSnapTests::clickingTheTrackSnapsTheKnobAndStillEditsTheValue()
     }
     SliderSnap::install();
     Probe probe;
+    // Swift 07eee7e draws first; Qt's style knows the track undrawn.
+    struct Paints : QObject {
+        int count = 0;
+        bool eventFilter(QObject *, QEvent *event) override { return count += event->type() == QEvent::Paint, false; }
+    } paints;
+    probe.slider.installEventFilter(&paints);
     QTest::mousePress(&probe.slider, Qt::LeftButton, Qt::NoModifier, QPoint(180, 12));
+    QCOMPARE(paints.count, 0);
     // Editing begins, then the value lands under the press.
     QCOMPARE(probe.slider.value(), centred.at(1));
     QVERIFY(centred.at(1) > 85 && centred.at(1) < 100);
