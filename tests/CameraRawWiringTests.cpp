@@ -1,4 +1,5 @@
 #include "CameraRawFixtures.h"
+#include "Document/CameraRawTables.h"
 #include "Document/Filters.h"
 #include <QPainter>
 #include <QtTest>
@@ -65,6 +66,7 @@ class CameraRawWiringTests : public QObject {
     Q_OBJECT
 private slots:
     void aClipViewShowsOnAnUntouchedGrade();
+    void theTablesRunAroundHighlightsAndShadows();
     void autoAveragesLinearLight();
     void eachEyeClearsEveryFieldOfItsGroup();
     void effectsReachTheKernelInOrder();
@@ -83,9 +85,31 @@ void CameraRawWiringTests::aClipViewShowsOnAnUntouchedGrade()
     const QImage picture = noise();
     const QImage clipped = CameraRawSettings().apply(picture, CameraRawClipping::highlights);
     const QImage direct = kernel(picture, [](uchar *bytes, size_t w, size_t h, size_t s) {
-        adjust_camera_raw(bytes, w, h, s, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, int(CameraRawClipping::highlights));
+        adjust_camera_raw(bytes, w, h, s, nullptr, nullptr, CameraRawTables::grid, 0, 0, int(CameraRawClipping::highlights));
     });
     QVERIFY(pixels(clipped) == pixels(direct) && pixels(clipped) != pixels(picture));
+}
+
+// Exposure, balance and Contrast first; Whites to Vibrance after.
+void CameraRawWiringTests::theTablesRunAroundHighlightsAndShadows()
+{
+    const QImage picture = noise();
+    CameraRawSettings settings;
+    settings.exposure = 1;
+    settings.temperature = 40;
+    settings.highlights = -80;
+    settings.shadows = 60;
+    settings.whites = -50;
+    settings.saturation = 30;
+    const CameraRawTables::Stages stages = CameraRawTables::stages(settings);
+    const std::vector<float> before = CameraRawTables::compose(stages.before), after = CameraRawTables::compose(stages.after);
+    const QImage direct = kernel(picture, [&](uchar *bytes, size_t w, size_t h, size_t s) {
+        adjust_camera_raw(bytes, w, h, s, before.data(), after.data(), CameraRawTables::grid, -80, 60, 0);
+    });
+    const QImage swapped = kernel(picture, [&](uchar *bytes, size_t w, size_t h, size_t s) {
+        adjust_camera_raw(bytes, w, h, s, after.data(), before.data(), CameraRawTables::grid, -80, 60, 0);
+    });
+    QVERIFY(pixels(settings.apply(picture)) == pixels(direct) && pixels(direct) != pixels(swapped));
 }
 
 void CameraRawWiringTests::autoAveragesLinearLight()
@@ -95,10 +119,12 @@ void CameraRawWiringTests::autoAveragesLinearLight()
     picture.setPixelColor(1, 0, QColor(20, 60, 120));
     const auto mean = [](const std::function<double(double)> &read, int left, int right) { return (read(left / 255.0) + read(right / 255.0)) / 2; };
     const auto same = [](double value) { return value; };
-    const CameraRawSettings::Balance linear =
-        CameraRawSettings::neutralizeLinear(mean(decode, 200, 20), mean(decode, 100, 60), mean(decode, 50, 120)).value();
+    // The linear mean encoded again, as Swift's Auto does.
+    const auto encode = [](double linear) { return linear <= 0.0031308 ? linear * 12.92 : 1.055 * std::pow(linear, 1 / 2.4) - 0.055; };
+    const CameraRawSettings::Balance linear = CameraRawSettings::neutralizeStraight(encode(mean(decode, 200, 20)), encode(mean(decode, 100, 60)),
+                                                                                    encode(mean(decode, 50, 120))).value();
     const CameraRawSettings::Balance encoded =
-        CameraRawSettings::neutralizeLinear(mean(same, 200, 20), mean(same, 100, 60), mean(same, 50, 120)).value();
+        CameraRawSettings::neutralizeStraight(mean(same, 200, 20), mean(same, 100, 60), mean(same, 50, 120)).value();
     const CameraRawSettings::Balance automatic = CameraRawSettings::autoBalance(picture).value();
     QVERIFY(std::abs(automatic.temperature - linear.temperature) < 1e-9 && std::abs(automatic.tint - linear.tint) < 1e-9);
     QVERIFY(std::abs(automatic.temperature - encoded.temperature) > 1);

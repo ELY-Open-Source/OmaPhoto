@@ -132,7 +132,7 @@ void CameraRawSessionTests::hiddenGroupIsLeftOutAndOkIsOneUndoOrNone()
     count = session->history.undoCount();
     QVERIFY(awaited([&](std::function<void()> done) { session->commitFilter(std::move(done)); }));
     QVERIFY(session->history.undoCount() == count + 1 && session->history.undoName() == "Camera Raw Filter");
-    QVERIFY2(std::abs(pixels(layerImage(*session))[0][0] - 176) <= 2, "OK bakes the grade");
+    QVERIFY2(std::abs(pixels(layerImage(*session))[0][0] - 181) <= 2, "OK bakes the grade");
 }
 
 void CameraRawSessionTests::hiddenGroupStaysOutOfTheNextOpen()

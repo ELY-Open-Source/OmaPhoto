@@ -10,9 +10,10 @@ class CameraRawTests : public QObject {
     Q_OBJECT
 private slots:
     void defaultsLeavePixelsAndAlphaAlone();
-    void exposureAddsOneStopAndContrastPivotsAroundMidGray();
+    void exposureAndContrastMatchPhotoshop();
     void tonalSlidersMoveTheEndTheyName();
     void temperatureWarmsAndTintMovesTowardMagenta();
+    void whiteBalanceAndVibranceMatchPhotoshop();
     void vibranceFavorsDullColorsAndProtectsSkinWhileSaturationDoesNot();
     void textureAndClaritySharpenAnEdgeAndLeaveAFlatField();
     void dehazeDeepensOrLiftsAndKeepsAlpha();
@@ -36,23 +37,24 @@ void CameraRawTests::defaultsLeavePixelsAndAlphaAlone()
     QVERIFY(!isImageAdjustment(FilterKind::cameraRaw));
 }
 
-void CameraRawTests::exposureAddsOneStopAndContrastPivotsAroundMidGray()
+// Photoshop's Camera Raw Filter's own numbers, measured.
+void CameraRawTests::exposureAndContrastMatchPhotoshop()
 {
     const QImage input = gray();
     CameraRawSettings settings;
     settings.exposure = 1;
     const std::array<int, 4> brighter = pixels(settings.apply(input))[0];
-    QVERIFY2(std::abs(brighter[0] - 176) <= 2, qPrintable(QString::number(brighter[0])));
+    QVERIFY2(std::abs(brighter[0] - 181) <= 2, qPrintable(QString::number(brighter[0])));
     QVERIFY(brighter[0] == brighter[1] && brighter[1] == brighter[2]);
     const QImage translucent = gray(4, 4, 0.5);
     QCOMPARE(pixels(settings.apply(translucent))[0][3], pixels(translucent)[0][3]);
     settings = CameraRawSettings();
     settings.contrast = 100;
     const auto pushed = pixels(settings.apply(pair(64, 192)));
-    QVERIFY2(pushed[0][0] < 10 && pushed[1][0] > 250, "contrast +100 drives the pair apart");
+    QVERIFY2(std::abs(pushed[0][0] - 36) <= 3 && std::abs(pushed[1][0] - 213) <= 3, "contrast +100 drives the pair apart");
     settings.contrast = -100;
     const auto flat = pixels(settings.apply(pair(64, 192)));
-    QVERIFY2(std::abs(flat[0][0] - 128) <= 2 && std::abs(flat[1][0] - 128) <= 2, "contrast −100 meets at mid gray");
+    QVERIFY2(std::abs(flat[0][0] - 88) <= 3 && std::abs(flat[1][0] - 174) <= 3, "contrast −100 draws them together");
 }
 
 void CameraRawTests::tonalSlidersMoveTheEndTheyName()
@@ -65,7 +67,7 @@ void CameraRawTests::tonalSlidersMoveTheEndTheyName()
     settings = CameraRawSettings();
     settings.whites = 100;
     const auto clipped = pixels(settings.apply(brightAndMid));
-    QVERIFY(clipped[0][0] == 255 && std::abs(clipped[1][0] - 128) <= 2);
+    QVERIFY2(clipped[0][0] == 255 && clipped[1][0] > 128, "whites lift the midtone too, as in Photoshop");
     const auto view = pixels(settings.apply(brightAndMid, CameraRawClipping::highlights));
     QVERIFY2((view[0] == std::array{255, 255, 255, 255}) && (view[1] == std::array{0, 0, 0, 255}), "highlight clipping is not the grade");
     const QImage darkAndMid = pair(20, 128);
@@ -76,7 +78,7 @@ void CameraRawTests::tonalSlidersMoveTheEndTheyName()
     settings = CameraRawSettings();
     settings.blacks = -100;
     const auto crushed = pixels(settings.apply(darkAndMid));
-    QVERIFY(crushed[0][0] < 20 && std::abs(crushed[1][0] - 128) <= 2);
+    QVERIFY2(crushed[0][0] == 0 && std::abs(crushed[1][0] - 91) <= 3, "blacks darken the midtone too");
     const auto shadowView = pixels(settings.apply(darkAndMid, CameraRawClipping::shadows));
     QVERIFY2((shadowView[0] == std::array{0, 0, 0, 255}) && (shadowView[1] == std::array{255, 255, 255, 255}), "shadow clipping is not the grade");
 }
@@ -92,6 +94,33 @@ void CameraRawTests::temperatureWarmsAndTintMovesTowardMagenta()
     settings.tint = 100;
     const std::array<int, 4> magenta = pixels(settings.apply(input))[0];
     QVERIFY(magenta[1] < 128 && magenta[1] < magenta[0] && magenta[1] < magenta[2]);
+}
+
+// Once a fraction of Photoshop's strength (Swift's issue #252).
+void CameraRawTests::whiteBalanceAndVibranceMatchPhotoshop()
+{
+    struct Case {
+        const char *name;
+        std::array<int, 3> input;
+        std::function<void(CameraRawSettings &)> adjust;
+        std::array<int, 3> expected;
+    };
+    const std::vector<Case> cases{
+        {"temperature +100", {128, 128, 128}, [](CameraRawSettings &s) { s.temperature = 100; }, {235, 189, 117}},
+        {"temperature −50", {128, 128, 128}, [](CameraRawSettings &s) { s.temperature = -50; }, {102, 146, 210}},
+        {"tint +100", {128, 128, 128}, [](CameraRawSettings &s) { s.tint = 100; }, {159, 125, 215}},
+        {"tint −100", {128, 128, 128}, [](CameraRawSettings &s) { s.tint = -100; }, {98, 198, 120}},
+        {"vibrance +100 spares skin", {153, 107, 107}, [](CameraRawSettings &s) { s.vibrance = 100; }, {167, 98, 98}},
+        {"vibrance +100 fills a dull cyan", {107, 153, 153}, [](CameraRawSettings &s) { s.vibrance = 100; }, {0, 160, 160}},
+        {"vibrance −100", {92, 92, 230}, [](CameraRawSettings &s) { s.vibrance = -100; }, {164, 164, 210}},
+    };
+    for (const Case &test : cases) {
+        CameraRawSettings settings;
+        test.adjust(settings);
+        const std::array<int, 4> got = pixels(settings.apply(image(4, 4, test.input[0] / 255.0, test.input[1] / 255.0, test.input[2] / 255.0)))[0];
+        for (int c = 0; c < 3; ++c)
+            QVERIFY2(std::abs(got[c] - test.expected[c]) <= 4, test.name);
+    }
 }
 
 void CameraRawTests::vibranceFavorsDullColorsAndProtectsSkinWhileSaturationDoesNot()
@@ -112,7 +141,8 @@ void CameraRawTests::vibranceFavorsDullColorsAndProtectsSkinWhileSaturationDoesN
     settings.saturation = 100;
     const double redRatio = double(chroma(pixels(settings.apply(red))[0])) / chroma(pixels(red)[0]);
     const double blueRatio = double(chroma(pixels(settings.apply(blue))[0])) / chroma(pixels(blue)[0]);
-    QVERIFY2(std::abs(redRatio - 2) < 0.15 && std::abs(blueRatio - 2) < 0.15, "saturation doubles both");
+    // Photoshop doubles chroma in linear light: less in sRGB.
+    QVERIFY2(std::abs(redRatio - 1.85) < 0.15 && std::abs(blueRatio - 1.73) < 0.15, "saturation raises both");
 }
 
 void CameraRawTests::textureAndClaritySharpenAnEdgeAndLeaveAFlatField()

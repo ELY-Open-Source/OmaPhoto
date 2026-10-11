@@ -201,18 +201,6 @@ static double camera_clamp(double value) {
     return value;
 }
 
-static double srgb_to_linear(double encoded) {
-    if (encoded <= 0.04045) return encoded / 12.92;
-    return pow((encoded + 0.055) / 1.055, 2.4);
-}
-
-static double linear_to_srgb(double linear) {
-    if (linear <= 0) return 0;
-    if (linear >= 1) return 1;
-    if (linear <= 0.0031308) return linear * 12.92;
-    return 1.055 * pow(linear, 1.0 / 2.4) - 0.055;
-}
-
 static double rec709(double r, double g, double b) {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
@@ -255,47 +243,79 @@ static double tone_highlights(double y, double amount) {
     return camera_clamp(y + amount * (amount >= 0 ? 1.0 : 2.5) * tone_bump(1.0 - y));
 }
 
-// The top quarter is the white point: +1 maps 0.875 to 1, −1 pulls everything above 0.75 down to 0.75.
-static double tone_whites(double y, double amount) {
-    if (y <= 0.75) return y;
-    return camera_clamp(0.75 + (y - 0.75) * (1.0 + amount));
+// A measured table's color for an sRGB color (0…1), between its eight nearest entries.
+static void table_lookup(const uint8_t *table, int size, const double in[3], double out[3]) {
+    double f[3];
+    int i[3];
+    for (int c = 0; c < 3; ++c) {
+        double x = camera_clamp(in[c]) * (size - 1);
+        i[c] = x >= size - 1 ? size - 2 : (int)x;
+        f[c] = x - i[c];
+    }
+    out[0] = out[1] = out[2] = 0;
+    for (int corner = 0; corner < 8; ++corner) {
+        int dr = corner >> 2, dg = (corner >> 1) & 1, db = corner & 1;
+        double w = (dr ? f[0] : 1 - f[0]) * (dg ? f[1] : 1 - f[1]) * (db ? f[2] : 1 - f[2]);
+        if (w == 0) continue;
+        const uint8_t *p = table + (((size_t)(i[0] + dr) * size + (i[1] + dg)) * size + (i[2] + db)) * 3;
+        out[0] += w * p[0];
+        out[1] += w * p[1];
+        out[2] += w * p[2];
+    }
+    out[0] /= 255.0;
+    out[1] /= 255.0;
+    out[2] /= 255.0;
 }
 
-// The bottom quarter is the black point. Negative amounts crush toward 0; positive ones lift toward 0.25.
-static double tone_blacks(double y, double amount) {
-    if (y >= 0.25) return y;
-    return camera_clamp(0.25 + (y - 0.25) * (1.0 - amount));
+void camera_raw_compose(float *out, int grid, const CameraRawStage *stages, int count, int size) {
+    for (int r = 0; r < grid; ++r) {
+        for (int g = 0; g < grid; ++g) {
+            for (int b = 0; b < grid; ++b) {
+                double color[3] = {(double)r / (grid - 1), (double)g / (grid - 1), (double)b / (grid - 1)};
+                for (int s = 0; s < count; ++s) camera_raw_stage_color(&stages[s], size, color);
+                float *o = out + (((size_t)r * grid + g) * grid + b) * 3;
+                o[0] = (float)color[0];
+                o[1] = (float)color[1];
+                o[2] = (float)color[2];
+            }
+        }
+    }
 }
 
-static void vibrance_and_saturation(double *r, double *g, double *b, double vibrance, double saturation) {
-    double lum = rec709(*r, *g, *b);
-    double maxc = fmax(*r, fmax(*g, *b));
-    double minc = fmin(*r, fmin(*g, *b));
-    double chroma = maxc - minc;
-    double sat = maxc <= 1e-8 ? 0 : chroma / maxc;
-    double hue = 0;
-    if (chroma > 1e-8) {
-        if (*r >= *g && *r >= *b) hue = 60.0 * fmod((*g - *b) / chroma, 6.0);
-        else if (*g >= *r && *g >= *b) hue = 60.0 * ((*b - *r) / chroma + 2.0);
-        else hue = 60.0 * ((*r - *g) / chroma + 4.0);
-        if (hue < 0) hue += 360.0;
+void camera_raw_stage_color(const CameraRawStage *stage, int size, double *rgb) {
+    double next[3] = {0, 0, 0};
+    for (int t = 0; t < 4; ++t) {
+        double w = stage->weight[t];
+        if (w == 0) continue;
+        double looked[3];
+        if (stage->table[t]) table_lookup(stage->table[t], size, rgb, looked);
+        else memcpy(looked, rgb, sizeof looked);
+        for (int c = 0; c < 3; ++c) next[c] += w * looked[c];
     }
-    double skin = 0;
-    if (hue >= 10.0 && hue <= 50.0) {
-        skin = hue <= 30.0 ? (hue - 10.0) / 20.0 : (50.0 - hue) / 20.0;
-        skin *= camera_clamp((sat - 0.15) / 0.35);
+    for (int c = 0; c < 3; ++c) rgb[c] = camera_clamp(next[c]);
+}
+
+// A composed table's color for an sRGB color, between its eight nearest entries.
+static void composed_lookup(const float *table, int grid, double *r, double *g, double *b) {
+    double in[3] = {*r, *g, *b}, f[3], out[3] = {0, 0, 0};
+    int i[3];
+    for (int c = 0; c < 3; ++c) {
+        double x = camera_clamp(in[c]) * (grid - 1);
+        i[c] = x >= grid - 1 ? grid - 2 : (int)x;
+        f[c] = x - i[c];
     }
-    double amount = vibrance * (1.0 - sat);
-    if (vibrance > 0) amount *= 1.0 - 0.7 * skin;
-    double factor = 1.0 + amount;
-    *r = camera_clamp(lum + (*r - lum) * factor);
-    *g = camera_clamp(lum + (*g - lum) * factor);
-    *b = camera_clamp(lum + (*b - lum) * factor);
-    lum = rec709(*r, *g, *b);
-    factor = 1.0 + saturation;
-    *r = camera_clamp(lum + (*r - lum) * factor);
-    *g = camera_clamp(lum + (*g - lum) * factor);
-    *b = camera_clamp(lum + (*b - lum) * factor);
+    for (int corner = 0; corner < 8; ++corner) {
+        int dr = corner >> 2, dg = (corner >> 1) & 1, db = corner & 1;
+        double w = (dr ? f[0] : 1 - f[0]) * (dg ? f[1] : 1 - f[1]) * (db ? f[2] : 1 - f[2]);
+        if (w == 0) continue;
+        const float *p = table + (((size_t)(i[0] + dr) * grid + (i[1] + dg)) * grid + (i[2] + db)) * 3;
+        out[0] += w * p[0];
+        out[1] += w * p[1];
+        out[2] += w * p[2];
+    }
+    *r = camera_clamp(out[0]);
+    *g = camera_clamp(out[1]);
+    *b = camera_clamp(out[2]);
 }
 
 static void write_premultiplied(uint8_t *p, double r, double g, double b, double alpha) {
@@ -304,18 +324,10 @@ static void write_premultiplied(uint8_t *p, double r, double g, double b, double
     p[2] = (uint8_t)fmin(alpha, fmax(0.0, round(b * alpha)));
 }
 
-void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride,
-                       double redGain, double greenGain, double blueGain, double exposure, double contrast,
-                       double highlights, double shadows, double whites, double blacks,
-                       double vibrance, double saturation, int clipping) {
-    double light = exp2(exposure);
-    double contrastScale = 1.0 + contrast / 100.0;
+void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride, const float *before,
+                       const float *after, int grid, double highlights, double shadows, int clipping) {
     double highlightAmount = highlights / 100.0;
     double shadowAmount = shadows / 100.0;
-    double whiteAmount = whites / 100.0;
-    double blackAmount = blacks / 100.0;
-    double vibranceAmount = vibrance / 100.0;
-    double saturationAmount = saturation / 100.0;
     for (size_t y = 0; y < height; ++y) {
         uint8_t *row = rgba + y * stride;
         for (size_t x = 0; x < width; ++x) {
@@ -325,17 +337,10 @@ void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride
             double r = fmin(255.0, p[0] * 255.0 / alpha) / 255.0;
             double g = fmin(255.0, p[1] * 255.0 / alpha) / 255.0;
             double b = fmin(255.0, p[2] * 255.0 / alpha) / 255.0;
-            r = camera_clamp(srgb_to_linear(r) * redGain * light);
-            g = camera_clamp(srgb_to_linear(g) * greenGain * light);
-            b = camera_clamp(srgb_to_linear(b) * blueGain * light);
-            r = camera_clamp(0.5 + (linear_to_srgb(r) - 0.5) * contrastScale);
-            g = camera_clamp(0.5 + (linear_to_srgb(g) - 0.5) * contrastScale);
-            b = camera_clamp(0.5 + (linear_to_srgb(b) - 0.5) * contrastScale);
-            scale_luminance(&r, &g, &b, tone_highlights(rec709(r, g, b), highlightAmount));
-            scale_luminance(&r, &g, &b, tone_shadows(rec709(r, g, b), shadowAmount));
-            scale_luminance(&r, &g, &b, tone_whites(rec709(r, g, b), whiteAmount));
-            scale_luminance(&r, &g, &b, tone_blacks(rec709(r, g, b), blackAmount));
-            vibrance_and_saturation(&r, &g, &b, vibranceAmount, saturationAmount);
+            if (before) composed_lookup(before, grid, &r, &g, &b);
+            if (highlightAmount != 0) scale_luminance(&r, &g, &b, tone_highlights(rec709(r, g, b), highlightAmount));
+            if (shadowAmount != 0) scale_luminance(&r, &g, &b, tone_shadows(rec709(r, g, b), shadowAmount));
+            if (after) composed_lookup(after, grid, &r, &g, &b);
             if (clipping == 1) {
                 int rc = r >= 254.5 / 255.0, gc = g >= 254.5 / 255.0, bc = b >= 254.5 / 255.0;
                 r = rc ? 1 : 0;

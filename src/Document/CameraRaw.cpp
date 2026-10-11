@@ -1,5 +1,6 @@
 #include "Document/CameraRaw.h"
 #include "Document/BrushStroke.h"
+#include "Document/CameraRawTables.h"
 #include "Document/Filters.h"
 #include "Document/Levels.h"
 #include <QPainter>
@@ -17,6 +18,11 @@ namespace {
 double decode(double encoded)
 {
     return encoded <= 0.04045 ? encoded / 12.92 : std::pow((encoded + 0.055) / 1.055, 2.4);
+}
+
+double encode(double linear)
+{
+    return linear <= 0.0031308 ? linear * 12.92 : 1.055 * std::pow(linear, 1 / 2.4) - 0.055;
 }
 
 // The image drawn into the kernels' premultiplied context.
@@ -109,19 +115,12 @@ double CameraRawSettings::grainKernelSize() const
     return 0.5 + (grainSize / 100) * 19.5;
 }
 
-CameraRawSettings::Gains CameraRawSettings::gains() const
-{
-    const double warm = temperature / 100, magenta = tint / 100;
-    return {1 + temperatureGain * warm + tintRedBlue * magenta, 1 - tintGreen * magenta, 1 - temperatureGain * warm + tintRedBlue * magenta};
-}
-
 QImage CameraRawSettings::apply(const QImage &image, std::optional<CameraRawClipping> clipping, double scale, quint32 seed, int visualizePointColor,
                                 bool sharpenMask) const
 {
     const CameraRawSettings settings = normalized();
     if (settings.isIdentity() && !clipping && visualizePointColor < 0 && !sharpenMask)
         return image;
-    const Gains gain = settings.gains();
     const int mode = clipping ? int(*clipping) : 0;
     const double pixelScale = scale > 0 ? scale : 1;
     const bool paintColor = !clipping && !sharpenMask
@@ -135,9 +134,12 @@ QImage CameraRawSettings::apply(const QImage &image, std::optional<CameraRawClip
         const size_t w = size_t(width), h = size_t(height), s = size_t(stride);
         if (!clipping && !sharpenMask && settings.calibration.adjusts())
             settings.applyCalibration(pixels, width, height, stride);
-        if (settings.adjustsLight() || settings.adjustsColor() || clipping)
-            adjust_camera_raw(pixels, w, h, s, gain.red, gain.green, gain.blue, settings.exposure, settings.contrast, settings.highlights,
-                              settings.shadows, settings.whites, settings.blacks, settings.vibrance, settings.saturation, mode);
+        if (settings.adjustsLight() || settings.adjustsColor() || clipping) {
+            const CameraRawTables::Stages stages = CameraRawTables::stages(settings);
+            const std::vector<float> before = CameraRawTables::compose(stages.before), after = CameraRawTables::compose(stages.after);
+            adjust_camera_raw(pixels, w, h, s, before.empty() ? nullptr : before.data(), after.empty() ? nullptr : after.data(), CameraRawTables::grid,
+                              settings.highlights, settings.shadows, mode);
+        }
         if (paintColor)
             settings.applyCurveColor(pixels, width, height, stride, visualizePointColor);
         if (paintEffects) {
@@ -154,24 +156,9 @@ QImage CameraRawSettings::apply(const QImage &image, std::optional<CameraRawClip
     });
 }
 
-std::optional<CameraRawSettings::Balance> CameraRawSettings::neutralizeLinear(double red, double green, double blue)
-{
-    if (!(red > 1e-4 && green > 1e-4 && blue > 1e-4))
-        return std::nullopt;
-    const double a1 = temperatureGain * red, b1 = tintRedBlue * red + tintGreen * green, c1 = green - red;
-    const double a2 = -temperatureGain * blue, b2 = tintRedBlue * blue + tintGreen * green, c2 = green - blue;
-    const double determinant = a1 * b2 - a2 * b1;
-    if (!(std::abs(determinant) > 1e-8))
-        return std::nullopt;
-    const double warm = (c1 * b2 - c2 * b1) / determinant, magenta = (a1 * c2 - a2 * c1) / determinant;
-    if (!std::isfinite(warm) || !std::isfinite(magenta))
-        return std::nullopt;
-    return Balance{warm * 100, magenta * 100};
-}
-
 std::optional<CameraRawSettings::Balance> CameraRawSettings::neutralizeStraight(double red, double green, double blue)
 {
-    return neutralizeLinear(decode(red), decode(green), decode(blue));
+    return CameraRawTables::neutralize(red, green, blue);
 }
 
 std::optional<CameraRawSettings::Balance> CameraRawSettings::autoBalance(const QImage &image)
@@ -195,7 +182,7 @@ std::optional<CameraRawSettings::Balance> CameraRawSettings::autoBalance(const Q
     }
     if (count == 0)
         return std::nullopt;
-    return neutralizeLinear(red / count, green / count, blue / count);
+    return neutralizeStraight(encode(red / count), encode(green / count), encode(blue / count));
 }
 
 double CameraRawScope::peak() const

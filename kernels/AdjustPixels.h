@@ -30,16 +30,24 @@ void adjust_color_balance(uint8_t *rgba, size_t width, size_t height, size_t str
 // After resampling with a filter that rings (Lanczos), premultiplied RGBA colors can exceed their alpha;
 // this clamps each channel back to its pixel's alpha. `count` is the number of pixels.
 void rgba_clamp_premultiplied(uint8_t *rgba, size_t count);
-// Camera Raw's Light and Color groups on premultiplied RGBA pixels, in this order: white balance
-// (the three channel gains), exposure in stops of linear light, contrast about mid gray, highlights,
-// shadows, whites, blacks, vibrance, then saturation. Temperature and tint are relative, so the gains
-// are computed by the caller. Amounts are Camera Raw's own ranges (exposure −5…5, the rest −100…100).
-// `clipping` 0 renders the grade; 1 replaces it with a highlight-clip view (clipped channels lit on
-// black); 2 replaces it with a shadow-clip view (clipped channels dark on white). Alpha is kept.
-void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride,
-                       double redGain, double greenGain, double blueGain, double exposure, double contrast,
-                       double highlights, double shadows, double whites, double blacks,
-                       double vibrance, double saturation, int clipping);
+// One step of Camera Raw's Light and Color: up to four measured color tables (`size`³ sRGB colors, red slowest,
+// 3 bytes each) blended by weight, for a slider value between the ones measured. A null table is no change.
+typedef struct {
+    const uint8_t *table[4];
+    float weight[4];
+} CameraRawStage;
+// Runs `count` stages in order over a `grid`³ lattice of sRGB colors into `out` (3 floats per color, 0…1, red
+// slowest), so a whole run of stages costs a pixel one lookup.
+void camera_raw_compose(float *out, int grid, const CameraRawStage *stages, int count, int size);
+// One stage on one sRGB color (0…1), in place.
+void camera_raw_stage_color(const CameraRawStage *stage, int size, double *rgb);
+// Camera Raw's Light and Color groups on premultiplied RGBA pixels: the composed table `before` (exposure, white
+// balance and contrast), highlights and shadows, then the composed table `after` (whites, blacks, saturation and
+// vibrance). Either table may be null, for none. Highlights and shadows are −100…100. `clipping` 0 renders the
+// grade; 1 replaces it with a highlight-clip view (clipped channels lit on black); 2 replaces it with a shadow-clip
+// view (clipped channels dark on white). Alpha is kept.
+void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride, const float *before,
+                       const float *after, int grid, double highlights, double shadows, int clipping);
 // Camera Raw Effects after Light and Color. Texture is a fine local contrast, Clarity a broader one.
 // Dehaze raises contrast and saturation when positive and lifts the shadows when negative. Glow, its
 // range, spread and warmth do nothing until `glow` is above zero: styles are 0 diffusion, 1 bloom,

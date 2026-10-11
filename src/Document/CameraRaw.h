@@ -36,10 +36,6 @@ struct CameraRawGroups {
 // Defaults leave the image unchanged.
 struct CameraRawSettings {
     static constexpr double exposureLow = -5, exposureHigh = 5;
-    // A full warm or cool swing on red and blue.
-    static constexpr double temperatureGain = 0.35;
-    static constexpr double tintRedBlue = 0.15;
-    static constexpr double tintGreen = 0.30;
 
     CameraRawWhiteBalance whiteBalance = CameraRawWhiteBalance::custom;
     // Cool to warm, −100 to 100; tint green to magenta.
@@ -91,12 +87,6 @@ struct CameraRawSettings {
     CameraRawSettings applying(const CameraRawGroups &shown) const;
     // Camera Raw's 0 to 100 size in `adjust_grain`'s pixels.
     double grainKernelSize() const;
-    struct Gains {
-        double red;
-        double green;
-        double blue;
-    };
-    Gains gains() const;
     // `clipping`: the Option view; `scale`: preview pixels a pixel.
     QImage apply(const QImage &image, std::optional<CameraRawClipping> clipping = std::nullopt, double scale = 1, quint32 seed = 0,
                  int visualizePointColor = -1, bool sharpenMask = false) const;
@@ -104,8 +94,7 @@ struct CameraRawSettings {
         double temperature;
         double tint;
     };
-    // The temperature and tint making a linear pixel neutral.
-    static std::optional<Balance> neutralizeLinear(double red, double green, double blue);
+    // The temperature and tint turning a straight sRGB colour gray.
     static std::optional<Balance> neutralizeStraight(double red, double green, double blue);
     // Gray-world balance of the opaque pixels.
     static std::optional<Balance> autoBalance(const QImage &image);
