@@ -345,7 +345,10 @@ void CanvasNavigationTests::ctrlOrMetaWithTheMiddleButtonZooms()
     move(QPointF(60, 100), Qt::LeftButton | Qt::MiddleButton);
     QCOMPARE(session.viewport.zoom(), 2.0);
     QCOMPARE(session.viewport.pan, expected.pan);
+    // The magnifier outranks the Hand drag's closed hand.
+    QCOMPARE(canvas.cursor().pixmap().toImage(), plus);
     QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(60, 100));
+    QCOMPARE(canvas.cursor().shape(), Qt::ClosedHandCursor);
     QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(60, 100));
 }
 
