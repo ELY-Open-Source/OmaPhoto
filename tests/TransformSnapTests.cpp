@@ -77,8 +77,13 @@ void TransformSnapTests::snappedMoveNudgesWithinToleranceAndKeepsTheGuides()
     const LayerTransform snapped = session.snappedMove(draft, {a}, 5);
     QVERIFY(snapped != draft && !session.snapGuides.xs.empty());
     QSignalSpy changes(&session, &EditorSession::changed);
+    // The signal sees the guides gone: the canvas repaints.
+    std::vector<SnapGuides> heard;
+    const QMetaObject::Connection listening = connect(&session, &EditorSession::changed, this, [&] { heard.push_back(session.snapGuides); });
     session.setSnapEnabled(false);
+    disconnect(listening);
     QVERIFY(!session.snappingEnabled() && changes.count() == 1);
+    QCOMPARE(heard, std::vector<SnapGuides>{SnapGuides{}});
     QCOMPARE(session.snapGuides, SnapGuides{});
     session.snapGuides = SnapGuides{{1}, {2}};
     QCOMPARE(session.snappedMove(draft, {a}, 5), draft);
