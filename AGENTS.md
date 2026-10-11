@@ -1,10 +1,10 @@
 # OmaPhoto — agent notes
 
-OmaPhoto is the Linux port of Compositor, the macOS app at https://github.com/robbietilton/Compositor. That repository's Swift tree (`Compositor/`, `CompositorTests/`) is the specification; this repository mirrors it. Its checkout at `Compositor-Ref`, inside this repository and ignored by git, pinned to the tag being ported (v1.4.5 since item 13), is where the Swift sources are read; never edit it for OmaPhoto work.
+OmaPhoto is the Linux port of Compositor, the macOS app at https://github.com/robbietilton/Compositor. That repository's Swift tree (`Compositor/`, `CompositorTests/`) is the specification; this repository mirrors it. Its checkout at `Compositor-Ref`, inside this repository and ignored by git, pinned to the tag being ported (v1.4.9 since item 14), is where the Swift sources are read; never edit it for OmaPhoto work.
 
 ## Status
 
-Item 13 (Compositor v1.4.5, released as OmaPhoto 1.4.5) resumed on 2026-10-03 after a system reinstall. Items 13.2 to 13.18 are ported. The release, 13.19, is open; its steps are listed under 13.19 in `TASKS.md` and checked off as each passes review. Read the status lines under 13.19 in `TASKS.md` before any work. They list what is unfinished, the failing tests, the setup after a reinstall and the next steps. Work in this one checkout: no worktrees or copies beside it.
+Item 13 (Compositor v1.4.5) is ported and released as OmaPhoto 1.4.5 on Gitea. Item 14 (Compositor v1.4.9, to be released as OmaPhoto 1.4.9) began on 2026-10-11. Its items are listed under 14 in `TASKS.md` and checked off as each passes review; that list is the progress truth. Work in this one checkout: no worktrees, branches or copies beside it.
 
 ## Designing or editing a project
 

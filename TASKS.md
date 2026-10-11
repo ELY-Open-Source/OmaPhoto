@@ -457,7 +457,7 @@ Reviews for this section ran on codex `gpt-6.1-sol` at `max` (agent `codex-sol`)
 - 13.17 port (agent): `settlePendingEdits` applies a pending gradient and pixel move and cancels open dialogs before Quit asks, `confirmQuit` refuses while managing; Scanlines (CRT) with Glow, Dots and Wobble, the kernel cd2f998's with GCD swapped for `dither_bands` on PoolMap (forced difference); tests in `QuitPendingEditsTests` and `ScanlinesTests`. Survivors recorded: the glow pad and edge mode, the band split. No review yet.
 - [x] 13.18 Version 1.4.5: Camera Raw curves as Photoshop's (`60d9117`): the smooth parametric curve and the per-channel point curves, Refine Saturation's new meaning (0 the RGB curve, −100 brightness alone, above 0 stronger colour) and its words; the graph: a press picks a point, divider or tonal region once and keeps it through the drag, a region drag lifts or lowers that region, dividers move in the bottom strip and stay ordered, point mode picks by distance, adds and drags a new point at once, keeps inner points ordered and moves the end points' outputs alone, the chosen point lit and the readout following it, a new channel or preset clearing the choice.
 - 13.18 port (agent): the fitted parametric curve, the tone curve per channel, Refine Saturation's new meaning and words; the graph's one drag (`CameraRawColorControls+Curve.cpp`); fixes beyond Swift: a preset drops the chosen point, a point dragged onto its neighbour stays and stays dragged; tests in `CameraRawCurveTests` and `CameraRawCurveGraphTests`. Survivor recorded: the all-zero shortcut. No review yet.
-- [ ] 13.19 Release OmaPhoto 1.4.5: version, change log, README, AGENTS.md, the acceptance run, distro checks, packages, live installs, the acceptance checklist.
+- [x] 13.19 Release OmaPhoto 1.4.5: version, change log, README, AGENTS.md, the acceptance run, distro checks, packages, live installs, the acceptance checklist.
 - Status 2026-10-02, stopped for a system reinstall. Main is 19d8737 plus this note, pushed; there are no other branches or worktrees. Items 13.2–13.18 are ported and merged; 13.19 is open. Nothing outside the repository survives the reinstall (`~/.cache/omaphoto-review`, `~/.cache/omaphoto-port`, the `omaphoto-dev` image, `../Compositor-spec`), so this note carries everything.
 - Setup after the reinstall: clone https://github.com/robbietilton/Compositor into `Compositor-Ref` (ignored) and check out tag `v1.4.5`; `scripts/dev.sh build` rebuilds the `omaphoto-dev` image from `Dockerfile.dev`.
 - Reviews: two of the ten the user allowed are used. Review 1 (13.7, 13.8, 13.9a, 13.9b, 13.14, 13.15) passed 13.8 and failed the rest on test gaps and stale AGENTS lines; review 2 (13.10–13.13, 13.16–13.18) failed on the same kinds. No crash or wrong output was found. Fixed and tested: all of review 1's, and review 2's for 13.17 and 13.18.
@@ -502,10 +502,45 @@ Reviews for this section ran on codex `gpt-6.1-sol` at `max` (agent `codex-sol`)
   - 13.19i second run: all five pass, 334 of 334 each; the full suite passes on the dev image.
   - 13.19i review: round 1 PASS (the Qt behaviour probed on 6.4.2, 6.10.2 and 6.11.2, six mutants caught).
   - 13.19j work: `versionupdate.md` gains 13.19i's blend menu fix; `v1.4.5` tagged on main and pushed; the workflow's run is checked below.
-  - [ ] 13.19j Tag `v1.4.5`; the release workflow publishes every package.
-  - 2026-10-11: GitHub suspended the account; the project moved to Gitea (git.zacharyzhang.com), the workflow became `scripts/release.sh`, and releases gain an AppImage.
-  - [ ] 13.19k Live installs from Gitea in fresh containers.
-  - [ ] 13.19l The acceptance checklist.
+  - [x] 13.19j Tag `v1.4.5`; every package published.
+  - 2026-10-11: GitHub suspended the account; the project moved to Gitea (git.zacharyzhang.com), the workflow became `scripts/release.sh`, and releases gain an AppImage. `scripts/release.sh v1.4.5` published both DEBs, both RPMs, the Arch package, the AppImage and `SHA256SUMS`.
+  - 13.19k (live installs) and 13.19l (the acceptance checklist) move to 14.30: the user's order of 2026-10-11 ports on to v1.4.9 and releases that.
+
+## 14 Compositor 1.4.9 (the user's order, 2026-10-11: port through v1.4.9, release OmaPhoto 1.4.9 on Gitea)
+
+`Compositor-Ref` moves to `v1.4.9`. One item at a time, top to bottom. Each is reviewed by codex (`gpt-6.1-sol`, `xhigh`, fast) in a herdr pane split to the right, five rounds at most. A later fix to a feature travels with the item that ports the feature; a C kernel is taken at its v1.4.9 state. Nothing to port: release, feed and Xcode commits (`11d8d7a`, `e64f749`, `fa41b9b`, `675d8a4`, `af30c45`, `24ef288`, `22c7b8d`, `0ab3ff5`), merges that resolve no conflict (`673cdb6`, `c9d769d`, `41bd281`, `aac6e02`, `3c6cf5e`, `7e14acc`, `28d237c`, `61ea182`, `b5f9b80`), macOS's Edit menu extras (`710dd66`: Writing Tools, AutoFill, Dictation and Emoji are AppKit's own) and Sparkle's update alert (`759bcbe`: no updater on Linux).
+
+- [ ] 14.0 Survey v1.4.5..v1.4.9 (76 commits) and split them into the items below; `Compositor-Ref` at `v1.4.9`; 13.19 closed.
+- [ ] 14.1 Layer effects and live text survive Canvas Size, Image Size, Crop and the colour adjustments (`94e90bd`), with `docs/project-format.md`.
+- [ ] 14.2 Color Overlay, Inner Glow and Inner Shadow recolour translucent pixels fully (`e7e295e`, `9cb57db`); the effects button says "Add layer effect" (`f25effa`).
+- [ ] 14.3 RAW import rounds to 8 bits with fine noise, in C (`6345432`, `196342c`, `6e6ca38`'s test); the develop sheet says Importing… until the layer lands (`0907f51`).
+- [ ] 14.4 New Canvas: inches, cm or mm at 72 or 300 DPI, transparent, white or black, every setting a pill; it opens transparent, in pixels, at 72 DPI (`b0b4f01`, `ab9779a`, `a00d8b6`).
+- [ ] 14.5 Image › Rotate Canvas 90° Clockwise and Counterclockwise (`754f188`).
+- [ ] 14.6 Filter › Last Filter on Ctrl+Meta+F, the last filter with its settings (`0415aa4`, `6b81d4a`).
+- [ ] 14.7 One View › Snap for all snapping (`bba92dc`'s session half).
+- [ ] 14.8 The command palette (Ctrl+F): menu commands, tools and their modes, masks, toggles shown on (`cb139a1`, `384632d`, `231b7d3`, `07b8b1e`, `94b57f7`, `bba92dc`'s palette half, `720c121`'s and `088a5c1`'s palette lines).
+- [ ] 14.9 Canvas Only and Toggle Fullscreen on F and Esc (`ad4bddf`, `088a5c1`, `720c121`).
+- [ ] 14.10 The hand stays closed for a whole Space or Hand pan (`c0a1cd0`).
+- [ ] 14.11 Layers footer: the primary colour, dimmed as far as its menus when disabled (`7fb40a9`, `790195f`); the panel grays only for what lasts (`06313a9`).
+- [ ] 14.12 The unsaved-changes alert: Don't Save destructive, as plain as Cancel (`283d360`, `4e035bf`).
+- [ ] 14.13 A layer's name field keeps its size while renaming (`8f7d344`).
+- [ ] 14.14 Tool headers scroll when the window is too narrow (`68396ff`).
+- [ ] 14.15 Layers selected on the canvas are revealed in the Layers panel (`d2b8aaf`, `b4e147b`).
+- [ ] 14.16 File › Export As…: PNG, JPEG or PDF, sized and previewed over the checkerboard (`9287cf1`, `450af5f`, `b1db93d`).
+- [ ] 14.17 Filter › Scanlines, its own filter: Displace, Threshold, Thickness, Color Split, smoothed displacement, Dots by tone, Black Level (`06c3a22`, `1187736`, `cdde327`), the kernel at v1.4.9.
+- [ ] 14.18 The Navigator minimap in the canvas's corner from 300% (`6490bb3`, `3e09948`).
+- [ ] 14.19 WebP import (`5724099`).
+- [ ] 14.20 Ctrl or Meta with a middle drag zooms (`e03923f`).
+- [ ] 14.21 Camera Raw's colour noise reduction: clear pixels unsaturated, brightness kept (`a2718d9`, `42a559b`); Shadows and Highlights keep tones in order (`0b4c56c`).
+- [ ] 14.22 Camera Raw's Light and Color sliders match Photoshop's, with `CameraRawTables` (`57ab3bb`).
+- [ ] 14.23 Camera Raw's adaptive Contrast, Highlights and Shadows; Dehaze, Texture, Clarity and Sharpening (`75147a2`).
+- [ ] 14.24 Camera Raw's Color Mixer, Calibration, curve, vignettes and Color Grading (`bdfb9c2`, `9dac4f1`, `7b5a592`).
+- [ ] 14.25 Camera Raw's preview 5 to 20 times faster (`a8630e4`).
+- [ ] 14.26 Tabs: the blank start tab stays put; Untitled numbers stay low (`d0ec2f3`).
+- [ ] 14.27 The slider snap test draws its slider before pressing it (`07eee7e`); README lines (`cea9083`, `e1a5210`, `75f3556`).
+- [ ] 14.28 Version 1.4.9: CMake, PKGBUILD, flake, `versionupdate.md`, README, AGENTS.md.
+- [ ] 14.29 The acceptance run for the rows new in 1.4.6 to 1.4.9; the full suite; distro checks (arch, fedora, fedora44, nixos, resolute).
+- [ ] 14.30 Tag `v1.4.9`, `scripts/release.sh v1.4.9`, live installs from Gitea in fresh containers, the acceptance checklist.
 
 ## Skills by phase
 
