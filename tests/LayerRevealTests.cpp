@@ -35,6 +35,7 @@ private slots:
     void changingPrimaryLayerWithinTheSameSelectionRevealsIt();
     void selectingAChildExpandsOnlyItsAncestorFolders();
     void multipleSelectionRevealsThePrimaryChild();
+    void aChildInAShutFolderScrollsIntoView();
 };
 
 void LayerRevealTests::selectingAnOffscreenLayerRevealsItsRow()
@@ -138,6 +139,38 @@ void LayerRevealTests::multipleSelectionRevealsThePrimaryChild()
     session.toggleGroupExpansion(folder);
     session.selectLayers({child, other}, other);
     QCOMPARE(session.collapsedGroupIDs(), QSet<QUuid>{folder});
+}
+
+void LayerRevealTests::aChildInAShutFolderScrollsIntoView()
+{
+    // A folder at the bottom, shut, under twenty layers.
+    EditorSession session;
+    session.createDocument(10, 10);
+    session.addGroup();
+    const QUuid folder = session.activeLayerID().value();
+    session.addBlankLayer();
+    const QUuid child = session.activeLayerID().value();
+    session.selectLayer(std::nullopt);
+    for (int each = 0; each < 20; ++each)
+        session.addBlankLayer();
+    session.toggleGroupExpansion(folder);
+    NativeLayerList list(session);
+    list.resize(260, 160);
+    list.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&list));
+    for (const bool several : {false, true}) {
+        list.verticalScrollBar()->setValue(0);
+        if (several)
+            session.selectLayers({child, session.document().value().layers.back().id}, child);
+        else
+            session.selectLayer(child);
+        const std::vector<LayerCell *> cells = list.cells();
+        const int row = int(std::ranges::find_if(cells, [&](const LayerCell *cell) { return cell->layerID() == child; }) - cells.begin());
+        QVERIFY(row < int(cells.size()));
+        QVERIFY2(shown(list, row), several ? "several" : "one");
+        session.selectLayer(std::nullopt);
+        session.toggleGroupExpansion(folder);
+    }
 }
 
 QTEST_MAIN(LayerRevealTests)

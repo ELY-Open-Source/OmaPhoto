@@ -271,7 +271,7 @@ private:
     EditorSession &m_session;
     LayerColumn *const m_column;
     std::vector<LayerCell *> m_cells;
-    // The active layer last shown: a new one scrolls in.
+    // The active layer last scrolled to; a new one scrolls.
     std::optional<QUuid> m_shownActive;
     std::vector<ImageLayer> m_rows;
     std::map<QUuid, LayerHierarchy::Entry> m_details;

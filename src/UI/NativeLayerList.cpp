@@ -1,5 +1,6 @@
 #include "UI/NativeLayerList.h"
 #include "UI/KeyboardShortcuts.h"
+#include <QCoreApplication>
 #include <QEvent>
 #include <QKeyEvent>
 #include <QScrollBar>
@@ -32,8 +33,6 @@ NativeLayerList::NativeLayerList(EditorSession &session, QWidget *parent)
 
 void NativeLayerList::update()
 {
-    const bool activeChanged = m_shownActive != m_session.activeLayerID();
-    m_shownActive = m_session.activeLayerID();
     const std::vector<LayerHierarchy::Entry> entries = m_session.layerRows();
     const std::vector<ImageLayer> &layers = m_session.document() ? m_session.document()->layers : std::vector<ImageLayer>();
     std::vector<ImageLayer> next;
@@ -72,9 +71,15 @@ void NativeLayerList::update()
     }
     // Heights change at once, as Swift's noteHeightOfRows.
     m_column->layout()->activate();
-    // A newly active layer comes into view; a scroll stays.
-    if (const int row = indexOf(m_rows, m_shownActive); activeChanged && row >= 0)
-        ensureWidgetVisible(m_cells[row], 0, 0);
+    // A newly active layer scrolls in once its row exists.
+    const std::optional<QUuid> active = m_session.activeLayerID();
+    if (const int row = indexOf(m_rows, active); active != m_shownActive && (!active || row >= 0)) {
+        m_shownActive = active;
+        // The column's new height reaches the scroll range first.
+        QCoreApplication::sendPostedEvents(this, QEvent::LayoutRequest);
+        if (active)
+            ensureWidgetVisible(m_cells[row], 0, 0);
+    }
     // A rename, asked from anywhere, is typed in the row.
     if (const std::optional<QUuid> renaming = m_session.renamingLayerID()) {
         const int row = indexOf(m_rows, renaming);
