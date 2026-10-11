@@ -293,6 +293,8 @@ void LayerCell::beginRenaming()
     editing.setColor(QPalette::Base, tint);
     m_editor->setPalette(editing);
     m_editor->setText(m_layerName);
+    // Swift edits the label itself: no second name beneath.
+    m_name->hide();
     m_editor->show();
     m_editor->setFocus(Qt::OtherFocusReason);
     m_editor->selectAll();
@@ -306,6 +308,7 @@ void LayerCell::endRenaming(bool keeping)
     const QString typed = m_editor->text();
     m_renaming = false;
     m_editor->hide();
+    m_name->show();
     // Cleared first: the rename's signal would reopen the editor.
     if (session.renamingLayerID() == m_layerID)
         session.setRenamingLayerID(std::nullopt);

@@ -416,7 +416,17 @@ void LayerListFocusTests::theNameFieldKeepsTheNamesSizeAndPlace()
     QVERIFY2(near(inside.red(), ground.red() * 0.9 + ink.red() * 0.1) && near(inside.green(), ground.green() * 0.9 + ink.green() * 0.1)
                  && near(inside.blue(), ground.blue() * 0.9 + ink.blue() * 0.1),
              qPrintable(inside.name() + " over " + ground.name()));
+    // The old name is not drawn beneath: cleared, no ink.
+    QVERIFY(!name.isVisible());
+    editor->clear();
+    const QImage cleared = row.grab().toImage();
+    int stray = 0;
+    for (int x = label.left() + 1; x < label.left() + 60; ++x)
+        for (int y = label.top() + 2; y < label.bottom() - 1; ++y)
+            stray += cleared.pixelColor(x, y) != inside;
+    QCOMPARE(stray, 0);
     QTest::keyClick(editor, Qt::Key_Escape);
+    QVERIFY(name.isVisible() && !editor->isVisible());
 }
 
 QTEST_MAIN(LayerListFocusTests)
