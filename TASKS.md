@@ -514,7 +514,8 @@ Compositor 1.4.6:
 
 - [x] 14.0 Survey v1.4.5..v1.4.9 (76 commits) and split them into the items below; `Compositor-Ref` at `v1.4.9`; 13.19 closed.
 - 14.0 review (codex `gpt-6.1-sol`, xhigh): round 1 FAIL (kernels at v1.4.9 broke the items' builds; 14.1 claimed live text survives Image Size; `3c6cf5e` had a conflict; items not in release order); round 2 PASS.
-- [ ] 14.1 Color Overlay, Inner Glow and Inner Shadow recolour translucent pixels fully (`e7e295e`, `9cb57db`); the effects button says "Add layer effect" (`f25effa`).
+- [x] 14.1 Color Overlay, Inner Glow and Inner Shadow recolour translucent pixels fully (`e7e295e`, `9cb57db`); the effects button says "Add layer effect" (`f25effa`).
+- 14.1 work: `LayerEffectsKernel` recolours the pixels as v1.4.9's `effects_compose` does; Swift's three `ColorOverlayTests` and exact rows for the inner shadow and glow; 7 mutants, all caught. Review: round 1 PASS.
 - [ ] 14.2 RAW import rounds to 8 bits with fine noise, in C (`6345432`, `196342c`, `6e6ca38`'s test); the develop sheet says Importing… until the layer lands (`0907f51`).
 - [ ] 14.3 New Canvas: inches, cm or mm at 72 or 300 DPI, transparent, white or black, every setting a pill; it opens transparent, in pixels, at 72 DPI (`b0b4f01`, `ab9779a`, `a00d8b6`).
 - [ ] 14.4 Image › Rotate Canvas 90° Clockwise and Counterclockwise (`754f188`).
