@@ -535,7 +535,8 @@ Compositor 1.4.7:
 
 - [x] 14.9 Filter › Last Filter on Ctrl+Meta+F, the last filter with its settings (`0415aa4`, `6b81d4a`).
 - 14.9 work: `repeatsAsLastFilter`, `FilterEdit::repeating`, the session's `lastFilter`, `canRepeatLastFilter`, `repeatLastFilter`; Filter › Last Filter on Ctrl+Meta+F; the panel shut for a repeat. 18 mutants, all caught but one equivalent. Review: round 1 FAIL (a newer edit's survival untested; optional reads), round 2 PASS.
-- [ ] 14.10 The hand stays closed for a whole Space or Hand pan (`c0a1cd0`).
+- [x] 14.10 The hand stays closed for a whole Space or Hand pan (`c0a1cd0`).
+- 14.10 held: `updateCursor` ranks a pan above Space and the Hand tool, a repeated release is no release; tests added. 3 mutants, all caught. Review: round 1 FAIL (Space let go mid-pan untested), round 2 PASS.
 - [ ] 14.11 Layers footer in the primary colour, dimmed as far as its menus when disabled (`7fb40a9`, `790195f`).
 - [ ] 14.12 The unsaved-changes alert: Don't Save destructive, as plain as Cancel (`283d360`, `4e035bf`).
 - [ ] 14.13 A layer's name field keeps its size while renaming (`8f7d344`).
