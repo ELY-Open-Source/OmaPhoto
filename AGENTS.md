@@ -4,7 +4,7 @@ OmaPhoto is the Linux port of Compositor, the macOS app at https://github.com/ro
 
 ## Status
 
-Item 13 (Compositor v1.4.5) is ported and released as OmaPhoto 1.4.5 on Gitea. Item 14 (Compositor v1.4.9, to be released as OmaPhoto 1.4.9) began on 2026-10-11; the version reads 1.4.9 since 14.30 (CMake, PKGBUILD, flake, `versionupdate.md`). Its items are listed under 14 in `TASKS.md` and checked off as each passes review; that list is the progress truth. Work in this one checkout: no worktrees, branches or copies beside it.
+Item 14 (Compositor v1.4.9) is ported and released as OmaPhoto 1.4.9 on Gitea (2026-10-11), its packages installed live on every supported system (14.32). Its items are listed under 14 in `TASKS.md` and checked off as each passes review; that list is the progress truth. Work in this one checkout: no worktrees, branches or copies beside it.
 
 ## Designing or editing a project
 
