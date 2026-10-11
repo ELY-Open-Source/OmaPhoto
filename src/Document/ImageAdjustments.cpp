@@ -1,13 +1,23 @@
 #include "Document/ImageAdjustments.h"
 #include "Document/BrushStroke.h"
 #include "IO/ProjectStore.h"
+#include "Rendering/PoolMap.h"
 #include <QPainter>
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <numeric>
 extern "C" {
 #include "AdjustPixels.h"
 #include "LevelsPixels.h"
+}
+
+// Swift's GCD bands for AdjustPixels.c, on QtConcurrent.
+extern "C" void adjust_bands(size_t bands, void (*band)(void *context, size_t index), void *context)
+{
+    std::vector<size_t> indices(bands);
+    std::iota(indices.begin(), indices.end(), size_t(0));
+    PoolMap::blocking(indices, [band, context](size_t index) { band(context, index); });
 }
 
 QImage ImageAdjustmentPixels::run(const QImage &image, const std::function<void(uchar *, int, int, qsizetype)> &body)

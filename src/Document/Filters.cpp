@@ -1,6 +1,7 @@
 #include "Document/Filters.h"
 #include "Document/DocumentLimits.h"
 #include "Document/BrushStroke.h"
+#include "Document/CameraRawTables.h"
 #include "Document/ContentFill.h"
 #include "Document/EditorSession+Model.h"
 #include "Document/PixelAdjust.h"
@@ -161,7 +162,8 @@ QImage PixelFilter::run(const FilterJob &job)
     case FilterKind::blackWhite: image = settings.blackWhite.apply(job.image); break;
     case FilterKind::colorBalance: image = settings.colorBalance.apply(job.image); break;
     case FilterKind::cameraRaw:
-        image = settings.cameraRaw.apply(job.image, job.cameraRawClipping, job.scale, job.seed, job.visualizesPointColor, job.showsSharpenMask);
+        image = settings.cameraRaw.apply(job.image, job.cameraRawClipping, job.scale, job.seed, job.visualizesPointColor, job.showsSharpenMask,
+                                         job.cameraRawBrightness);
         break;
     // Grain sits in layer pixels; the job's seed patterns it.
     case FilterKind::grain: image = settings.grain.apply(job.image, QPointF(), 1 / job.scale, job.seed); break;
@@ -325,7 +327,17 @@ FilterJob FilterEdit::previewJob() const
                      rawPanel.pointColorVisualizeIndex(settings.cameraRaw),
                      rawPanel.sharpenMask,
                      {},
-                     canvas};
+                     canvas,
+                     kind == FilterKind::cameraRaw ? std::optional(previewBrightness()) : std::nullopt};
+}
+
+CameraRawTables::Brightness FilterEdit::previewBrightness() const
+{
+    if (m_cameraRawBrightness && m_cameraRawBrightness->first == previewSource.cacheKey())
+        return m_cameraRawBrightness->second;
+    const CameraRawTables::Brightness value = CameraRawTables::brightness(previewSource);
+    m_cameraRawBrightness = std::pair{previewSource.cacheKey(), value};
+    return value;
 }
 
 FilterSettings FilterEdit::renderSettings() const

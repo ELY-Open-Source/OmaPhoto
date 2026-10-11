@@ -1,9 +1,11 @@
 #include "Document/CameraRawTables.h"
 
+#include "Document/BrushStroke.h"
 #include "IO/ImageExporter.h"
 #include "Logging.h"
 
 #include <QFile>
+#include <QPainter>
 #include <array>
 #include <cmath>
 #include <span>
@@ -160,6 +162,20 @@ Brightness brightness(const uchar *pixels, int width, int height, qsizetype stri
     return {out[0] * 255, out[1] * 255, out[2] * 255};
 }
 
+Brightness brightness(const QImage &image)
+{
+    try {
+        QImage drawn = BrushRaster::context(image.width(), image.height(), false);
+        QPainter painter(&drawn);
+        BrushRaster::draw(image, QRectF(0, 0, image.width(), image.height()), painter);
+        painter.end();
+        return brightness(drawn.constBits(), drawn.width(), drawn.height(), drawn.bytesPerLine());
+    } catch (const ExportError &error) {
+        qCWarning(lcRendering) << "Camera Raw could not measure the picture's brightness:" << error.what();
+        return {};
+    }
+}
+
 std::vector<CameraRawStage> stages(const CameraRawSettings &settings, const Brightness &brightness)
 {
     std::vector<CameraRawStage> out;
@@ -252,10 +268,9 @@ std::vector<CameraRawStage> mixerStages(const CameraRawMixerSettings &mixer)
     return out;
 }
 
-std::vector<float> compose(const std::vector<CameraRawStage> &stages)
+namespace {
+std::vector<float> composed(const std::vector<CameraRawStage> &stages)
 {
-    if (stages.empty())
-        return {};
     std::vector<float> out;
     try {
         out.resize(size_t(grid) * grid * grid * 3);
@@ -264,6 +279,17 @@ std::vector<float> compose(const std::vector<CameraRawStage> &stages)
     }
     camera_raw_compose(out.data(), grid, stages.data(), int(stages.size()), size);
     return out;
+}
+}
+
+std::vector<float> identity()
+{
+    return composed({});
+}
+
+std::vector<float> compose(const std::vector<CameraRawStage> &stages)
+{
+    return stages.empty() ? std::vector<float>() : composed(stages);
 }
 
 std::optional<CameraRawSettings::Balance> neutralize(double red, double green, double blue)

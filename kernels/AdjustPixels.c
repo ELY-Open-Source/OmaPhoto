@@ -4,6 +4,26 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Linux: GCD's dispatch_apply, run on QtConcurrent by ImageAdjustments.cpp.
+void adjust_bands(size_t bands, void (*band)(void *context, size_t index), void *context);
+
+typedef void (*band_body)(void *context, size_t start, size_t end);
+typedef struct { size_t count, size; band_body body; void *context; } band_job;
+
+static void run_band(void *context, size_t band) {
+    const band_job *job = context;
+    size_t count = job->count, size = job->size;
+    size_t start = band * size, end = start + size < count ? start + size : count;
+    if (start < end) job->body(job->context, start, end);
+}
+
+// Runs `body` over `count` items split into a few runs per core, each a (start, end) range, all at once.
+static void in_bands(size_t count, band_body body, void *context) {
+    size_t bands = count < 64 ? 1 : 32, size = (count + bands - 1) / bands;
+    band_job job = { count, size, body, context };
+    adjust_bands(bands, run_band, &job);
+}
+
 void adjust_gradient_map(uint8_t *rgba, size_t width, size_t height, size_t stride, const uint8_t *table) {
     for (size_t y = 0; y < height; y++) {
         uint8_t *p = rgba + y * stride;
@@ -255,8 +275,15 @@ static void table_lookup(const uint8_t *table, int size, const double in[3], dou
     out[2] /= 255.0;
 }
 
-void camera_raw_compose(float *out, int grid, const CameraRawStage *stages, int count, int size) {
-    for (int r = 0; r < grid; ++r) {
+typedef struct { float *out; int grid; const CameraRawStage *stages; int count; int size; } compose_job;
+static void compose_band(void *context, size_t first, size_t last) {
+    const compose_job *job = context;
+    float *out = job->out;
+    int grid = job->grid;
+    const CameraRawStage *stages = job->stages;
+    int count = job->count;
+    int size = job->size;
+    for (int r = (int)first; r < (int)last; ++r) {
         for (int g = 0; g < grid; ++g) {
             for (int b = 0; b < grid; ++b) {
                 double color[3] = {(double)r / (grid - 1), (double)g / (grid - 1), (double)b / (grid - 1)};
@@ -268,6 +295,33 @@ void camera_raw_compose(float *out, int grid, const CameraRawStage *stages, int 
             }
         }
     }
+}
+
+void camera_raw_compose(float *out, int grid, const CameraRawStage *stages, int count, int size) {
+    in_bands((size_t)grid, compose_band, &(compose_job){out, grid, stages, count, size});
+}
+
+typedef struct { float *table; const CameraRawStage *stages; int count; int size; } compose_onto_job;
+static void compose_onto_band(void *context, size_t first, size_t last) {
+    const compose_onto_job *job = context;
+    float *table = job->table;
+    const CameraRawStage *stages = job->stages;
+    int count = job->count;
+    int size = job->size;
+   
+        for (size_t i = first; i < last; ++i) {
+            double color[3] = {table[i * 3], table[i * 3 + 1], table[i * 3 + 2]};
+            for (int s = 0; s < count; ++s) camera_raw_stage_color(&stages[s], size, color);
+            table[i * 3] = (float)color[0];
+            table[i * 3 + 1] = (float)color[1];
+            table[i * 3 + 2] = (float)color[2];
+        }
+}
+
+void camera_raw_compose_onto(float *table, int grid, const CameraRawStage *stages, int count, int size) {
+    if (count <= 0) return;
+    size_t entries = (size_t)grid * grid * grid;
+    in_bands(entries, compose_onto_band, &(compose_onto_job){table, stages, count, size});
 }
 
 void camera_raw_stage_color(const CameraRawStage *stage, int size, double *rgb) {
@@ -312,21 +366,47 @@ static void write_premultiplied(uint8_t *p, double r, double g, double b, double
     p[2] = (uint8_t)fmin(alpha, fmax(0.0, round(b * alpha)));
 }
 
-void camera_raw_statistics(const uint8_t *rgba, size_t width, size_t height, size_t stride, double *out) {
-    double brightest = 0, luminance = 0, logBrightest = 0, weight = 0;
-    for (size_t y = 0; y < height; ++y) {
-        const uint8_t *row = rgba + y * stride;
-        for (size_t x = 0; x < width; ++x) {
-            const uint8_t *p = row + x * 4;
-            double alpha = p[3];
-            if (!alpha) continue;
-            double r = srgb_decode(fmin(1.0, p[0] / alpha)), g = srgb_decode(fmin(1.0, p[1] / alpha));
-            double b = srgb_decode(fmin(1.0, p[2] / alpha)), top = fmax(r, fmax(g, b)), w = alpha / 255.0;
-            brightest += w * top;
-            luminance += w * rec709(r, g, b);
-            logBrightest += w * log(top + 3e-4);
-            weight += w;
+typedef struct { const uint8_t *rgba; size_t width; size_t height; size_t stride; size_t rows; double (*parts)[4]; const double *decode; } statistics_job;
+static void statistics_band(void *context, size_t band) {
+    const statistics_job *job = context;
+    const uint8_t *rgba = job->rgba;
+    size_t width = job->width, height = job->height, stride = job->stride, rows = job->rows;
+    double (*parts)[4] = job->parts;
+    const double *decode = job->decode;
+        double brightest = 0, luminance = 0, logBrightest = 0, weight = 0;
+        size_t end = (band + 1) * rows < height ? (band + 1) * rows : height;
+        for (size_t y = band * rows; y < end; ++y) {
+            const uint8_t *row = rgba + y * stride;
+            for (size_t x = 0; x < width; ++x) {
+                const uint8_t *p = row + x * 4;
+                double alpha = p[3];
+                if (!alpha) continue;
+                double r, g, b;
+                if (p[3] == 255) { r = decode[p[0]]; g = decode[p[1]]; b = decode[p[2]]; }
+                else { r = srgb_decode(fmin(1.0, p[0] / alpha)); g = srgb_decode(fmin(1.0, p[1] / alpha)); b = srgb_decode(fmin(1.0, p[2] / alpha)); }
+                double top = fmax(r, fmax(g, b)), w = alpha / 255.0;
+                brightest += w * top;
+                luminance += w * rec709(r, g, b);
+                logBrightest += w * log(top + 3e-4);
+                weight += w;
+            }
         }
+        parts[band][0] = brightest; parts[band][1] = luminance; parts[band][2] = logBrightest; parts[band][3] = weight;
+}
+
+void camera_raw_statistics(const uint8_t *rgba, size_t width, size_t height, size_t stride, double *out) {
+    enum { bands = 32 };
+    double sums[bands][4];
+    memset(sums, 0, sizeof sums);
+    double decoded[256];
+    for (int i = 0; i < 256; ++i) decoded[i] = srgb_decode(i / 255.0);
+    double (*parts)[4] = sums;
+    const double *decode = decoded;
+    size_t rows = (height + bands - 1) / bands;
+    adjust_bands(bands, statistics_band, &(statistics_job){rgba, width, height, stride, rows, parts, decode});
+    double brightest = 0, luminance = 0, logBrightest = 0, weight = 0;
+    for (int band = 0; band < bands; ++band) {
+        brightest += sums[band][0]; luminance += sums[band][1]; logBrightest += sums[band][2]; weight += sums[band][3];
     }
     if (weight <= 0) { out[0] = out[1] = out[2] = 0.5; return; }
     out[0] = srgb_encode(brightest / weight);
@@ -334,9 +414,66 @@ void camera_raw_statistics(const uint8_t *rgba, size_t width, size_t height, siz
     out[2] = srgb_encode(exp(logBrightest / weight) - 3e-4);
 }
 
-void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride, const float *table, int grid,
-                       int clipping) {
-    for (size_t y = 0; y < height; ++y) {
+typedef struct { const uint8_t *rgba; size_t width; size_t height; size_t stride; int step; int side; size_t binCount, scopeCount, rows; double *parts; } scope_job;
+static void scope_band(void *context, size_t band) {
+    const scope_job *job = context;
+    const uint8_t *rgba = job->rgba;
+    size_t width = job->width, height = job->height, stride = job->stride, binCount = job->binCount, scopeCount = job->scopeCount, rows = job->rows;
+    int step = job->step, side = job->side;
+    double *parts = job->parts;
+        double *histogram = parts + band * (binCount + scopeCount), *plot = histogram + binCount;
+        size_t end = (band + 1) * rows < height ? (band + 1) * rows : height;
+        for (size_t y = band * rows; y < end; y += step) {
+            const uint8_t *row = rgba + y * stride;
+            for (size_t x = 0; x < width; x += step) {
+                const uint8_t *p = row + x * 4;
+                double alpha = p[3];
+                if (!alpha) continue;
+                double red = fmin(1.0, p[0] / alpha), green = fmin(1.0, p[1] / alpha), blue = fmin(1.0, p[2] / alpha);
+                double w = alpha / 255.0;
+                histogram[(int)lround(red * 255)] += w;
+                histogram[256 + (int)lround(green * 255)] += w;
+                histogram[512 + (int)lround(blue * 255)] += w;
+                double top = fmax(red, fmax(green, blue)), bottom = fmin(red, fmin(green, blue)), chroma = top - bottom;
+                if (chroma <= 1e-4 || top <= 1e-4) continue;
+                double hue = top == red ? (green - blue) / chroma : top == green ? 2 + (blue - red) / chroma : 4 + (red - green) / chroma;
+                hue /= 6;
+                if (hue < 0) hue += 1;
+                double angle = hue * 2 * M_PI, saturation = chroma / top;
+                int column = (int)((0.5 + cos(angle) * saturation * 0.48) * side), line = (int)((0.5 + sin(angle) * saturation * 0.48) * side);
+                column = column < 0 ? 0 : column >= side ? side - 1 : column;
+                line = line < 0 ? 0 : line >= side ? side - 1 : line;
+                plot[line * side + column] += w;
+            }
+        }
+}
+
+void camera_raw_scope(const uint8_t *rgba, size_t width, size_t height, size_t stride, int step, double *bins, double *scope,
+                      int side) {
+    enum { bands = 16 };
+    size_t binCount = 256 * 3, scopeCount = (size_t)side * side;
+    double *parts = calloc(bands * (binCount + scopeCount), sizeof(double));
+    if (!parts) return;
+    size_t rows = (height + bands - 1) / bands;
+    adjust_bands(bands, scope_band, &(scope_job){rgba, width, height, stride, step, side, binCount, scopeCount, rows, parts});
+    for (int band = 0; band < bands; ++band) {
+        const double *histogram = parts + band * (binCount + scopeCount);
+        for (size_t i = 0; i < binCount; ++i) bins[i] += histogram[i];
+        for (size_t i = 0; i < scopeCount; ++i) scope[i] += histogram[binCount + i];
+    }
+    free(parts);
+}
+
+typedef struct { uint8_t *rgba; size_t width; size_t stride; const float *table; int grid; int clipping; } camera_raw_job;
+static void camera_raw_band(void *context, size_t first, size_t last) {
+    const camera_raw_job *job = context;
+    uint8_t *rgba = job->rgba;
+    size_t width = job->width;
+    size_t stride = job->stride;
+    const float *table = job->table;
+    int grid = job->grid;
+    int clipping = job->clipping;
+    for (size_t y = first; y < last; ++y) {
         uint8_t *row = rgba + y * stride;
         for (size_t x = 0; x < width; ++x) {
             uint8_t *p = row + x * 4;
@@ -366,10 +503,56 @@ void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride
     }
 }
 
+void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride, const float *table, int grid,
+                       int clipping) {
+    in_bands(height, camera_raw_band, &(camera_raw_job){rgba, width, stride, table, grid, clipping});
+}
+
 static size_t clamped_index(int index, size_t limit) {
     if (index < 0) return 0;
     if ((size_t)index >= limit) return limit - 1;
     return (size_t)index;
+}
+
+typedef struct { const float *src; float *temp; size_t width; int radius; int window; } blur_rows_job;
+static void blur_rows_band(void *context, size_t first, size_t last) {
+    const blur_rows_job *job = context;
+    const float *src = job->src;
+    float *temp = job->temp;
+    size_t width = job->width;
+    int radius = job->radius;
+    int window = job->window;
+   
+        for (size_t y = first; y < last; ++y) {
+            double sum = 0;
+            for (int k = -radius; k <= radius; ++k) sum += src[y * width + clamped_index(k, width)];
+            for (size_t x = 0; x < width; ++x) {
+                temp[y * width + x] = (float)(sum / window);
+                sum += src[y * width + clamped_index((int)x + radius + 1, width)];
+                sum -= src[y * width + clamped_index((int)x - radius, width)];
+            }
+        }
+}
+
+typedef struct { float *dst; float *temp; size_t width; size_t height; int radius; int window; } blur_columns_job;
+static void blur_columns_band(void *context, size_t first, size_t last) {
+    const blur_columns_job *job = context;
+    float *dst = job->dst;
+    float *temp = job->temp;
+    size_t width = job->width;
+    size_t height = job->height;
+    int radius = job->radius;
+    int window = job->window;
+   
+        for (size_t x = first; x < last; ++x) {
+            double sum = 0;
+            for (int k = -radius; k <= radius; ++k) sum += temp[clamped_index(k, height) * width + x];
+            for (size_t y = 0; y < height; ++y) {
+                dst[y * width + x] = (float)(sum / window);
+                sum += temp[clamped_index((int)y + radius + 1, height) * width + x];
+                sum -= temp[clamped_index((int)y - radius, height) * width + x];
+            }
+        }
 }
 
 // Edge-clamped box blur. `dst` may not alias `src`. Returns 0 when the temporary row buffer cannot be allocated.
@@ -381,24 +564,8 @@ static int box_blur_plane(const float *src, float *dst, size_t width, size_t hei
     float *temp = malloc(width * height * sizeof(float));
     if (!temp) return 0;
     int window = radius * 2 + 1;
-    for (size_t y = 0; y < height; ++y) {
-        double sum = 0;
-        for (int k = -radius; k <= radius; ++k) sum += src[y * width + clamped_index(k, width)];
-        for (size_t x = 0; x < width; ++x) {
-            temp[y * width + x] = (float)(sum / window);
-            sum += src[y * width + clamped_index((int)x + radius + 1, width)];
-            sum -= src[y * width + clamped_index((int)x - radius, width)];
-        }
-    }
-    for (size_t x = 0; x < width; ++x) {
-        double sum = 0;
-        for (int k = -radius; k <= radius; ++k) sum += temp[clamped_index(k, height) * width + x];
-        for (size_t y = 0; y < height; ++y) {
-            dst[y * width + x] = (float)(sum / window);
-            sum += temp[clamped_index((int)y + radius + 1, height) * width + x];
-            sum -= temp[clamped_index((int)y - radius, height) * width + x];
-        }
-    }
+    in_bands(height, blur_rows_band, &(blur_rows_job){src, temp, width, radius, window});
+    in_bands(width, blur_columns_band, &(blur_columns_job){dst, temp, width, height, radius, window});
     free(temp);
     return 1;
 }
@@ -610,6 +777,83 @@ void adjust_camera_raw_clip_overlay(uint8_t *rgba, size_t width, size_t height, 
     }
 }
 
+typedef struct { uint8_t *rgba; size_t width; size_t stride; float *luma; } effects_luma_job;
+static void effects_luma_band(void *context, size_t first, size_t last) {
+    const effects_luma_job *job = context;
+    uint8_t *rgba = job->rgba;
+    size_t width = job->width;
+    size_t stride = job->stride;
+    float *luma = job->luma;
+    for (size_t y = first; y < last; ++y) {
+            uint8_t *row = rgba + y * stride;
+            for (size_t x = 0; x < width; ++x) {
+                uint8_t *p = row + x * 4;
+                double alpha = p[3];
+                if (!alpha) { luma[y * width + x] = 0; continue; }
+                double r = fmin(1.0, p[0] / alpha);
+                double g = fmin(1.0, p[1] / alpha);
+                double b = fmin(1.0, p[2] / alpha);
+                luma[y * width + x] = (float)rec709(r, g, b);
+            }
+        }
+}
+
+typedef struct { uint8_t *rgba; size_t width; size_t height; size_t stride; double texture; double clarity; double dehaze; double glow; double glowRed; double glowGreen; double glowBlue; double glowGain; double vignetteAmount; double vignetteMidpoint; double vignetteRoundness; double vignetteFeather; double vignetteHighlights; int vignetteStyle; float *fine; float *coarse; float *glowPlane; const double *haze; } effects_job;
+static void effects_band(void *context, size_t first, size_t last) {
+    const effects_job *job = context;
+    uint8_t *rgba = job->rgba;
+    size_t width = job->width;
+    size_t height = job->height;
+    size_t stride = job->stride;
+    double texture = job->texture;
+    double clarity = job->clarity;
+    double dehaze = job->dehaze;
+    double glow = job->glow;
+    double glowRed = job->glowRed;
+    double glowGreen = job->glowGreen;
+    double glowBlue = job->glowBlue;
+    double glowGain = job->glowGain;
+    double vignetteAmount = job->vignetteAmount;
+    double vignetteMidpoint = job->vignetteMidpoint;
+    double vignetteRoundness = job->vignetteRoundness;
+    double vignetteFeather = job->vignetteFeather;
+    double vignetteHighlights = job->vignetteHighlights;
+    int vignetteStyle = job->vignetteStyle;
+    float *fine = job->fine;
+    float *coarse = job->coarse;
+    float *glowPlane = job->glowPlane;
+    const double *haze = job->haze;
+    for (size_t y = first; y < last; ++y) {
+        uint8_t *row = rgba + y * stride;
+        for (size_t x = 0; x < width; ++x) {
+            uint8_t *p = row + x * 4;
+            double alpha = p[3];
+            if (!alpha) continue;
+            size_t index = y * width + x;
+            double r = fmin(1.0, p[0] / alpha);
+            double g = fmin(1.0, p[1] / alpha);
+            double b = fmin(1.0, p[2] / alpha);
+            if (fine || coarse) {
+                double tone = rec709(r, g, b);
+                double detail = 0;
+                if (fine) detail += (texture / 100.0) * (texture > 0 ? 0.6 : 0.5) * (tone - fine[index]);
+                if (coarse) detail += (clarity / 100.0) * (clarity > 0 ? 0.85 : 0.5) * (tone - coarse[index]);
+                if (detail != 0) scale_luminance(&r, &g, &b, camera_clamp(tone + detail));
+            }
+            if (dehaze != 0) effects_dehaze(&r, &g, &b, dehaze, haze);
+            if (glowPlane && glow > 0) {
+                double add = glowPlane[index] * (glow / 100.0) * glowGain;
+                r = camera_clamp(r + add * glowRed);
+                g = camera_clamp(g + add * glowGreen);
+                b = camera_clamp(b + add * glowBlue);
+            }
+            effects_vignette(&r, &g, &b, x, y, width, height, vignetteAmount, vignetteMidpoint, vignetteRoundness,
+                             vignetteFeather, vignetteHighlights, vignetteStyle);
+            write_premultiplied(p, r, g, b, alpha);
+        }
+    }
+}
+
 void adjust_camera_raw_effects(uint8_t *rgba, size_t width, size_t height, size_t stride,
                                double texture, double clarity, double dehaze,
                                double glow, int glowStyle, double glowRange, double glowSpread, double glowWarmth,
@@ -625,18 +869,7 @@ void adjust_camera_raw_effects(uint8_t *rgba, size_t width, size_t height, size_
     if (texture != 0 || clarity != 0 || glow > 0) {
         luma = malloc(count * sizeof(float));
         if (!luma) return;
-        for (size_t y = 0; y < height; ++y) {
-            uint8_t *row = rgba + y * stride;
-            for (size_t x = 0; x < width; ++x) {
-                uint8_t *p = row + x * 4;
-                double alpha = p[3];
-                if (!alpha) { luma[y * width + x] = 0; continue; }
-                double r = fmin(1.0, p[0] / alpha);
-                double g = fmin(1.0, p[1] / alpha);
-                double b = fmin(1.0, p[2] / alpha);
-                luma[y * width + x] = (float)rec709(r, g, b);
-            }
-        }
+        in_bands(height, effects_luma_band, &(effects_luma_job){rgba, width, stride, luma});
         // Radii in proportion to the picture, as fitted to Photoshop's on 1456-pixel-wide photos (8 and 32 there), so
         // a downscaled preview matches the full-size result.
         double side = (double)(width > height ? width : height);
@@ -678,8 +911,9 @@ void adjust_camera_raw_effects(uint8_t *rgba, size_t width, size_t height, size_
         free(luma); free(fine); free(coarse); free(glowPlane);
         return;
     }
-    double haze[3] = {1, 1, 1};
-    if (dehaze != 0) dehaze_haze(rgba, width, height, stride, haze);
+    double hazeColor[3] = {1, 1, 1};
+    if (dehaze != 0) dehaze_haze(rgba, width, height, stride, hazeColor);
+    const double *haze = hazeColor;
     double warmth = glowWarmth / 100.0;
     double glowRed, glowGreen, glowBlue, glowGain;
     if (glowStyle == 2) {
@@ -694,35 +928,7 @@ void adjust_camera_raw_effects(uint8_t *rgba, size_t width, size_t height, size_
         glowBlue = 0.75 - 0.6 * warmth;
         glowGain = glowStyle == 1 ? 1.4 : 1;
     }
-    for (size_t y = 0; y < height; ++y) {
-        uint8_t *row = rgba + y * stride;
-        for (size_t x = 0; x < width; ++x) {
-            uint8_t *p = row + x * 4;
-            double alpha = p[3];
-            if (!alpha) continue;
-            size_t index = y * width + x;
-            double r = fmin(1.0, p[0] / alpha);
-            double g = fmin(1.0, p[1] / alpha);
-            double b = fmin(1.0, p[2] / alpha);
-            if (fine || coarse) {
-                double tone = rec709(r, g, b);
-                double detail = 0;
-                if (fine) detail += (texture / 100.0) * (texture > 0 ? 0.6 : 0.5) * (tone - fine[index]);
-                if (coarse) detail += (clarity / 100.0) * (clarity > 0 ? 0.85 : 0.5) * (tone - coarse[index]);
-                if (detail != 0) scale_luminance(&r, &g, &b, camera_clamp(tone + detail));
-            }
-            if (dehaze != 0) effects_dehaze(&r, &g, &b, dehaze, haze);
-            if (glowPlane && glow > 0) {
-                double add = glowPlane[index] * (glow / 100.0) * glowGain;
-                r = camera_clamp(r + add * glowRed);
-                g = camera_clamp(g + add * glowGreen);
-                b = camera_clamp(b + add * glowBlue);
-            }
-            effects_vignette(&r, &g, &b, x, y, width, height, vignetteAmount, vignetteMidpoint, vignetteRoundness,
-                             vignetteFeather, vignetteHighlights, vignetteStyle);
-            write_premultiplied(p, r, g, b, alpha);
-        }
-    }
+    in_bands(height, effects_band, &(effects_job){rgba, width, height, stride, texture, clarity, dehaze, glow, glowRed, glowGreen, glowBlue, glowGain, vignetteAmount, vignetteMidpoint, vignetteRoundness, vignetteFeather, vignetteHighlights, vignetteStyle, fine, coarse, glowPlane, haze});
     free(luma);
     free(fine);
     free(coarse);
@@ -824,12 +1030,28 @@ static double point_weight(double h, double s, double l, const float *point) {
     return hueW * satW * lumW;
 }
 
-void adjust_camera_raw_curve_color(uint8_t *rgba, size_t width, size_t height, size_t stride,
-                                   const float *toneLut, const float *redLut, const float *greenLut, const float *blueLut,
-                                   double refineSaturation, const float *mixer, int pointCount, const float *points,
-                                   const float *grade, double blending, double balance, int visualize,
-                                   const float *mixerTable, const float *gradeTable, int grid) {
-    for (size_t y = 0; y < height; ++y) {
+typedef struct { uint8_t *rgba; size_t width; size_t stride; const float *toneLut; const float *redLut; const float *greenLut; const float *blueLut; const float *mixer; const float *points; const float *grade; const float *mixerTable; const float *gradeTable; double refineSaturation; int pointCount; double blending; double balance; int visualize; int grid; } curve_color_job;
+static void curve_color_band(void *context, size_t first, size_t last) {
+    const curve_color_job *job = context;
+    uint8_t *rgba = job->rgba;
+    size_t width = job->width;
+    size_t stride = job->stride;
+    const float *toneLut = job->toneLut;
+    const float *redLut = job->redLut;
+    const float *greenLut = job->greenLut;
+    const float *blueLut = job->blueLut;
+    const float *mixer = job->mixer;
+    const float *points = job->points;
+    const float *grade = job->grade;
+    const float *mixerTable = job->mixerTable;
+    const float *gradeTable = job->gradeTable;
+    double refineSaturation = job->refineSaturation;
+    int pointCount = job->pointCount;
+    double blending = job->blending;
+    double balance = job->balance;
+    int visualize = job->visualize;
+    int grid = job->grid;
+    for (size_t y = first; y < last; ++y) {
         uint8_t *row = rgba + y * stride;
         for (size_t x = 0; x < width; ++x) {
             uint8_t *p = row + x * 4;
@@ -912,6 +1134,25 @@ void adjust_camera_raw_curve_color(uint8_t *rgba, size_t width, size_t height, s
     }
 }
 
+void adjust_camera_raw_curve_color(uint8_t *rgba, size_t width, size_t height, size_t stride,
+                                   const float *toneLut, const float *redLut, const float *greenLut, const float *blueLut,
+                                   double refineSaturation, const float *mixer, int pointCount, const float *points,
+                                   const float *grade, double blending, double balance, int visualize,
+                                   const float *mixerTable, const float *gradeTable, int grid) {
+    in_bands(height, curve_color_band, &(curve_color_job){rgba, width, stride, toneLut, redLut, greenLut, blueLut, mixer, points, grade, mixerTable, gradeTable, refineSaturation, pointCount, blending, balance, visualize, grid});
+}
+
+void camera_raw_table_curves(float *table, int grid, const float *toneLut, const float *redLut, const float *greenLut,
+                             const float *blueLut) {
+    size_t entries = (size_t)grid * grid * grid;
+    for (size_t i = 0; i < entries; ++i) {
+        float *c = table + i * 3;
+        c[0] = (float)lut_at(redLut, lut_at(toneLut, c[0]));
+        c[1] = (float)lut_at(greenLut, lut_at(toneLut, c[1]));
+        c[2] = (float)lut_at(blueLut, lut_at(toneLut, c[2]));
+    }
+}
+
 static double detail_radius(double slider, double scale) {
     double base = 0.5 + (slider / 100.0) * 2.5;
     double radius = base * (scale > 0 ? scale : 1);
@@ -989,6 +1230,77 @@ void adjust_camera_raw_sharpen_mask_overlay(uint8_t *rgba, size_t width, size_t 
     free(luma);
 }
 
+typedef struct { uint8_t *rgba; size_t width; size_t stride; float *luma; } detail_luma_job;
+static void detail_luma_band(void *context, size_t first, size_t last) {
+    const detail_luma_job *job = context;
+    uint8_t *rgba = job->rgba;
+    size_t width = job->width;
+    size_t stride = job->stride;
+    float *luma = job->luma;
+    for (size_t y = first; y < last; ++y) {
+        uint8_t *row = rgba + y * stride;
+        for (size_t x = 0; x < width; ++x) {
+            uint8_t *p = row + x * 4;
+            double alpha = p[3];
+            if (!alpha) { luma[y * width + x] = 0; continue; }
+            double r = fmin(1.0, p[0] / alpha), g = fmin(1.0, p[1] / alpha), b = fmin(1.0, p[2] / alpha);
+            luma[y * width + x] = (float)rec709(r, g, b);
+        }
+    }
+}
+
+typedef struct { uint8_t *rgba; size_t width; size_t stride; float *luma; } sharpen_luma_job;
+static void sharpen_luma_band(void *context, size_t first, size_t last) {
+    const sharpen_luma_job *job = context;
+    uint8_t *rgba = job->rgba;
+    size_t width = job->width;
+    size_t stride = job->stride;
+    float *luma = job->luma;
+    for (size_t y = first; y < last; ++y) {
+            uint8_t *row = rgba + y * stride;
+            for (size_t x = 0; x < width; ++x) {
+                uint8_t *p = row + x * 4;
+                double alpha = p[3];
+                if (!alpha) continue;
+                double r = fmin(1.0, p[0] / alpha), g = fmin(1.0, p[1] / alpha), b = fmin(1.0, p[2] / alpha);
+                luma[y * width + x] = (float)rec709(r, g, b);
+            }
+        }
+}
+
+typedef struct { uint8_t *rgba; size_t width; size_t height; size_t stride; float *luma; float *work; int radius; double amount; double detailMix; double threshold; } sharpen_job;
+static void sharpen_band(void *context, size_t first, size_t last) {
+    const sharpen_job *job = context;
+    uint8_t *rgba = job->rgba;
+    size_t width = job->width;
+    size_t height = job->height;
+    size_t stride = job->stride;
+    float *luma = job->luma;
+    float *work = job->work;
+    int radius = job->radius;
+    double amount = job->amount;
+    double detailMix = job->detailMix;
+    double threshold = job->threshold;
+    for (size_t y = first; y < last; ++y) {
+            uint8_t *row = rgba + y * stride;
+            for (size_t x = 0; x < width; ++x) {
+                uint8_t *p = row + x * 4;
+                double alpha = p[3];
+                if (!alpha) continue;
+                size_t index = y * width + x;
+                float edge = sharpen_edge_at(luma, width, height, x, y, radius);
+                // Masking at 0 sharpens everywhere, as in Photoshop; raising it keeps the sharpening to edges.
+                double mask = threshold > 0 ? camera_clamp((edge * (0.5 + detailMix) - threshold) / fmax(0.04, 0.35 - threshold * 0.5)) : 1;
+                double high = luma[index] - work[index];
+                // 1.9 × (0.5 + Detail) is Photoshop's strength: 1.4 at its default Detail of 25, measured on photos.
+                double sharpened = camera_clamp(luma[index] + high * amount * mask * 1.9 * (0.5 + detailMix));
+                double r = fmin(1.0, p[0] / alpha), g = fmin(1.0, p[1] / alpha), b = fmin(1.0, p[2] / alpha);
+                scale_luminance(&r, &g, &b, sharpened);
+                write_premultiplied(p, r, g, b, alpha);
+            }
+        }
+}
+
 void adjust_camera_raw_detail(uint8_t *rgba, size_t width, size_t height, size_t stride,
                               double sharpenAmount, double sharpenRadius, double sharpenDetail, double sharpenMasking,
                               double noiseLuminance, double noiseLuminanceDetail, double noiseLuminanceContrast,
@@ -999,16 +1311,7 @@ void adjust_camera_raw_detail(uint8_t *rgba, size_t width, size_t height, size_t
     float *luma = malloc(count * sizeof(float));
     float *work = malloc(count * sizeof(float));
     if (!luma || !work) { free(luma); free(work); return; }
-    for (size_t y = 0; y < height; ++y) {
-        uint8_t *row = rgba + y * stride;
-        for (size_t x = 0; x < width; ++x) {
-            uint8_t *p = row + x * 4;
-            double alpha = p[3];
-            if (!alpha) { luma[y * width + x] = 0; continue; }
-            double r = fmin(1.0, p[0] / alpha), g = fmin(1.0, p[1] / alpha), b = fmin(1.0, p[2] / alpha);
-            luma[y * width + x] = (float)rec709(r, g, b);
-        }
-    }
+    in_bands(height, detail_luma_band, &(detail_luma_job){rgba, width, stride, luma});
     if (noiseLuminance > 0) {
         int radius = effects_radius(1.0 + noiseLuminance / 50.0, scale);
         if (!box_blur_plane(luma, work, width, height, radius)) { free(luma); free(work); return; }
@@ -1098,39 +1401,13 @@ void adjust_camera_raw_detail(uint8_t *rgba, size_t width, size_t height, size_t
         free(planes);
     }
     if (sharpenAmount > 0) {
-        for (size_t y = 0; y < height; ++y) {
-            uint8_t *row = rgba + y * stride;
-            for (size_t x = 0; x < width; ++x) {
-                uint8_t *p = row + x * 4;
-                double alpha = p[3];
-                if (!alpha) continue;
-                double r = fmin(1.0, p[0] / alpha), g = fmin(1.0, p[1] / alpha), b = fmin(1.0, p[2] / alpha);
-                luma[y * width + x] = (float)rec709(r, g, b);
-            }
-        }
+        in_bands(height, sharpen_luma_band, &(sharpen_luma_job){rgba, width, stride, luma});
         int radius = effects_radius(detail_radius(sharpenRadius, scale), 1);
         if (!box_blur_plane(luma, work, width, height, radius)) { free(luma); free(work); return; }
         double amount = sharpenAmount / 100.0;
         double detailMix = sharpenDetail / 100.0;
         double threshold = (sharpenMasking / 100.0) * 0.35;
-        for (size_t y = 0; y < height; ++y) {
-            uint8_t *row = rgba + y * stride;
-            for (size_t x = 0; x < width; ++x) {
-                uint8_t *p = row + x * 4;
-                double alpha = p[3];
-                if (!alpha) continue;
-                size_t index = y * width + x;
-                float edge = sharpen_edge_at(luma, width, height, x, y, radius);
-                // Masking at 0 sharpens everywhere, as in Photoshop; raising it keeps the sharpening to edges.
-                double mask = threshold > 0 ? camera_clamp((edge * (0.5 + detailMix) - threshold) / fmax(0.04, 0.35 - threshold * 0.5)) : 1;
-                double high = luma[index] - work[index];
-                // 1.9 × (0.5 + Detail) is Photoshop's strength: 1.4 at its default Detail of 25, measured on photos.
-                double sharpened = camera_clamp(luma[index] + high * amount * mask * 1.9 * (0.5 + detailMix));
-                double r = fmin(1.0, p[0] / alpha), g = fmin(1.0, p[1] / alpha), b = fmin(1.0, p[2] / alpha);
-                scale_luminance(&r, &g, &b, sharpened);
-                write_premultiplied(p, r, g, b, alpha);
-            }
-        }
+        in_bands(height, sharpen_band, &(sharpen_job){rgba, width, height, stride, luma, work, radius, amount, detailMix, threshold});
     }
     free(luma);
     free(work);
@@ -1203,6 +1480,37 @@ static void optics_vignette_correct(double *r, double *g, double *b, size_t x, s
     *b = camera_clamp(low[2] + (high[2] - low[2]) * fraction);
 }
 
+typedef struct { uint8_t *rgba; size_t width; size_t height; size_t stride; double purpleAmount; double purpleHueLow; double purpleHueHigh; double greenAmount; double greenHueLow; double greenHueHigh; double vignette; double vignetteMidpoint; const uint8_t *exposureTables; int tableSize; } optics_job;
+static void optics_band(void *context, size_t first, size_t last) {
+    const optics_job *job = context;
+    uint8_t *rgba = job->rgba;
+    size_t width = job->width;
+    size_t height = job->height;
+    size_t stride = job->stride;
+    double purpleAmount = job->purpleAmount;
+    double purpleHueLow = job->purpleHueLow;
+    double purpleHueHigh = job->purpleHueHigh;
+    double greenAmount = job->greenAmount;
+    double greenHueLow = job->greenHueLow;
+    double greenHueHigh = job->greenHueHigh;
+    double vignette = job->vignette;
+    double vignetteMidpoint = job->vignetteMidpoint;
+    const uint8_t *exposureTables = job->exposureTables;
+    int tableSize = job->tableSize;
+    for (size_t y = first; y < last; ++y) {
+        uint8_t *row = rgba + y * stride;
+        for (size_t x = 0; x < width; ++x) {
+            uint8_t *p = row + x * 4;
+            double alpha = p[3];
+            if (!alpha) continue;
+            double r = fmin(1.0, p[0] / alpha), g = fmin(1.0, p[1] / alpha), b = fmin(1.0, p[2] / alpha);
+            optics_defringe(&r, &g, &b, purpleAmount, purpleHueLow, purpleHueHigh, greenAmount, greenHueLow, greenHueHigh);
+            optics_vignette_correct(&r, &g, &b, x, y, width, height, vignette, vignetteMidpoint, exposureTables, tableSize);
+            write_premultiplied(p, r, g, b, alpha);
+        }
+    }
+}
+
 void adjust_camera_raw_optics(uint8_t *rgba, size_t width, size_t height, size_t stride,
                               int removeChromatic, int lensProfile, double profileDistortion, double profileVignetting,
                               double distortionK, double purpleAmount, double purpleHueLow, double purpleHueHigh,
@@ -1222,35 +1530,23 @@ void adjust_camera_raw_optics(uint8_t *rgba, size_t width, size_t height, size_t
     }
     if (removeChromatic) optics_chromatic(rgba, width, height, stride, 0.45);
     if (purpleAmount == 0 && greenAmount == 0 && vignette == 0) return;
-    for (size_t y = 0; y < height; ++y) {
-        uint8_t *row = rgba + y * stride;
-        for (size_t x = 0; x < width; ++x) {
-            uint8_t *p = row + x * 4;
-            double alpha = p[3];
-            if (!alpha) continue;
-            double r = fmin(1.0, p[0] / alpha), g = fmin(1.0, p[1] / alpha), b = fmin(1.0, p[2] / alpha);
-            optics_defringe(&r, &g, &b, purpleAmount, purpleHueLow, purpleHueHigh, greenAmount, greenHueLow, greenHueHigh);
-            optics_vignette_correct(&r, &g, &b, x, y, width, height, vignette, vignetteMidpoint, exposureTables, tableSize);
-            write_premultiplied(p, r, g, b, alpha);
-        }
-    }
+    in_bands(height, optics_band, &(optics_job){rgba, width, height, stride, purpleAmount, purpleHueLow, purpleHueHigh, greenAmount, greenHueLow, greenHueHigh, vignette, vignetteMidpoint, exposureTables, tableSize});
 }
 
-void adjust_camera_raw_calibration(uint8_t *rgba, size_t width, size_t height, size_t stride,
-                                   double shadowTint, double redHue, double redSaturation,
-                                   double greenHue, double greenSaturation, double blueHue, double blueSaturation,
-                                   int processVersion) {
-    if (width == 0 || height == 0) return;
-    double versionScale = processVersion <= 1 ? 0.55 : processVersion == 2 ? 0.65 : processVersion == 3 ? 0.75
-        : processVersion == 4 ? 0.85 : processVersion == 5 ? 0.92 : 1.0;
-    double tint = shadowTint / 100.0 * versionScale;
-    double rh = redHue / 100.0 * (15.0 / 360.0) * versionScale;
-    double rs = redSaturation / 100.0 * 0.45 * versionScale;
-    double gh = greenHue / 100.0 * (15.0 / 360.0) * versionScale;
-    double gs = greenSaturation / 100.0 * 0.45 * versionScale;
-    double bh = blueHue / 100.0 * (15.0 / 360.0) * versionScale;
-    double bs = blueSaturation / 100.0 * 0.45 * versionScale;
-    for (size_t y = 0; y < height; ++y) {
+typedef struct { uint8_t *rgba; size_t width; size_t stride; double tint; double rh; double rs; double gh; double gs; double bh; double bs; } calibration_job;
+static void calibration_band(void *context, size_t first, size_t last) {
+    const calibration_job *job = context;
+    uint8_t *rgba = job->rgba;
+    size_t width = job->width;
+    size_t stride = job->stride;
+    double tint = job->tint;
+    double rh = job->rh;
+    double rs = job->rs;
+    double gh = job->gh;
+    double gs = job->gs;
+    double bh = job->bh;
+    double bs = job->bs;
+    for (size_t y = first; y < last; ++y) {
         uint8_t *row = rgba + y * stride;
         for (size_t x = 0; x < width; ++x) {
             uint8_t *p = row + x * 4;
@@ -1276,4 +1572,21 @@ void adjust_camera_raw_calibration(uint8_t *rgba, size_t width, size_t height, s
             write_premultiplied(p, r, g, b, alpha);
         }
     }
+}
+
+void adjust_camera_raw_calibration(uint8_t *rgba, size_t width, size_t height, size_t stride,
+                                   double shadowTint, double redHue, double redSaturation,
+                                   double greenHue, double greenSaturation, double blueHue, double blueSaturation,
+                                   int processVersion) {
+    if (width == 0 || height == 0) return;
+    double versionScale = processVersion <= 1 ? 0.55 : processVersion == 2 ? 0.65 : processVersion == 3 ? 0.75
+        : processVersion == 4 ? 0.85 : processVersion == 5 ? 0.92 : 1.0;
+    double tint = shadowTint / 100.0 * versionScale;
+    double rh = redHue / 100.0 * (15.0 / 360.0) * versionScale;
+    double rs = redSaturation / 100.0 * 0.45 * versionScale;
+    double gh = greenHue / 100.0 * (15.0 / 360.0) * versionScale;
+    double gs = greenSaturation / 100.0 * 0.45 * versionScale;
+    double bh = blueHue / 100.0 * (15.0 / 360.0) * versionScale;
+    double bs = blueSaturation / 100.0 * 0.45 * versionScale;
+    in_bands(height, calibration_band, &(calibration_job){rgba, width, stride, tint, rh, rs, gh, gs, bh, bs});
 }

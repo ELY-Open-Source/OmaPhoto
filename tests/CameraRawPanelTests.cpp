@@ -412,11 +412,11 @@ void CameraRawPanelTests::everyRowCarriesSwiftsTitleHelpAndClipping()
 void CameraRawPanelTests::theScopeDrawsItsRibbonsAndItsCells()
 {
     Panel panel;
-    // A gray ramp fills every bin: three full-height ribbons.
-    QImage ramp = BrushRaster::context(256, 4, false);
+    // A gray ramp, two pixels a level, fills each bin.
+    QImage ramp = BrushRaster::context(512, 4, false);
     for (int y = 0; y < 4; ++y)
-        for (int x = 0; x < 256; ++x)
-            ramp.setPixelColor(x, y, QColor(x, x, x));
+        for (int x = 0; x < 512; ++x)
+            ramp.setPixelColor(x, y, QColor(x / 2, x / 2, x / 2));
     panel.session.cancelFilter();
     panel.session.insert(ImportedImage(ramp, ramp, QStringLiteral("Ramp")));
     panel.session.beginFilter(FilterKind::cameraRaw);

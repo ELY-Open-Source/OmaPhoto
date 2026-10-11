@@ -20,19 +20,16 @@ const std::vector<uint8_t> &tables();
 CameraRawStage whiteBalance(double temperature, double tint);
 // Exposure's 21 tables in turn, for the lens vignette.
 const uint8_t *exposureTables();
-// What adaptive sliders read first, in sRGB levels.
-struct Brightness {
-    double brightest = 128;
-    double luminance = 128;
-    double logBrightest = 128;
-};
 Brightness brightness(const uchar *pixels, int width, int height, qsizetype stride);
+Brightness brightness(const QImage &image);
 // Camera Raw's order, sliders at zero left out.
 std::vector<CameraRawStage> stages(const CameraRawSettings &settings, const Brightness &brightness);
 // Color Grading's stages: luminance, global, midtones, highlights, shadows.
 std::vector<CameraRawStage> gradingStages(const CameraRawGradingSettings &grading);
 // The Mixer's stages: luminance, then saturation, then hue.
 std::vector<CameraRawStage> mixerStages(const CameraRawMixerSettings &mixer);
+// No change, on the composing grid.
+std::vector<float> identity();
 // The stages over the composing grid; empty without stages.
 std::vector<float> compose(const std::vector<CameraRawStage> &stages);
 // Temperature and Tint turning a straight sRGB colour gray.

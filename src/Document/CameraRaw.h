@@ -33,6 +33,15 @@ struct CameraRawGroups {
     friend bool operator==(const CameraRawGroups &, const CameraRawGroups &) = default;
 };
 
+namespace CameraRawTables {
+// What adaptive sliders read first, in sRGB levels.
+struct Brightness {
+    double brightest = 128;
+    double luminance = 128;
+    double logBrightest = 128;
+};
+}
+
 // Defaults leave the image unchanged.
 struct CameraRawSettings {
     static constexpr double exposureLow = -5, exposureHigh = 5;
@@ -87,9 +96,11 @@ struct CameraRawSettings {
     CameraRawSettings applying(const CameraRawGroups &shown) const;
     // Camera Raw's 0 to 100 size in `adjust_grain`'s pixels.
     double grainKernelSize() const;
-    // `clipping`: the Option view; `scale`: preview pixels a pixel.
+    // Option view, preview scale, and the source's brightness once known.
     QImage apply(const QImage &image, std::optional<CameraRawClipping> clipping = std::nullopt, double scale = 1, quint32 seed = 0,
-                 int visualizePointColor = -1, bool sharpenMask = false) const;
+                 int visualizePointColor = -1, bool sharpenMask = false, std::optional<CameraRawTables::Brightness> brightness = std::nullopt) const;
+    // Curve, Mixer and Grading run over a composed table.
+    std::vector<float> foldingColor(std::vector<float> composed) const;
     struct Balance {
         double temperature;
         double tint;

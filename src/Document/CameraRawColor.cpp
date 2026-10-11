@@ -255,6 +255,22 @@ CameraRawGradingSettings CameraRawGradingSettings::normalized() const
             clamp(balance, -100, 100, 0)};
 }
 
+std::vector<float> CameraRawSettings::foldingColor(std::vector<float> composed) const
+{
+    std::vector<float> table = composed.empty() ? CameraRawTables::identity() : std::move(composed);
+    const CameraRawCurveSettings shape = curve.normalized();
+    if (shape.adjusts()) {
+        const std::vector<float> tone = shape.toneTable(), red = shape.channelTable(shape.red), green = shape.channelTable(shape.green),
+                                 blue = shape.channelTable(shape.blue);
+        camera_raw_table_curves(table.data(), CameraRawTables::grid, tone.data(), red.data(), green.data(), blue.data());
+    }
+    std::vector<CameraRawStage> stages = CameraRawTables::mixerStages(mixer.normalized());
+    const std::vector<CameraRawStage> graded = CameraRawTables::gradingStages(grading.normalized());
+    stages.insert(stages.end(), graded.begin(), graded.end());
+    camera_raw_compose_onto(table.data(), CameraRawTables::grid, stages.data(), int(stages.size()), CameraRawTables::size);
+    return table;
+}
+
 void CameraRawSettings::applyCurveColor(uchar *pixels, int width, int height, qsizetype stride, int visualize) const
 {
     const CameraRawCurveSettings shape = curve.normalized();

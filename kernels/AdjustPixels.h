@@ -39,6 +39,15 @@ typedef struct {
 // Runs `count` stages in order over a `grid`³ lattice of sRGB colors into `out` (3 floats per color, 0…1, red
 // slowest), so a whole run of stages costs a pixel one lookup.
 void camera_raw_compose(float *out, int grid, const CameraRawStage *stages, int count, int size);
+// Runs `count` stages over every entry of a composed table already made (3 floats a color), in place.
+void camera_raw_compose_onto(float *table, int grid, const CameraRawStage *stages, int count, int size);
+// Runs a composed table's colors through a tone curve, then each channel's curve (256 entries each), in place.
+void camera_raw_table_curves(float *table, int grid, const float *toneLut, const float *redLut, const float *greenLut,
+                             const float *blueLut);
+// Camera Raw's histogram (256 bins each of red, green and blue, added into `bins`) and vectorscope (`side`² cells,
+// added into `scope`) from every `step`th pixel each way, opaque ones counting by their alpha.
+void camera_raw_scope(const uint8_t *rgba, size_t width, size_t height, size_t stride, int step, double *bins, double *scope,
+                      int side);
 // One stage on one sRGB color (0…1), in place.
 void camera_raw_stage_color(const CameraRawStage *stage, int size, double *rgb);
 // What Camera Raw's adaptive sliders read from an image, as sRGB levels (0…1), opaque pixels counting by their

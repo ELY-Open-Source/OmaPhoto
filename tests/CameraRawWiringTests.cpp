@@ -232,22 +232,26 @@ void CameraRawWiringTests::constrainCropFitsTheWholeFrame()
 
 void CameraRawWiringTests::theScopeCountsEachChannelAndHue()
 {
-    QImage picture = BrushRaster::context(3, 1, false);
+    // Every other pixel across; the red between is skipped.
+    QImage picture = BrushRaster::context(5, 1, false);
+    picture.fill(QColor(255, 0, 0));
     picture.setPixelColor(0, 0, QColor(0, 255, 0, 128));
-    picture.setPixelColor(1, 0, QColor(0, 0, 255));
-    picture.setPixelColor(2, 0, QColor(255, 0, 255));
-    const CameraRawScope scope = CameraRawScope::make(picture).value();
+    picture.setPixelColor(2, 0, QColor(0, 0, 255));
+    picture.setPixelColor(4, 0, QColor(255, 0, 255));
+    for (const QImage &format : {picture, picture.convertToFormat(QImage::Format_ARGB32)}) {
+        const CameraRawScope scope = CameraRawScope::make(format).value();
     // Counts weigh by alpha: the green pixel is half.
     const double half = 128 / 255.0;
     const auto near = [](double left, double right) { return std::abs(left - right) < 1e-9; };
-    QVERIFY(near(scope.red[0], 1 + half) && near(scope.red[255], 1));
-    QVERIFY(near(scope.green[255], half) && near(scope.green[0], 2));
-    QVERIFY(near(scope.blue[255], 2) && near(scope.blue[0], half));
-    const auto cell = [&](int column, int line) { return scope.vectorscope[size_t(line * CameraRawScope::scopeSide + column)]; };
-    // Green at 120°, blue at 240°, magenta at 300°.
-    QVERIFY(std::abs(cell(16, 58) - 128 / 255.0) < 1e-9);
-    QCOMPARE(cell(16, 5), 1.0);
-    QCOMPARE(cell(47, 5), 1.0);
+        QVERIFY(near(scope.red[0], 1 + half) && near(scope.red[255], 1));
+        QVERIFY(near(scope.green[255], half) && near(scope.green[0], 2));
+        QVERIFY(near(scope.blue[255], 2) && near(scope.blue[0], half));
+        const auto cell = [&](int column, int line) { return scope.vectorscope[size_t(line * CameraRawScope::scopeSide + column)]; };
+        // Green at 120°, blue at 240°, magenta at 300°.
+        QVERIFY(std::abs(cell(16, 58) - 128 / 255.0) < 1e-9);
+        QCOMPARE(cell(16, 5), 1.0);
+        QCOMPARE(cell(47, 5), 1.0);
+    }
 }
 
 void CameraRawWiringTests::curveMixerAndGradingReachTheKernelInOrder()

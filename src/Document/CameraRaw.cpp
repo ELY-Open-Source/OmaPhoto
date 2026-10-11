@@ -6,10 +6,8 @@
 #include <QPainter>
 #include <algorithm>
 #include <cmath>
-#include <numbers>
 extern "C" {
 #include "AdjustPixels.h"
-#include "LevelsPixels.h"
 }
 
 using ImageAdjustmentPixels::clamp;
@@ -116,15 +114,17 @@ double CameraRawSettings::grainKernelSize() const
 }
 
 QImage CameraRawSettings::apply(const QImage &image, std::optional<CameraRawClipping> clipping, double scale, quint32 seed, int visualizePointColor,
-                                bool sharpenMask) const
+                                bool sharpenMask, std::optional<CameraRawTables::Brightness> known) const
 {
     const CameraRawSettings settings = normalized();
     if (settings.isIdentity() && !clipping && visualizePointColor < 0 && !sharpenMask)
         return image;
     const int mode = clipping ? int(*clipping) : 0;
     const double pixelScale = scale > 0 ? scale : 1;
-    const bool paintColor = !clipping && !sharpenMask
-        && (settings.curve.adjusts() || settings.mixer.adjusts() || settings.grading.adjusts() || visualizePointColor >= 0);
+    // Curve, Mixer and Grading join the table unless curve-passed.
+    const bool foldsColor = !clipping && !sharpenMask && visualizePointColor < 0 && settings.mixer.points.empty() && settings.curve.refineSaturation == 0;
+    const bool colorAdjusts = settings.curve.adjusts() || settings.mixer.adjusts() || settings.grading.adjusts();
+    const bool paintColor = !foldsColor && !clipping && !sharpenMask && (colorAdjusts || visualizePointColor >= 0);
     const bool paintEffects = !clipping && !sharpenMask && settings.adjustsEffects();
     const bool paintDetailOptics = !clipping && (settings.detail.adjusts() || settings.optics.adjusts() || sharpenMask);
     QImage source = image;
@@ -132,16 +132,17 @@ QImage CameraRawSettings::apply(const QImage &image, std::optional<CameraRawClip
         source = settings.geometry.apply(source);
     return ImageAdjustmentPixels::run(source, [&](uchar *pixels, int width, int height, qsizetype stride) {
         const size_t w = size_t(width), h = size_t(height), s = size_t(stride);
+        const bool adaptive = settings.contrast != 0 || settings.highlights != 0 || settings.shadows != 0;
+        const CameraRawTables::Brightness brightness = !adaptive ? CameraRawTables::Brightness()
+                                                       : known      ? known.value()
+                                                                    : CameraRawTables::brightness(pixels, width, height, stride);
         if (!clipping && !sharpenMask && settings.calibration.adjusts())
             settings.applyCalibration(pixels, width, height, stride);
-        if (settings.adjustsLight() || settings.adjustsColor() || settings.calibration.adjusts()
-            || (settings.curve.hasMeasuredDividers() && settings.curve.adjusts()) || clipping) {
-            const CameraRawTables::Brightness brightness = settings.contrast != 0 || settings.highlights != 0 || settings.shadows != 0
-                ? CameraRawTables::brightness(pixels, width, height, stride)
-                : CameraRawTables::Brightness();
-            const std::vector<float> table = CameraRawTables::compose(CameraRawTables::stages(settings, brightness));
+        std::vector<float> table = CameraRawTables::compose(CameraRawTables::stages(settings, brightness));
+        if (foldsColor && colorAdjusts)
+            table = settings.foldingColor(std::move(table));
+        if (!table.empty() || clipping)
             adjust_camera_raw(pixels, w, h, s, table.empty() ? nullptr : table.data(), CameraRawTables::grid, mode);
-        }
         if (paintColor)
             settings.applyCurveColor(pixels, width, height, stride, visualizePointColor);
         if (paintEffects) {
@@ -196,36 +197,15 @@ std::optional<CameraRawScope> CameraRawScope::make(const QImage &image)
 {
     if (image.isNull())
         return std::nullopt;
-    const QImage pixels = drawn(image);
-    std::array<double, binCount * 4> bins{};
-    // Row by row: Qt may pad rows; the kernel counts.
-    for (int y = 0; y < pixels.height(); ++y)
-        levels_histogram(pixels.constScanLine(y), nullptr, size_t(pixels.width()), bins.data());
+    // Every other pixel each way, from premultiplied bytes directly.
+    const QImage pixels = image.format() == QImage::Format_RGBA8888_Premultiplied ? image : drawn(image);
+    std::array<double, binCount * 3> bins{};
     CameraRawScope scope;
-    std::copy_n(bins.begin() + binCount, binCount, scope.red.begin());
-    std::copy_n(bins.begin() + 2 * binCount, binCount, scope.green.begin());
-    std::copy_n(bins.begin() + 3 * binCount, binCount, scope.blue.begin());
-    for (int y = 0; y < pixels.height(); ++y) {
-        const uchar *row = pixels.constScanLine(y);
-        for (int x = 0; x < pixels.width(); ++x) {
-            const uchar *pixel = row + x * 4;
-            const double alpha = pixel[3];
-            if (alpha == 0)
-                continue;
-            const double r = std::min(1.0, pixel[0] / alpha), g = std::min(1.0, pixel[1] / alpha), b = std::min(1.0, pixel[2] / alpha);
-            const double high = std::max({r, g, b}), low = std::min({r, g, b}), chroma = high - low;
-            if (!(chroma > 1e-4 && high > 1e-4))
-                continue;
-            double hue = high == r ? (g - b) / chroma : high == g ? 2 + (b - r) / chroma : 4 + (r - g) / chroma;
-            // A negative hue needs no wrap: the angle turns round.
-            hue /= 6;
-            const double angle = hue * 2 * std::numbers::pi, reach = chroma / high;
-            const double plotX = 0.5 + std::cos(angle) * reach * 0.48, plotY = 0.5 + std::sin(angle) * reach * 0.48;
-            const int column = std::min(scopeSide - 1, std::max(0, int(plotX * scopeSide)));
-            const int line = std::min(scopeSide - 1, std::max(0, int(plotY * scopeSide)));
-            scope.vectorscope[size_t(line * scopeSide + column)] += alpha / 255;
-        }
-    }
+    camera_raw_scope(pixels.constBits(), size_t(pixels.width()), size_t(pixels.height()), size_t(pixels.bytesPerLine()), 2, bins.data(),
+                     scope.vectorscope.data(), scopeSide);
+    std::copy_n(bins.begin(), binCount, scope.red.begin());
+    std::copy_n(bins.begin() + binCount, binCount, scope.green.begin());
+    std::copy_n(bins.begin() + 2 * binCount, binCount, scope.blue.begin());
     return scope;
 }
 

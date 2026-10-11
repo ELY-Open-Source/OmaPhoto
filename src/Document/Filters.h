@@ -114,6 +114,8 @@ struct FilterJob {
     QPointF noiseOrigin{};
     // Vignette on an empty layer: the canvas it fills.
     std::optional<QRectF> canvas = std::nullopt;
+    // Camera Raw's adaptive sliders' reading of `image`, once known.
+    std::optional<CameraRawTables::Brightness> cameraRawBrightness = std::nullopt;
 };
 
 // Swift's PixelFilter.
@@ -149,6 +151,8 @@ public:
     // The settings as rendered: a hidden Camera Raw group drops.
     FilterSettings renderSettings() const;
     FilterJob previewJob() const;
+    // Measured once from the preview's source, again when it changes.
+    CameraRawTables::Brightness previewBrightness() const;
 
     // Swift's object identity: a preview lands on its own edit.
     const QUuid id = QUuid::createUuid();
@@ -193,4 +197,6 @@ private:
     void grow(const QRectF &extent);
     // Swift's prepared and prepare: mapping and preview copy.
     void prepare(const ImportedImage &source, const LayerTransform &placed);
+    // The source's identity and what it read.
+    mutable std::optional<std::pair<qint64, CameraRawTables::Brightness>> m_cameraRawBrightness;
 };
