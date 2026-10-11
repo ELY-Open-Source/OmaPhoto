@@ -11,7 +11,7 @@ OmaPhoto 1.4.9 catches up with Compositor 1.4.9. It follows 1.4.5.
 - **File › Export As** (Ctrl+Alt+Shift+W) writes PNG, JPEG or a one-page PDF, at any size, over a checkerboard preview.
 - **Image › Rotate Canvas 90°**, clockwise and counterclockwise.
 - **View › Navigator**. From 300% a small map of the whole document shows in the canvas's corner. Click or drag it to move there.
-- **New Canvas** takes pixels, inches or centimetres, 72 or 300 DPI, and a clear, white or black background.
+- **New Canvas** takes pixels, inches, centimetres or millimetres, 72 or 300 DPI, and a clear, white or black background.
 - Ctrl (or Meta) with the middle button drags to zoom, as in Blender. Up zooms in.
 - WebP pictures import.
 
