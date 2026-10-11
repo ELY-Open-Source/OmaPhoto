@@ -1,0 +1,1 @@
+[('    if (m_cameraRawBrightness && m_cameraRawBrightness->first == previewSource.cacheKey())\n        return m_cameraRawBrightness->second;\n', ''), ('                                         job.cameraRawBrightness);', '                                         std::nullopt);')]

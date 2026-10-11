@@ -14,6 +14,7 @@ private slots:
     void aPointColourOrRefineSaturationKeepsTheCurvePass();
     void aKnownBrightnessIsReadBeforeCalibration();
     void aSessionMeasuresItsPreviewSourceOnce();
+    void aJobsBrightnessReachesTheGrade();
     void everyBandIsMeasuredAndCounted();
     void calibrationsBlueHueTurnsAndItsSaturationSaturates();
 };
@@ -156,6 +157,18 @@ void CameraRawFoldTests::aSessionMeasuresItsPreviewSourceOnce()
     session.cancelFilter();
     session.beginFilter(FilterKind::gaussianBlur);
     QVERIFY(!session.filterEdit().value().previewJob().cameraRawBrightness);
+}
+
+// A job's brightness is the one the grade reads.
+void CameraRawFoldTests::aJobsBrightnessReachesTheGrade()
+{
+    const QImage gray = image(4, 4, 128 / 255.0, 128 / 255.0, 128 / 255.0);
+    FilterSettings settings;
+    settings.cameraRaw.shadows = 100;
+    FilterJob job{FilterKind::cameraRaw, gray, settings, 1, std::nullopt, QTransform()};
+    job.cameraRawBrightness = CameraRawTables::Brightness{60, 60, 60};
+    const QImage handed = settings.cameraRaw.apply(gray, std::nullopt, 1, 0, -1, false, CameraRawTables::Brightness{60, 60, 60});
+    QVERIFY(pixels(PixelFilter::run(job)) == pixels(handed) && pixels(handed) != pixels(settings.cameraRaw.apply(gray)));
 }
 
 // Forty rows of gray: every band's rows reach the sums.

@@ -1,0 +1,1 @@
+[('    const QImage pixels = image.format() == QImage::Format_RGBA8888_Premultiplied ? image : drawn(image);', '    const QImage pixels = drawn(image);')]
