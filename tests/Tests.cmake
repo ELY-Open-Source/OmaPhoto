@@ -185,6 +185,7 @@ compositor_test(QuitPendingEditsTests)
 compositor_test(ScanlinesTests)
 # It checks the kernel against Swift's own bytes.
 target_include_directories(ScanlinesTests PRIVATE ${OMAPHOTO_KERNELS})
+compositor_test(ScanlinesSheetTests)
 compositor_test(CameraRawCurveTests)
 compositor_test(CameraRawCurveGraphTests)
 compositor_test(OpenRecentTests)
