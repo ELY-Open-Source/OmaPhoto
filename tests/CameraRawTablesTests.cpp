@@ -213,19 +213,20 @@ void CameraRawTablesTests::theColourGroupsPickTheirTables()
     QCOMPARE(listed(mixed[5], 2), (std::vector<double>{316, 0.08f, 317, 0.92f}));
     QCOMPARE(listed(mixed[22], 2), (std::vector<double>{402, 0.76f, 403, 0.24f}));
     CameraRawSettings settings;
-    settings.calibration = {CameraRawProcessVersion::version6, 15, 80, -40, 30, 0, -70, 50};
+    settings.calibration = {CameraRawProcessVersion::version6, 15, 80, -40, 30, 60, -70, 50};
     settings.curve.shadows = -60;
     settings.curve.darks = 10;
     settings.curve.highlights = 75;
     const std::vector<CameraRawStage> stages = CameraRawTables::stages(settings, {});
-    QCOMPARE(stages.size(), size_t(8));
+    QCOMPARE(stages.size(), size_t(9));
     QCOMPARE(listed(stages[0], 2), (std::vector<double>{408, 0.4f, 409, 0.6f}));
     QCOMPARE(listed(stages[1], 2), (std::vector<double>{411, 0.8f, 412, 0.2f}));
     QCOMPARE(listed(stages[2], 2), (std::vector<double>{417, 0.4f, 418, 0.6f}));
-    QCOMPARE(listed(stages[3], 2), (std::vector<double>{425, 0.4f, 426, 0.6f}));
-    QCOMPARE(listed(stages[4], 2), (std::vector<double>{433, 1, 434, 0}));
-    QCOMPARE(listed(stages[5], 2), (std::vector<double>{435, 0.2f, 436, 0.8f}));
-    QCOMPARE(listed(stages[7], 2), (std::vector<double>{453, 0.5f, 454, 0.5f}));
+    QCOMPARE(listed(stages[3], 2), (std::vector<double>{423, 0.8f, 424, 0.2f}));
+    QCOMPARE(listed(stages[4], 2), (std::vector<double>{425, 0.4f, 426, 0.6f}));
+    QCOMPARE(listed(stages[5], 2), (std::vector<double>{433, 1, 434, 0}));
+    QCOMPARE(listed(stages[6], 2), (std::vector<double>{435, 0.2f, 436, 0.8f}));
+    QCOMPARE(listed(stages[8], 2), (std::vector<double>{453, 0.5f, 454, 0.5f}));
     // Calibration first, Light and Color, then the measured curve.
     CameraRawSettings ordered;
     ordered.calibration.redHue = 60;
@@ -237,7 +238,7 @@ void CameraRawTablesTests::theColourGroupsPickTheirTables()
     QCOMPARE(listed(run[2], 2), (std::vector<double>{440, 0.2f, 441, 0.8f}));
     // Moved dividers leave the curve to the formula.
     settings.curve.lightSplit = 70;
-    QCOMPARE(CameraRawTables::stages(settings, {}).size(), size_t(5));
+    QCOMPARE(CameraRawTables::stages(settings, {}).size(), size_t(6));
     QCOMPARE(indexOf(CameraRawTables::exposureTables()), 81);
 }
 
