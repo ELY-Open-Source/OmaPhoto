@@ -325,24 +325,28 @@ void CanvasNavigationTests::ctrlOrMetaWithTheMiddleButtonZooms()
     move(start - QPointF(0, 100), Qt::MiddleButton);
     QCOMPARE(session.viewport.zoom(), 1.5);
     QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::ControlModifier, (start - QPointF(0, 100)).toPoint());
-    // A right-button tip drag waits; a left Hand drag goes on.
+    // A right-button tip drag waits while the zoom goes on.
     const double diameter = session.brushSettings().diameter;
     QTest::mousePress(&canvas, Qt::RightButton, Qt::NoModifier, QPoint(100, 100));
     QTest::mousePress(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(100, 150));
-    move(QPointF(300, 150), Qt::RightButton | Qt::MiddleButton);
-    QCOMPARE(session.brushSettings().diameter, diameter);
-    QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(300, 150));
+    move(QPointF(300, 50), Qt::RightButton | Qt::MiddleButton);
+    QVERIFY(session.viewport.zoom() == 3.0 && session.brushSettings().diameter == diameter);
+    QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(300, 50));
     QTest::mouseRelease(&canvas, Qt::RightButton, Qt::NoModifier, QPoint(100, 100));
+    // Beside a Hand drag: the zoom, then the pan.
+    session.zoom(1);
     session.selectTool(NavigationTool::hand);
     canvas.synchronizeDisplay();
-    const QSizeF handStart = session.viewport.pan;
+    CanvasViewport expected = session.viewport;
+    expected.setZoom(2, QPointF(200, 200), size);
+    expected.translate(QSizeF(10, 50));
     QTest::mousePress(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(50, 50));
     QTest::mousePress(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(200, 200));
-    move(QPointF(60, 200), Qt::LeftButton | Qt::MiddleButton);
-    QCOMPARE(session.viewport.zoom(), 1.5);
-    QCOMPARE(session.viewport.pan, handStart + QSizeF(10, 150));
-    QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(60, 200));
-    QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(60, 200));
+    move(QPointF(60, 100), Qt::LeftButton | Qt::MiddleButton);
+    QCOMPARE(session.viewport.zoom(), 2.0);
+    QCOMPARE(session.viewport.pan, expected.pan);
+    QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(60, 100));
+    QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(60, 100));
 }
 
 QTEST_MAIN(CanvasNavigationTests)
