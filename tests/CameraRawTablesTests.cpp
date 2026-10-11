@@ -183,6 +183,18 @@ void CameraRawTablesTests::theColourGroupsPickTheirTables()
     toned.highlights.luminance = -40;
     const std::vector<CameraRawStage> lumas = CameraRawTables::gradingStages(toned);
     QVERIFY(listed(lumas.at(0), 2) == (std::vector<double>{751, 0.8f, 752, 0.2f}) && listed(lumas.at(1), 2) == (std::vector<double>{754, 0.8f, 755, 0.2f}));
+    // Balance ±50 weighs the shadow and highlight shares apart.
+    CameraRawGradingSettings shaded;
+    shaded.shadows = {0, 100, 0};
+    shaded.balance = 50;
+    QCOMPARE(listed(CameraRawTables::gradingStages(shaded).at(0), 8),
+             (std::vector<double>{455, 0, 456, 0, 458, 0, 459, 0, 527, 0.8f, 528, 0.2f, 530, 0, 531, 0}));
+    shaded.shadows = {0, 40, 0};
+    shaded.highlights = {0, 100, 0};
+    shaded.balance = -50;
+    const std::vector<CameraRawStage> weighed = CameraRawTables::gradingStages(shaded);
+    QCOMPARE(listed(weighed.at(0), 8), (std::vector<double>{491, 0, 492, 0, 494, 0, 495, 0, 563, 0.8f, 564, 0.2f, 566, 0, 567, 0}));
+    QCOMPARE(listed(weighed.at(1), 8), (std::vector<double>{456, 0, 457, 0, 459, 0, 460, 0, 528, 0.72f, 529, 0.28f, 531, 0, 532, 0}));
     // Balance +100 leaves the shadow wheel no share at all.
     CameraRawGradingSettings balanced;
     balanced.shadows = {200, 40, 0};
@@ -208,7 +220,9 @@ void CameraRawTablesTests::theColourGroupsPickTheirTables()
     const std::vector<CameraRawStage> stages = CameraRawTables::stages(settings, {});
     QCOMPARE(stages.size(), size_t(8));
     QCOMPARE(listed(stages[0], 2), (std::vector<double>{408, 0.4f, 409, 0.6f}));
+    QCOMPARE(listed(stages[1], 2), (std::vector<double>{411, 0.8f, 412, 0.2f}));
     QCOMPARE(listed(stages[2], 2), (std::vector<double>{417, 0.4f, 418, 0.6f}));
+    QCOMPARE(listed(stages[3], 2), (std::vector<double>{425, 0.4f, 426, 0.6f}));
     QCOMPARE(listed(stages[4], 2), (std::vector<double>{433, 1, 434, 0}));
     QCOMPARE(listed(stages[5], 2), (std::vector<double>{435, 0.2f, 436, 0.8f}));
     QCOMPARE(listed(stages[7], 2), (std::vector<double>{453, 0.5f, 454, 0.5f}));
