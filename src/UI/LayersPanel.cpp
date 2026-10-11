@@ -83,7 +83,7 @@ LayersPanel::LayersPanel(EditorSession &session, QWidget *parent)
     footer->addWidget(m_group);
     footer->addWidget(new LayerMaskMenu(session, this));
     // Presses open these menus; a click adds nothing.
-    m_effects = footerButton(QStringLiteral("layerEffects"), QStringLiteral("Layer effects"), QStringLiteral("Layer effects: stroke and drop shadow"), [] {});
+    m_effects = footerButton(QStringLiteral("layerEffects"), QStringLiteral("Layer effects"), QStringLiteral("Add layer effect"), [] {});
     auto *effects = new QMenu(m_effects);
     for (const LayerEffectKind kind : allLayerEffectKinds)
         effects->addAction(rawValue(kind) + QStringLiteral("…"), this, [this, kind] { m_session.addEffect(kind); });

@@ -107,7 +107,7 @@ void EffectsPanelTests::theFooterAddsEachEffectAndOpensItsPanel()
 {
     Editor editor;
     auto &button = find<QToolButton>(editor.view, "layerEffects");
-    QCOMPARE(button.toolTip(), QString("Layer effects: stroke and drop shadow"));
+    QCOMPARE(button.toolTip(), QString("Add layer effect"));
     QCOMPARE(button.accessibleName(), QString("Layer effects"));
     QCOMPARE(button.popupMode(), QToolButton::InstantPopup);
     // Swift's sparkles, in the footer's ink: three four-pointed stars.

@@ -106,14 +106,14 @@ QImage replayed(const QImage &pixels, const LayerEffects &effects)
     if (glowingInside) {
         const std::vector<float> softened = shader.softened(shader.shape, float(effects.innerGlow.value().size / 2));
         for (size_t index = 0; index < innerGlow.size(); ++index)
-            innerGlow[index] = std::clamp(shader.shape[index] * (1.f - softened[index]), 0.f, 1.f);
+            innerGlow[index] = std::clamp(1.f - softened[index], 0.f, 1.f);
     }
     if (on(effects.innerShadow)) {
         const std::vector<float> moved = shader.softened(shader.shift(shader.shape, float(effects.innerShadow.value().offset().width()),
                                                                       float(effects.innerShadow.value().offset().height())),
                                                          float(effects.innerShadow.value().blur / 2));
         for (size_t index = 0; index < inner.size(); ++index)
-            inner[index] = std::clamp(shader.shape[index] * (1.f - moved[index]), 0.f, 1.f);
+            inner[index] = std::clamp(1.f - moved[index], 0.f, 1.f);
     }
     QImage result(pixels.size(), QImage::Format_RGBA8888_Premultiplied);
     for (int y = 0; y < pixels.height(); ++y) {
@@ -135,15 +135,24 @@ QImage replayed(const QImage &pixels, const LayerEffects &effects)
                 blend(effects.stroke.value().color(), strokeCoverage);
             const uchar *source = pixels.constScanLine(y) + x * 4;
             const float sourceAlpha = float(source[3]) / 255.f;
+            float pixel[3];
             for (int channel = 0; channel < 3; ++channel)
-                colour[channel] = float(source[channel]) / 255.f + colour[channel] * (1.f - sourceAlpha);
-            alpha = sourceAlpha + alpha * (1.f - sourceAlpha);
+                pixel[channel] = float(source[channel]) / 255.f;
+            // MSL's mix: x + (y - x) * a.
+            const auto recolour = [&](const PaletteColor &paint, float amount) {
+                const float to[3] = {float(paint.red), float(paint.green), float(paint.blue)};
+                for (int channel = 0; channel < 3; ++channel)
+                    pixel[channel] = pixel[channel] + (to[channel] * sourceAlpha - pixel[channel]) * amount;
+            };
             if (on(effects.colorOverlay))
-                blend(effects.colorOverlay.value().color(), std::clamp(shader.shape[index] * float(effects.colorOverlay.value().opacity), 0.f, 1.f));
+                recolour(effects.colorOverlay.value().color(), float(effects.colorOverlay.value().opacity));
             if (glowingInside)
-                blend(effects.innerGlow.value().color(), std::clamp(innerGlow[index] * float(effects.innerGlow.value().opacity), 0.f, 1.f));
+                recolour(effects.innerGlow.value().color(), std::clamp(innerGlow[index] * float(effects.innerGlow.value().opacity), 0.f, 1.f));
             if (on(effects.innerShadow))
-                blend(effects.innerShadow.value().color(), std::clamp(inner[index] * float(effects.innerShadow.value().opacity), 0.f, 1.f));
+                recolour(effects.innerShadow.value().color(), std::clamp(inner[index] * float(effects.innerShadow.value().opacity), 0.f, 1.f));
+            for (int channel = 0; channel < 3; ++channel)
+                colour[channel] = pixel[channel] + colour[channel] * (1.f - sourceAlpha);
+            alpha = sourceAlpha + alpha * (1.f - sourceAlpha);
             if (stroke && effects.stroke.value().inside)
                 blend(effects.stroke.value().color(), strokeCoverage);
             uchar *out = result.scanLine(y) + x * 4;

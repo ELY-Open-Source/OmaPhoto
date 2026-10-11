@@ -146,6 +146,14 @@ void over(float (&colour)[3], float &alpha, const PaletteColor &paint, float cov
     alpha = coverage + alpha * (1.f - coverage);
 }
 
+// Metal's mix toward the paint at the pixel's alpha.
+void recolour(float (&pixel)[3], float alpha, const PaletteColor &paint, float amount)
+{
+    pixel[0] = mixed(pixel[0], float(paint.red) * alpha, amount);
+    pixel[1] = mixed(pixel[1], float(paint.green) * alpha, amount);
+    pixel[2] = mixed(pixel[2], float(paint.blue) * alpha, amount);
+}
+
 uchar byte(float value)
 {
     return uchar(std::clamp(value, 0.f, 1.f) * 255.f + 0.5f);
@@ -194,9 +202,9 @@ QImage LayerEffectsKernel::render(const QImage &pixels, const LayerEffects &effe
         const QSizeF offset = inner->offset();
         shifted(shape.get(), inside.get(), width, height, float(offset.width()), float(offset.height()));
         blurred(inside.get(), buffer(count).get(), width, height, float(inner->blur / 2));
-        // What lies outside the layer, softened, kept to its shape.
+        // Its strength before the pixels' own alpha.
         for (qint64 index = 0; index < count; ++index)
-            inside[index] = std::clamp(shape[index] * (1.f - inside[index]), 0.f, 1.f);
+            inside[index] = std::clamp(1.f - inside[index], 0.f, 1.f);
     }
     const std::optional<OuterGlowEffect> glow = effects.outerGlow && effects.outerGlow->isEnabled() && effects.outerGlow->size > 0 && effects.outerGlow->opacity > 0
         ? effects.outerGlow : std::nullopt;
@@ -216,7 +224,7 @@ QImage LayerEffectsKernel::render(const QImage &pixels, const LayerEffects &effe
         std::copy(shape.get(), shape.get() + count, glowingInside.get());
         blurred(glowingInside.get(), buffer(count).get(), width, height, float(innerGlow->size / 2));
         for (qint64 index = 0; index < count; ++index)
-            glowingInside[index] = std::clamp(shape[index] * (1.f - glowingInside[index]), 0.f, 1.f);
+            glowingInside[index] = std::clamp(1.f - glowingInside[index], 0.f, 1.f);
     }
     const std::optional<ColorOverlayEffect> overlay = effects.colorOverlay && effects.colorOverlay->isEnabled() && effects.colorOverlay->opacity > 0
         ? effects.colorOverlay : std::nullopt;
@@ -224,7 +232,7 @@ QImage LayerEffectsKernel::render(const QImage &pixels, const LayerEffects &effe
     // Taken once: scanLine() detaches, which workers must not race.
     uchar *const bits = result.bits();
     const qsizetype stride = result.bytesPerLine();
-    // Shadow, glow, outside stroke, pixels, overlay, inner glow, shadow, stroke.
+    // Shadow, glow, outside stroke, recoloured pixels, inside stroke.
     bands(height, [&](int, int y) {
         const uchar *in = source.constScanLine(y);
         uchar *out = bits + y * stride;
@@ -239,15 +247,19 @@ QImage LayerEffectsKernel::render(const QImage &pixels, const LayerEffects &effe
             if (stroke && !stroke->inside)
                 over(colour, alpha, stroke->color(), strokeCoverage);
             const float sourceAlpha = float(in[x * 4 + 3]) / 255.f;
+            float pixel[3];
             for (int channel = 0; channel < 3; ++channel)
-                colour[channel] = float(in[x * 4 + channel]) / 255.f + colour[channel] * (1.f - sourceAlpha);
-            alpha = sourceAlpha + alpha * (1.f - sourceAlpha);
+                pixel[channel] = float(in[x * 4 + channel]) / 255.f;
+            // Each keeps the pixel's alpha, as Photoshop's do.
             if (overlay)
-                over(colour, alpha, overlay->color(), std::clamp(shape[index] * float(overlay->opacity), 0.f, 1.f));
+                recolour(pixel, sourceAlpha, overlay->color(), float(overlay->opacity));
             if (innerGlow)
-                over(colour, alpha, innerGlow->color(), std::clamp(glowingInside[index] * float(innerGlow->opacity), 0.f, 1.f));
+                recolour(pixel, sourceAlpha, innerGlow->color(), std::clamp(glowingInside[index] * float(innerGlow->opacity), 0.f, 1.f));
             if (inner)
-                over(colour, alpha, inner->color(), std::clamp(inside[index] * float(inner->opacity), 0.f, 1.f));
+                recolour(pixel, sourceAlpha, inner->color(), std::clamp(inside[index] * float(inner->opacity), 0.f, 1.f));
+            for (int channel = 0; channel < 3; ++channel)
+                colour[channel] = pixel[channel] + colour[channel] * (1.f - sourceAlpha);
+            alpha = sourceAlpha + alpha * (1.f - sourceAlpha);
             if (stroke && stroke->inside)
                 over(colour, alpha, stroke->color(), strokeCoverage);
             out[x * 4] = byte(colour[0]);
