@@ -554,7 +554,8 @@ Compositor 1.4.8:
 - 14.16 work: `kernels/AdjustPixels.c` copied from 0b4c56c unchanged; `CameraRawToneOrderTests`. 10 mutants, all caught. Review: round 1 FAIL (partial amounts each way), round 2 PASS.
 - [x] 14.17 The Layers panel grays only for what lasts (`06313a9`).
 - 14.17 work: `layersLookEditable`; the list, footer, effects menu and mask button follow it, effect eyes keep `canEditLayers`. 30 mutants, all caught but one dead term removed. Review: round 1 FAIL (effect eyes; the adjustment menu untested), round 2 PASS.
-- [ ] 14.18 File › Export As…: PNG, JPEG or PDF, sized and previewed over the checkerboard (`9287cf1`, `450af5f`, `b1db93d`).
+- [x] 14.18 File › Export As…: PNG, JPEG or PDF, sized and previewed over the checkerboard (`9287cf1`, `450af5f`, `b1db93d`).
+- 14.18 Export As: PNG, JPEG and one-page PDF (a hand-written PDF 1.4, since QPdfWriter rounds pages), sized and scaled, over Swift's checkerboard; the last format remembered; passed review round 5.
 - [ ] 14.19 Filter › Scanlines, its own filter: Displace, Threshold, Thickness, Color Split, smoothed displacement, Dots by tone, Black Level (`06c3a22`, `1187736`, `cdde327`).
 - [ ] 14.20 The Navigator: a minimap in the canvas's corner from 300% (`6490bb3`, `3e09948`; `3c6cf5e` resolves a conflict in `ContentView` between the Navigator's column and Canvas Only, which the minimap supersedes).
 - [ ] 14.21 The slider snap test draws its slider before pressing it (`07eee7e`).
