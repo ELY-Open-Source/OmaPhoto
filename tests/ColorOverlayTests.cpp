@@ -80,7 +80,7 @@ void ColorOverlayTests::overlayLeavesTheShadowBeneathTranslucentPixels()
 void ColorOverlayTests::innerEffectsRecolourTranslucentPixelsAndKeepTheirAlpha()
 {
     const QImage half = square(QColor(0, 0, 0, 128));
-    // A glow a hair wide falls by half.
+    // A shadow cast past the square falls fully.
     LayerEffects shadowed;
     shadowed.innerShadow = InnerShadowEffect{.angle = 0, .distance = 60, .blur = 0.01, .red = 1, .green = 0, .blue = 0, .opacity = 1};
     std::array<int, 4> pixel = rendered(half, shadowed);
