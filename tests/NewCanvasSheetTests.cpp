@@ -348,13 +348,18 @@ void NewCanvasSheetTests::theMoreButtonDrawsThreeDotsAndOpensTheMenu()
     fixture.presets.setPalette(red);
     const QColor centre = fixture.presets.grab().toImage().pixelColor(26, 14);
     QVERIFY2(centre.red() > 200 && centre.red() - centre.green() > 60, qPrintable(centre.name()));
+    // Qt 6.12 shows the menu later: watch until it shows.
     bool shown = false;
-    QTimer::singleShot(0, fixture.presets.menu(), [&] {
-        shown = fixture.presets.menu()->isVisible();
+    QTimer watch;
+    QObject::connect(&watch, &QTimer::timeout, [&] {
+        if (!fixture.presets.menu()->isVisible())
+            return;
+        shown = true;
         fixture.presets.menu()->close();
     });
+    watch.start(10);
     QTest::mouseClick(&fixture.presets, Qt::LeftButton);
-    QVERIFY(shown);
+    QTRY_VERIFY(shown);
 }
 
 void NewCanvasSheetTests::thePillsStepThroughTheirChoices()
