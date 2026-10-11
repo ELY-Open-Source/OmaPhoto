@@ -579,7 +579,8 @@ Compositor 1.4.9:
 - 14.27 Mixer, Calibration, curve, vignettes, Grading from Photoshop's tables (xz); passed review round 4.
 - [x] 14.28 Camera Raw's preview 5 to 20 times faster (`a8630e4`).
 - 14.28 Preview 5–20× faster: one table, one measure, sparser scope, bands; passed review round 2.
-- [ ] 14.29 Tabs: the blank start tab stays put; Untitled numbers stay low (`d0ec2f3`).
+- [x] 14.29 Tabs: the blank start tab stays put; Untitled numbers stay low (`d0ec2f3`).
+- 14.29 Blank start tab stays, low Untitled numbers; passed review round 1.
 
 Release:
 
