@@ -524,7 +524,8 @@ Compositor 1.4.6:
 - 14.4 work: `CanvasRotation.cpp`, the Image menu's two entries, `restore` fitting a resized canvas; QPainter's turns made exact (`degrees()`, `QTransform::rotate`) and a pixel-for-pixel quarter turn unfiltered (`LayerRenderer::upright`), so Swift's exact tests hold; `ImageMenuTests` split out at 500 lines. 41 mutants, all caught or equivalent (`degrees()` at three grid maps). Review: round 1 FAIL (corners alone let a stretched side or a turned painter through; one layer tested), round 2 FAIL (no open edit before the turn), round 3 PASS.
 - [x] 14.5 One View › Snap for all snapping (`bba92dc`'s session and menu half).
 - 14.5 work: `snappingEnabled()` reads `m_snapEnabled`; `setSnapEnabled` clears the guides; the first View › Snap goes. 3 mutants, all caught. Review: round 1 FAIL (the signal's order untested), round 2 PASS.
-- [ ] 14.6 The command palette: menu commands, tools and their modes, masks, toggles shown on, on Ctrl+F (`cb139a1`, `384632d`, `231b7d3`, `07b8b1e`, `94b57f7`, `bba92dc`'s palette half, the palette lines of `088a5c1` and `720c121`).
+- [x] 14.6 The command palette: menu commands, tools and their modes, masks, toggles shown on, on Ctrl+F (`cb139a1`, `384632d`, `231b7d3`, `07b8b1e`, `94b57f7`, `bba92dc`'s palette half, the palette lines of `088a5c1` and `720c121`).
+- 14.6 work: `UI/CommandPalette` and `UI/CommandPaletteView`, View › Search Commands… on Ctrl+F, a `Qt::Popup` centred on the window; scores checked against Swift 6.0.3 running v1.4.9's code. 57 mutants, all caught but two equivalent (AGENTS.md). Review: round 1 FAIL (canonical matching, a chosen second row, a mode back from its sibling), round 2 FAIL (the key's drawing untested), round 3 PASS.
 - [ ] 14.7 Canvas Only and Toggle Fullscreen on F and Esc (`ad4bddf`, `088a5c1`, `720c121`).
 - [ ] 14.8 Camera Raw's colour noise reduction: clear pixels unsaturated, brightness kept (`a2718d9`, `42a559b`).
 
