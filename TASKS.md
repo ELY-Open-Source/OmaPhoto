@@ -526,7 +526,8 @@ Compositor 1.4.6:
 - 14.5 work: `snappingEnabled()` reads `m_snapEnabled`; `setSnapEnabled` clears the guides; the first View › Snap goes. 3 mutants, all caught. Review: round 1 FAIL (the signal's order untested), round 2 PASS.
 - [x] 14.6 The command palette: menu commands, tools and their modes, masks, toggles shown on, on Ctrl+F (`cb139a1`, `384632d`, `231b7d3`, `07b8b1e`, `94b57f7`, `bba92dc`'s palette half, the palette lines of `088a5c1` and `720c121`).
 - 14.6 work: `UI/CommandPalette` and `UI/CommandPaletteView`, View › Search Commands… on Ctrl+F, a `Qt::Popup` centred on the window; scores checked against Swift 6.0.3 running v1.4.9's code. 57 mutants, all caught but two equivalent (AGENTS.md). Review: round 1 FAIL (canonical matching, a chosen second row, a mode back from its sibling), round 2 FAIL (the key's drawing untested), round 3 PASS.
-- [ ] 14.7 Canvas Only and Toggle Fullscreen on F and Esc (`ad4bddf`, `088a5c1`, `720c121`).
+- [x] 14.7 Canvas Only and Toggle Fullscreen on F and Esc (`ad4bddf`, `088a5c1`, `720c121`).
+- 14.7 work: the session's three members, `ProjectWorkspaceView::toggleCanvasOnly` and its Escape filter, `ContentView`'s hidden bars, the black surround, View › Toggle Fullscreen on F; menu actions also live on the window, since a hidden bar's keys go dead. 57 mutants, all caught. Review: round 1 FAIL (the layers edge and the new definitions untested), round 2 PASS.
 - [ ] 14.8 Camera Raw's colour noise reduction: clear pixels unsaturated, brightness kept (`a2718d9`, `42a559b`).
 
 Compositor 1.4.7:
