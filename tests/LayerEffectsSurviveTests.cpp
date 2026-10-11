@@ -40,8 +40,8 @@ std::vector<Extras> extras(const EditorSession &session, const std::vector<QUuid
     std::vector<Extras> found;
     for (const QUuid id : ids) {
         const ImageLayer layer = layerWith(session, id);
-        found.push_back({layer.effects, layer.liveText() ? std::optional(layer.liveText()->style) : std::nullopt,
-                         layer.liveShape() ? std::optional(layer.liveShape()->style) : std::nullopt});
+        found.push_back({layer.effects, layer.liveText() ? std::optional(layer.liveText().value().style) : std::nullopt,
+                         layer.liveShape() ? std::optional(layer.liveShape().value().style) : std::nullopt});
     }
     return found;
 }
@@ -145,6 +145,16 @@ void LayerEffectsSurviveTests::aStretchScalesByTheFactorsMeanWithinRange()
     QVERIFY(doubled.stroke.value().size == 500 && doubled.shadow.value().distance == 5000 && doubled.shadow.value().blur == 500);
     QVERIFY(doubled.innerShadow.value().distance == 20 && doubled.innerShadow.value().blur == 8 && doubled.innerGlow.value().size == 12);
     QVERIFY(doubled.shadow.value().opacity == 0.4 && doubled.colorOverlay == made.colorOverlay && !doubled.outerGlow && doubled.isValid());
+    // The rest to 500, the inner distance to 5,000.
+    LayerEffects large;
+    large.innerShadow = InnerShadowEffect{.distance = 2600, .blur = 260};
+    large.outerGlow = OuterGlowEffect{.size = 260};
+    large.innerGlow = InnerGlowEffect{.size = 260};
+    const LayerEffects capped = large.scaled(2);
+    QVERIFY(capped.innerShadow.value().distance == 5000 && capped.innerShadow.value().blur == 500);
+    QVERIFY(capped.outerGlow.value().size == 500 && capped.innerGlow.value().size == 500 && capped.isValid());
+    const LayerEffects under = large.scaled(1.5);
+    QVERIFY(under.innerShadow.value().distance == 3900 && under.outerGlow.value().size == 390 && under.innerGlow.value().size == 390);
     // Stretched 4 by 1: the mean factor is 2.
     EditorSession session;
     session.createDocument(20, 20);

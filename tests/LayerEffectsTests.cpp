@@ -341,8 +341,8 @@ void LayerEffectsTests::rebuildsAndResizesKeepThem()
     const ProjectSnapshot snapshot = withEffects()->projectSnapshot().value();
     QVERIFY(CanvasResizer::resize(snapshot, CanvasSizeOptions{.width = 30, .height = 12}).manifest.layers[0].effects == every());
     LayerEffects doubled = every();
-    doubled.stroke->size = 14, doubled.shadow->distance = 24, doubled.shadow->blur = 12;
-    doubled.innerShadow->distance = 6, doubled.innerShadow->blur = 4, doubled.outerGlow->size = 66, doubled.innerGlow->size = 28;
+    doubled.stroke.value().size = 14, doubled.shadow.value().distance = 24, doubled.shadow.value().blur = 12;
+    doubled.innerShadow.value().distance = 6, doubled.innerShadow.value().blur = 4, doubled.outerGlow.value().size = 66, doubled.innerGlow.value().size = 28;
     QVERIFY(ImageResizer::resize(snapshot, ImageSizeOptions{.width = 40, .height = 20, .resolution = 72}).manifest.layers[0].effects == doubled);
 }
 
