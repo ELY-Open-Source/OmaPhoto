@@ -11,17 +11,17 @@ It is a Linux port of [Compositor](https://github.com/robbietilton/Compositor) b
 - Brush, eraser, spot healing, clone stamp, smudge, blur and liquify, gradient, shapes, type with colour and fonts on selected letters
 - Move, transform and distort layers and selections; rulers, guides, a grid with its own settings, and snapping for layers, selections and shapes
 - Levels, Curves, Hue/Saturation, Exposure, Black & White, Color Balance, Gradient Map, Grain, Invert, blur and noise, as edits or as adjustment layers
-- Camera Raw Filter, docked beside the canvas, with Photoshop's curves
+- Camera Raw Filter, docked beside the canvas, its sliders, curves, Color Mixer, Calibration and Color Grading measured against Photoshop's
 - Layer effects: stroke, drop shadow, outer and inner glow, color overlay, inner shadow
 - Filters: Gaussian and motion blur, noise, lens correction, Vignette, Bloom / Glow, Tonal Contrast, Dither, Scanlines, Content-Aware Fill and Remove Background (U²-Net on ONNX Runtime, offline)
 - Last Filter (Ctrl+Meta+F) runs the last filter again with the same settings
-- Crop, trim, canvas size, image size; PNG, JPEG and one-page PDF export, scaled if you like, with a zoomable preview (File › Export As…); New Canvas presets for screens and social formats
+- Crop, trim, canvas size, image size, rotate the canvas 90°; PNG, JPEG and one-page PDF export, scaled if you like, with a zoomable preview (File › Export As…); New Canvas in pixels, inches or centimetres at 72 or 300 DPI, on a clear, white or black background, with presets for screens and social formats
 - Imports JPEG, PNG, TIFF, HEIC, WebP, SVG, Photoshop files (PSD and PSB) and camera RAW
 - A Navigator minimap in the canvas's corner from 300% zoom: the whole document in small with a box around the view; click or drag to move there (View › Navigator)
 - Open Recent, and a Keyboard Shortcuts window
 - Search Commands (Ctrl+F): find every menu command and tool by name and run it with Return
 - Toggle Fullscreen (F): the canvas alone on black over the whole screen, every panel put away; F or Esc brings them back
-- Drag a number's label to scrub its value
+- Drag a number's label to scrub its value; Ctrl with the middle button drags to zoom, as in Blender
 - Keep working while a project saves
 - Project tabs that drag to reorder; those that do not fit gather in a menu
 - A project another app changes on disk reloads in place; unsaved work is never replaced without asking
@@ -99,6 +99,10 @@ scripts/dev.sh run     # build, then the app on your Wayland display
 `run` gives the container your home folder at its own path, so the app opens and saves your files and reads your Omarchy theme, and the GPU's render nodes (`/dev/dri/renderD*`), which Mesa's EGL wants. Files outside your home folder stay out of reach.
 
 By hand: C++20, Qt 6.4 or later (Widgets, Concurrent, image formats), CMake, Ninja, libheif, LibRaw, fontconfig, liblzma and ONNX Runtime. `-DOMAPHOTO_MODEL=path/to/u2net.onnx` installs Remove Background's model. `scripts/distro-check.sh arch|fedora|nixos|resolute` builds and tests on those systems (`resolute` is Ubuntu 26.04).
+
+## Translations
+
+OmaPhoto is English only, as Compositor is for now, and takes no translations. It follows Compositor's own words, which are not being translated; every new string would need translating from then on. This will be looked at again if Compositor's changes.
 
 ## Licence
 

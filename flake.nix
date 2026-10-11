@@ -13,7 +13,7 @@
     in {
       packages.x86_64-linux.default = pkgs.stdenv.mkDerivation {
         pname = "omaphoto";
-        version = "1.4.5";
+        version = "1.4.9";
         # dev.sh's build and the Swift spec stay out.
         src = pkgs.lib.cleanSourceWith {
           src = self;
