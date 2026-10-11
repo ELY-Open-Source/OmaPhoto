@@ -19,6 +19,8 @@ struct CanvasGuide {
     CanvasGuide scaled(double x, double y) const;
     // Mirrored when it crosses the flip, staying on content.
     CanvasGuide mirrored(bool horizontally, double center) const;
+    // Turned with the canvas: the other axis, same content.
+    CanvasGuide quarterTurned(bool clockwise, QSizeF canvas) const;
     friend bool operator==(const CanvasGuide &, const CanvasGuide &) = default;
 };
 

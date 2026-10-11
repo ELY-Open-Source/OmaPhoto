@@ -276,6 +276,7 @@ public:
 #include "Document/Distort+Session.h"
 #include "Document/LayerMerge+Session.h"
 #include "Document/LayerFlip+Session.h"
+#include "Document/CanvasRotation+Session.h"
 #include "Document/Selection+Session.h"
 #include "Document/MagicWand+Session.h"
 #include "Document/SubjectRemoval+Session.h"

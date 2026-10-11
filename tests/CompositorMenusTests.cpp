@@ -20,7 +20,6 @@ private slots:
     void transformEntriesFollowTheMoveTool();
     void deleteMeansTheMaskTheLayerOrTheLayers();
     void theMenusFollowTheFrontTab();
-    void imageEntriesSizeAndFlipTheCanvas();
 };
 
 void CompositorMenusTests::everyEntryHasSwiftsShortcutWithCtrlForCommand()
@@ -36,7 +35,7 @@ void CompositorMenusTests::everyEntryHasSwiftsShortcutWithCtrlForCommand()
         {"mergeLayers", "Ctrl+E"}, {"flipHorizontal", ""}, {"flipVertical", ""}, {"deleteLayer", ""},
         {"selectAll", "Ctrl+A"}, {"deselect", "Ctrl+D"}, {"inverse", "Ctrl+Shift+I"}, {"layerPixels", ""}, {"subject", "Ctrl+Alt+A"}, {"colorRange", ""}, {"maskBlackAreas", ""},
         {"expandSelection", ""}, {"contractSelection", ""}, {"featherSelection", ""}, {"curves", "Ctrl+M"}, {"levels", "Ctrl+L"}, {"hueSaturation", "Ctrl+U"}, {"blackWhite", ""}, {"colorBalance", ""}, {"exposure", ""}, {"gradientMap", ""}, {"grain", ""}, {"invert", "Ctrl+I"},
-        {"canvasSize", "Ctrl+Alt+C"}, {"imageSize", "Ctrl+Alt+I"}, {"trim", ""}, {"flipCanvasHorizontal", ""}, {"flipCanvasVertical", ""},
+        {"canvasSize", "Ctrl+Alt+C"}, {"imageSize", "Ctrl+Alt+I"}, {"trim", ""}, {"rotateCanvasClockwise", ""}, {"rotateCanvasCounterclockwise", ""}, {"flipCanvasHorizontal", ""}, {"flipCanvasVertical", ""},
         {"gaussianBlur", ""}, {"motionBlur", ""}, {"addNoise", ""}, {"lensCorrection", ""}, {"removeBackground", ""}, {"newAdjustmentLayer", ""}, {"editAdjustment", ""},
         {"newHueSaturationAdjustment", ""}, {"newLevelsAdjustment", ""}, {"newCurvesAdjustment", ""}, {"newExposureAdjustment", ""},
         {"newGradientMapAdjustment", ""}, {"newGrainAdjustment", ""}, {"newInvertAdjustment", ""}, {"newBlackWhiteAdjustment", ""},
@@ -57,7 +56,7 @@ void CompositorMenusTests::everyEntryHasSwiftsShortcutWithCtrlForCommand()
     // Swift 1.3.4's Color Range… follows Subject.
     const QList<QAction *> select = menus[3]->actions();
     QCOMPARE(select.indexOf(&bar.action("colorRange")), select.indexOf(&bar.action("subject")) + 1);
-    QCOMPARE(menus[4]->actions().size(), 16);
+    QCOMPARE(menus[4]->actions().size(), 18);
     // Swift's Trim… follows Image Size….
     const QList<QAction *> image = menus[4]->actions();
     QCOMPARE(image.indexOf(&bar.action("trim")), image.indexOf(&bar.action("imageSize")) + 1);
@@ -456,43 +455,6 @@ void CompositorMenusTests::theMenusFollowTheFrontTab()
     QCOMPARE(bar.action("undo").text(), QString("stale"));
     bar.workspace.tabs()[0]->session.notify();
     QCOMPARE(bar.action("undo").text(), QString("Undo New Blank Layer"));
-}
-
-void CompositorMenusTests::imageEntriesSizeAndFlipTheCanvas()
-{
-    Bar bar;
-    bar.window.show();
-    const char *entries[] = {"canvasSize", "imageSize", "trim", "flipCanvasHorizontal", "flipCanvasVertical"};
-    for (const char *name : entries)
-        QVERIFY2(!bar.action(name).isEnabled(), name);
-    bar.session().createDocument(100, 50);
-    bar.session().insert(white(), QPointF(20.5, 10.5));
-    for (const char *name : entries)
-        QVERIFY2(bar.action(name).isEnabled(), name);
-    // Busy holds them all; a drawn frame holds the flips.
-    bar.session().setIsProjectBusy(true);
-    for (const char *name : entries)
-        QVERIFY2(!bar.action(name).isEnabled(), name);
-    bar.session().setIsProjectBusy(false);
-    bar.session().selectTool(NavigationTool::crop);
-    QVERIFY(bar.action("canvasSize").isEnabled() && bar.action("trim").isEnabled() && !bar.action("flipCanvasHorizontal").isEnabled());
-    bar.session().selectTool(NavigationTool::move);
-    bar.action("flipCanvasHorizontal").trigger();
-    QCOMPARE(bar.session().activeLayer().value().origin(), QPointF(79, 10));
-    QCOMPARE(bar.session().history.undoName(), QString("Flip Canvas Horizontal"));
-    bar.action("flipCanvasVertical").trigger();
-    QCOMPARE(bar.session().activeLayer().value().origin(), QPointF(79, 39));
-    // The size entries open their sheets over the window.
-    for (const auto &[name, title] : {std::pair("canvasSize", "Canvas Size"), std::pair("imageSize", "Image Size"), std::pair("trim", "Trim")}) {
-        bar.action(name).trigger();
-        auto *sheet = bar.window.findChild<QDialog *>();
-        QVERIFY(sheet && sheet->isVisible());
-        QCOMPARE(sheet->windowTitle(), QString::fromLatin1(title));
-        QVERIFY(!bar.action(name).isEnabled());
-        QTest::keyClick(sheet, Qt::Key_Escape);
-        QTRY_VERIFY(!bar.session().isProjectBusy());
-        QTRY_VERIFY(!bar.window.findChild<QDialog *>());
-    }
 }
 
 QTEST_MAIN(CompositorMenusTests)

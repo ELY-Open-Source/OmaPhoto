@@ -92,7 +92,7 @@ QTransform BrushRaster::pixelToDocument(const LayerTransform &transform, int wid
     const QPointF center = transform.center();
     QTransform map;
     map.translate(center.x(), center.y());
-    map.rotateRadians(transform.radians());
+    map.rotate(transform.degrees());
     map.scale(transform.size.width() / width * (transform.flipX ? -1 : 1),
               transform.size.height() / height * (transform.flipY ? -1 : 1));
     map.translate(-width / 2.0, -height / 2.0);

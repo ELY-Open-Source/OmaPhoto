@@ -5,6 +5,7 @@
 #include "IO/ImageExporter.h"
 #include "Logging.h"
 #include <cmath>
+#include <tuple>
 
 EditorSession::EditorSession(QObject *parent) : QObject(parent), m_busyTimer(this)
 {
@@ -229,7 +230,10 @@ void EditorSession::restore(const DocumentHistory::Snapshot &snapshot)
 {
     cancelCrop();
     cancelGradient();
-    const auto canvas = [](const std::optional<CanvasDocument> &document) { return document ? std::optional(document->id) : std::nullopt; };
+    const auto canvas = [](const std::optional<CanvasDocument> &document) {
+        return document ? std::optional(std::tuple(document->id, document->width, document->height)) : std::nullopt;
+    };
+    // Another canvas, or another size (a rotation): fit anew.
     const bool changedCanvas = canvas(m_document) != canvas(snapshot.document);
     // The mask stays the target while layer and mask remain.
     const bool keepsMaskTarget = m_isMaskSelected && m_activeLayerID == snapshot.activeLayerID;

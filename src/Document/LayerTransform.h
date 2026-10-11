@@ -36,6 +36,8 @@ struct LayerTransform {
     friend bool operator==(const LayerTransform &lhs, const LayerTransform &rhs);
     QPointF center() const;
     double radians() const;
+    // The turn in degrees: QTransform::rotate makes quarter turns exact.
+    double degrees() const;
     bool isValid() const;
     QPointF point(QPointF unit) const;
     bool contains(QPointF point) const;
@@ -48,6 +50,8 @@ struct LayerTransform {
     bool samePlacement(const LayerTransform &other) const;
     // Mirrored across a line at `axis`; defined in LayerFlip.cpp.
     LayerTransform mirrored(bool horizontally, double axis) const;
+    // Turned a quarter with its canvas; nothing resampled.
+    LayerTransform quarterTurned(bool clockwise, QSizeF canvas) const;
 };
 
 // Several layers under one box; each follows it.

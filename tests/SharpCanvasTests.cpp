@@ -56,6 +56,7 @@ class SharpCanvasTests : public QObject {
 private slots:
     void anUprightLayerPixelForPixelTakesNoFilter();
     void plainMaskedAndTiledLayersCopyAcross();
+    void aQuarterTurnOnWholePixelsCopiesAcross();
 };
 
 void SharpCanvasTests::anUprightLayerPixelForPixelTakesNoFilter()
@@ -93,6 +94,63 @@ void SharpCanvasTests::plainMaskedAndTiledLayersCopyAcross()
         QVERIFY(blurred(100.2, draw) > 0);
         // Turned, even pixel for pixel: filtered between columns.
         QVERIFY(turned(draw) > 100);
+    }
+}
+
+void SharpCanvasTests::aQuarterTurnOnWholePixelsCopiesAcross()
+{
+    // The columns stood up, centred at (10, 60).
+    const auto standing = [](double rotation, double nudge) {
+        return LayerTransform{.origin = {-40 + nudge, 58}, .size = {100, 4}, .rotation = rotation};
+    };
+    QImage surface = BrushRaster::context(20, 120, false);
+    QPainter painter(&surface);
+    const auto upright = [&](const LayerTransform &transform) {
+        QTransform placement;
+        placement.translate(transform.center().x(), transform.center().y());
+        placement.rotateRadians(transform.radians());
+        const QSizeF size = transform.size;
+        return LayerRenderer::upright(transform, placement, QRectF(-size.width() / 2, -size.height() / 2, size.width(), size.height()), painter);
+    };
+    for (double rotation : {90.0, -90.0, 180.0, 270.0, 450.0})
+        QVERIFY2(upright(standing(rotation, 0)), qPrintable(QString::number(rotation)));
+    QVERIFY(!upright(standing(90, 0.5)) && !upright(standing(90, 0.002)) && upright(standing(90, 0.0009)));
+    QVERIFY(!upright(standing(45, 0)) && !upright(standing(90.000001, 0)));
+    // Either axis off, or a side stretched: off the pixels.
+    LayerTransform low = standing(90, 0);
+    low.origin.ry() += 0.25;
+    // 4.5 across: one corner on a pixel, one between.
+    const LayerTransform stretched{.origin = {-40.25, 57.75}, .size = {100, 4.5}, .rotation = 90};
+    QVERIFY(!upright(low) && !upright(stretched));
+    // Swift's own upright holds off whole pixels too.
+    QVERIFY(upright(standing(0, 0.3)));
+    // The painter's own place counts.
+    painter.translate(0.5, 0);
+    QVERIFY(!upright(standing(90, 0)) && upright(standing(90, 0.5)));
+    painter.end();
+    const QImage image = columns();
+    const auto raster = std::make_shared<const RasterSnapshot>(100, 4, image, QRectF(0, 0, 100, 4), std::vector<BrushPatch>{});
+    const auto mids = [&](const LayerTransform &transform, bool tiled) {
+        QImage drawn = BrushRaster::context(20, 120, false);
+        QPainter onto(&drawn);
+        if (tiled)
+            TiledLayerRenderer::drawRaster(raster, transform, transform.center(), onto);
+        else
+            LayerRenderer::draw(image, transform, transform.center(), onto);
+        onto.end();
+        int count = 0;
+        for (int y = 10; y < 110; ++y) {
+            for (int x = 8; x < 12; ++x)
+                count += qRed(drawn.pixel(x, y)) % 255 != 0 || qAlpha(drawn.pixel(x, y)) != 255;
+        }
+        return count;
+    };
+    for (bool tiled : {false, true}) {
+        // On whole pixels: each column a row, exact.
+        QCOMPARE(mids(standing(90, 0), tiled), 0);
+        QCOMPARE(mids(standing(-90, 0), tiled), 0);
+        // Half a pixel off: filtered, as CoreGraphics blends it.
+        QVERIFY(mids(standing(90, 0.5), tiled) > 100);
     }
 }
 

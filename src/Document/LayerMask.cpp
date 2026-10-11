@@ -200,7 +200,7 @@ void FolderMaskClip::apply(QPointF center, const QPainter &context, QImage &cove
     {
         QTransform placement;
         placement.translate(center.x(), center.y());
-        placement.rotateRadians(transform.radians());
+        placement.rotate(transform.degrees());
         placement.scale(transform.flipX ? -1 : 1, transform.flipY ? -1 : 1);
         QPainter masking(&veil);
         masking.setRenderHint(QPainter::SmoothPixmapTransform, quality(transform.sampling) != InterpolationQuality::none);

@@ -222,7 +222,7 @@ Corners DistortWarp::carried(const LayerTransform &placement, const LayerTransfo
 {
     QTransform toDocument;
     toDocument.translate(transform.center().x(), transform.center().y());
-    toDocument.rotateRadians(transform.radians());
+    toDocument.rotate(transform.degrees());
     toDocument.scale(transform.size.width(), transform.size.height());
     toDocument.translate(-0.5, -0.5);
     const QTransform toUnit = toDocument.inverted();

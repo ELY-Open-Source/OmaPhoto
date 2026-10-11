@@ -53,13 +53,13 @@ void LayerRenderer::draw(const QImage &image, const LayerTransform &transform, Q
     // Large reductions draw from sharp halvings; QPainter does the rest.
     const double device = deviceScale(context);
     const Reduced source = reduced(image, width, device, transform.sampling);
-    const InterpolationQuality quality = interpolation(
-        transform.sampling, width * device / std::max(1, image.width()) * (1 << source.level), transform.radians() == 0);
     const QRectF bounds(-width / 2, -height / 2, width, height);
     QTransform placement;
     placement.translate(center.x(), center.y());
-    placement.rotateRadians(transform.radians());
+    placement.rotate(transform.degrees());
     placement.scale(transform.flipX ? -1 : 1, transform.flipY ? -1 : 1);
+    const InterpolationQuality quality = interpolation(transform.sampling, width * device / std::max(1, image.width()) * (1 << source.level),
+                                                       upright(transform, placement, bounds, context));
 
     if (options.mask.isNull() && options.clip.isNull() && !HslBlend::handles(options.blendMode)) {
         const QPainter::CompositionMode mode = compositionMode(options.blendMode);
@@ -115,7 +115,7 @@ void LayerRenderer::drawBrushPreview(const QImage &image, const LayerTransform &
     };
     QTransform placement;
     placement.translate(center.x(), center.y());
-    placement.rotateRadians(transform.radians());
+    placement.rotate(transform.degrees());
     placement.scale(transform.flipX ? -1 : 1, transform.flipY ? -1 : 1);
     QRectF extent = bounds;
     for (const BrushPatch &patch : preview.patches)
@@ -282,7 +282,7 @@ void LayerRenderer::drawCoverage(const QImage &image, const LayerTransform &tran
     }
     QTransform placement;
     placement.translate(transform.center().x(), transform.center().y());
-    placement.rotateRadians(transform.radians());
+    placement.rotate(transform.degrees());
     placement.scale(transform.flipX ? -1 : 1, transform.flipY ? -1 : 1);
     context.save();
     setSampling(context, quality(transform.sampling), transform.sampling);
@@ -290,6 +290,22 @@ void LayerRenderer::drawCoverage(const QImage &image, const LayerTransform &tran
     context.setTransform(placement, true);
     context.drawImage(coverage(source, bounds), white);
     context.restore();
+}
+
+// QPainter's fixed-point bilinear strays a level where CoreGraphics copies.
+bool LayerRenderer::upright(const LayerTransform &transform, const QTransform &placement, const QRectF &bounds, const QPainter &context)
+{
+    if (transform.radians() == 0)
+        return true;
+    if (std::remainder(transform.rotation, 90) != 0)
+        return false;
+    const QTransform device = placement * context.deviceTransform();
+    for (const QPointF corner : {bounds.topLeft(), bounds.bottomRight()}) {
+        const QPointF mapped = device.map(corner);
+        if (std::abs(mapped.x() - std::round(mapped.x())) > 0.001 || std::abs(mapped.y() - std::round(mapped.y())) > 0.001)
+            return false;
+    }
+    return true;
 }
 
 InterpolationQuality LayerRenderer::interpolation(LayerSampling sampling, double finalFactor, bool upright)

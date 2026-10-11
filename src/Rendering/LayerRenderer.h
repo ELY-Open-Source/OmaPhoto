@@ -59,6 +59,8 @@ void composite(QPainter &context, const QTransform &placement, const QRectF &ext
                const std::function<void(QPainter &)> &body, const std::function<void(QPainter &)> &veil = {});
 // An upright layer drawn pixel for pixel copies straight across.
 InterpolationQuality interpolation(LayerSampling sampling, double finalFactor, bool upright = false);
+// Swift's upright, or a quarter turn on whole pixels.
+bool upright(const LayerTransform &transform, const QTransform &placement, const QRectF &bounds, const QPainter &context);
 Reduced reduced(const QImage &image, double width, double device, LayerSampling sampling);
 QRectF coverage(const Reduced &reduced, const QRectF &bounds);
 double deviceScale(const QPainter &context);

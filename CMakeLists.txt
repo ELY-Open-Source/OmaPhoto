@@ -82,6 +82,7 @@ add_library(compositor_core STATIC
     src/Document/CloneStamp.cpp
     src/Document/ColorPalette.cpp
     src/Document/ContentFill.cpp
+    src/Document/CanvasRotation.cpp
     src/Document/LayerFlip.cpp
     src/Document/LayerMerge.cpp
     src/Document/MagicWand.cpp

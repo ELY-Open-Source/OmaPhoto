@@ -89,6 +89,11 @@ double LayerTransform::radians() const
     return std::fmod(rotation, 360) * std::numbers::pi / 180;
 }
 
+double LayerTransform::degrees() const
+{
+    return std::fmod(rotation, 360);
+}
+
 bool LayerTransform::isValid() const
 {
     const std::array<double, 5> values = {origin.x(), origin.y(), size.width(), size.height(), rotation};

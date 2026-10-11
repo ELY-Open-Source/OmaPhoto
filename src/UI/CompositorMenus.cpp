@@ -213,6 +213,9 @@ CompositorMenus::CompositorMenus(ProjectWorkspace &workspace, QMenuBar &bar, QWi
     add(image, QStringLiteral("imageSize"), QStringLiteral("Image Size…"), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_I), [this] { projects().imageSize(); });
     add(image, QStringLiteral("trim"), QStringLiteral("Trim…"), QKeySequence(), [this] { projects().trim(); });
     image->addSeparator();
+    add(image, QStringLiteral("rotateCanvasClockwise"), QStringLiteral("Rotate Canvas 90° Clockwise"), QKeySequence(), [this] { session().rotateCanvas(true); });
+    add(image, QStringLiteral("rotateCanvasCounterclockwise"), QStringLiteral("Rotate Canvas 90° Counterclockwise"), QKeySequence(),
+        [this] { session().rotateCanvas(false); });
     add(image, QStringLiteral("flipCanvasHorizontal"), QStringLiteral("Flip Canvas Horizontal"), QKeySequence(), [this] { session().flipCanvas(true); });
     add(image, QStringLiteral("flipCanvasVertical"), QStringLiteral("Flip Canvas Vertical"), QKeySequence(), [this] { session().flipCanvas(false); });
 
@@ -386,6 +389,8 @@ void CompositorMenus::synchronize()
     action(QStringLiteral("canvasSize"))->setEnabled(drawn && p.canStart());
     action(QStringLiteral("imageSize"))->setEnabled(drawn && p.canStart());
     action(QStringLiteral("trim"))->setEnabled(drawn && p.canStart());
+    action(QStringLiteral("rotateCanvasClockwise"))->setEnabled(s.canEditLayers());
+    action(QStringLiteral("rotateCanvasCounterclockwise"))->setEnabled(s.canEditLayers());
     action(QStringLiteral("flipCanvasHorizontal"))->setEnabled(s.canEditLayers());
     action(QStringLiteral("flipCanvasVertical"))->setEnabled(s.canEditLayers());
     action(QStringLiteral("newAdjustmentLayer"))->setEnabled(s.canEditLayers());

@@ -150,13 +150,13 @@ void withFrame(int pixelWidth, int pixelHeight, const QRectF &painted, const QRe
         return;
     const double device = LayerRenderer::deviceScale(context);
     const int level = transform.sampling == LayerSampling::nearest ? 0 : DownsampleCache::level(width * device / pixelWidth);
-    const InterpolationQuality quality = LayerRenderer::interpolation(transform.sampling, width * device / pixelWidth * (1 << level),
-                                                                         transform.radians() == 0);
     QTransform placement;
     placement.translate(center.x(), center.y());
-    placement.rotateRadians(transform.radians());
+    placement.rotate(transform.degrees());
     placement.scale(transform.flipX ? -1 : 1, transform.flipY ? -1 : 1);
     const QRectF bounds(-width / 2, -height / 2, width, height);
+    const InterpolationQuality quality = LayerRenderer::interpolation(transform.sampling, width * device / pixelWidth * (1 << level),
+                                                                         LayerRenderer::upright(transform, placement, bounds, context));
     const QRectF shown = placement.inverted().mapRect(BrushRaster::visibleRect(context));
     const double sx = pixelWidth / width, sy = pixelHeight / height;
     const Frame frame{bounds, double(pixelWidth), double(pixelHeight), level, device, transform.sampling,
