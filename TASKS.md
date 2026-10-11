@@ -588,7 +588,8 @@ Release:
 - 14.30 Version 1.4.9, README, change log; passed review round 2.
 - [x] 14.31 The acceptance run for the rows new in 1.4.6 to 1.4.9; the full suite; distro checks (arch, fedora, fedora44, nixos, resolute).
 - 14.31 Acceptance for 1.4.6–1.4.9, full suite, five distro checks; passed review round 3.
-- [ ] 14.32 Tag `v1.4.9`, `scripts/release.sh v1.4.9`, live installs from Gitea in fresh containers, the acceptance checklist.
+- [x] 14.32 Tag `v1.4.9`, `scripts/release.sh v1.4.9`, live installs from Gitea in fresh containers, the acceptance checklist.
+- 14.32 v1.4.9 tagged and released on Gitea; live installs pass on Ubuntu 24.04 and 26.04, Fedora 43 and 44, Arch and NixOS, Debian 13 refused; passed review round 1.
 
 ## Skills by phase
 
