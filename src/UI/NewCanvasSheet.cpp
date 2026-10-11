@@ -9,13 +9,13 @@
 #include <QImageReader>
 #include <QMenu>
 #include <QPainter>
+#include <QRegularExpression>
 #include <QShortcut>
 #include <QVBoxLayout>
 #include <algorithm>
 #include <cctype>
 #include <clocale>
 #include <cmath>
-#include <cstdio>
 #include <cstdlib>
 
 namespace {
@@ -151,17 +151,20 @@ QString text(NewCanvasUnit unit, int pixels, double resolution)
     const std::optional<double> inch = perInch(unit);
     if (!inch)
         return QString::number(pixels);
-    // glibc's halves go to even, as Foundation's; Qt's do not.
-    static const locale_t c = newlocale(LC_ALL_MASK, "C", locale_t(nullptr));
-    const locale_t previous = uselocale(c);
-    char digits[64];
-    std::snprintf(digits, sizeof digits, "%.2f", double(pixels) / resolution * *inch);
-    uselocale(previous);
-    QString written = QString::fromLatin1(digits);
-    while (written.endsWith(u'0'))
-        written.chop(1);
-    if (written.endsWith(u'.'))
-        written.chop(1);
+    // Foundation rounds the shortest decimal, halves to even.
+    const QString shortest = QString::number(double(pixels) / resolution * *inch, 'f', QLocale::FloatingPointShortest);
+    const qsizetype point = shortest.indexOf(u'.');
+    const QString fraction = point < 0 ? QString() : shortest.mid(point + 1);
+    qint64 hundredths = shortest.left(point < 0 ? shortest.size() : point).toLongLong() * 100 + fraction.left(2).leftJustified(2, u'0').toLongLong();
+    if (fraction.size() > 2) {
+        const QChar next = fraction[2];
+        const bool beyond = fraction.mid(3).contains(QRegularExpression(QStringLiteral("[1-9]")));
+        if (next > u'5' || (next == u'5' && (beyond || hundredths % 2 == 1)))
+            hundredths += 1;
+    }
+    QString written = QString::number(hundredths / 100);
+    if (const qint64 cents = hundredths % 100; cents != 0)
+        written += u'.' + (cents % 10 == 0 ? QString::number(cents / 10) : QString::number(cents).rightJustified(2, u'0'));
     return written;
 }
 

@@ -1,5 +1,6 @@
 #include "UI/NewCanvasSheet.h"
 #include <QtTest>
+#include <tuple>
 
 // Swift's NewCanvasUnitTests: units, DPI and the first layer.
 class NewCanvasUnitTests : public QObject {
@@ -45,10 +46,18 @@ void NewCanvasUnitTests::unitsRoundTripAndCycle()
     QCOMPARE(text(NewCanvasUnit::inches, 3000, 300), QString("10"));
     QCOMPARE(text(NewCanvasUnit::millimeters, 2480, 300), QString("209.97"));
     QCOMPARE(text(NewCanvasUnit::centimeters, 30000, 72), QString("1058.33"));
-    // Exact halves go to the even digit, as Foundation rounds.
-    QCOMPARE(text(NewCanvasUnit::inches, 153, 72), QString("2.12"));
-    QCOMPARE(text(NewCanvasUnit::inches, 9, 72), QString("0.12"));
-    QCOMPARE(text(NewCanvasUnit::inches, 27, 72), QString("0.38"));
+    // Foundation rounds the shortest decimal, halves to even (Swift 6.0.3).
+    const std::vector<std::tuple<NewCanvasUnit, int, double, QString>> halves{
+        {NewCanvasUnit::inches, 153, 72, "2.12"}, {NewCanvasUnit::inches, 9, 72, "0.12"}, {NewCanvasUnit::inches, 27, 72, "0.38"},
+        {NewCanvasUnit::centimeters, 54, 72, "1.9"}, {NewCanvasUnit::centimeters, 90, 72, "3.18"}, {NewCanvasUnit::centimeters, 126, 72, "4.44"},
+        {NewCanvasUnit::centimeters, 3006, 72, "106.04"}, {NewCanvasUnit::centimeters, 3042, 72, "107.32"}, {NewCanvasUnit::centimeters, 3186, 72, "112.4"},
+        {NewCanvasUnit::millimeters, 9, 72, "3.18"}, {NewCanvasUnit::millimeters, 3789, 72, "1336.68"}, {NewCanvasUnit::millimeters, 3969, 72, "1400.18"},
+        {NewCanvasUnit::inches, 3, 300, "0.01"}, {NewCanvasUnit::millimeters, 30000, 300, "2540"}, {NewCanvasUnit::inches, 22, 72, "0.31"},
+        {NewCanvasUnit::inches, 166, 72, "2.31"}};
+    for (const auto &[unit, count, dpi, written] : halves)
+        QCOMPARE(text(unit, count, dpi), written);
+    // Foundation: the shortest decimal, halves to even (Swift 6.0.3).
+    QCOMPARE(pixels(NewCanvasUnit::centimeters, text(NewCanvasUnit::centimeters, 54, 72), 300), std::optional(224));
     QCOMPARE(text(NewCanvasUnit::pixels, 30000, 72), QString("30000"));
     for (NewCanvasUnit unit : {NewCanvasUnit::inches, NewCanvasUnit::centimeters, NewCanvasUnit::millimeters})
         QCOMPARE(pixels(unit, text(unit, 2550, 300), 300), std::optional(2550));
