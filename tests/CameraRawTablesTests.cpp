@@ -166,6 +166,23 @@ void CameraRawTablesTests::theColourGroupsPickTheirTables()
     CameraRawGradingSettings wrapped;
     wrapped.global = {345, 50, 0};
     QCOMPARE(listed(CameraRawTables::gradingStages(wrapped).at(0), 4), (std::vector<double>{668, 0, 669, 0.5, 635, 0, 636, 0.5}));
+    // Below Blending 50: the Blending 0 tables, then 50.
+    CameraRawGradingSettings unblended;
+    unblended.highlights = {180, 100, 0};
+    unblended.blending = 0;
+    QCOMPARE(listed(CameraRawTables::gradingStages(unblended).at(0), 8), (std::vector<double>{510, 0, 511, 1, 513, 0, 514, 0, 582, 0, 583, 0, 585, 0, 586, 0}));
+    // Balance +50 doubles the highlight wheel's share.
+    CameraRawGradingSettings lifted;
+    lifted.highlights = {30, 20, 0};
+    lifted.balance = 50;
+    QCOMPARE(listed(CameraRawTables::gradingStages(lifted).at(0), 8),
+             (std::vector<double>{494, 0, 495, 0, 497, 0, 498, 0, 566, 0.4f, 567, 0.6f, 569, 0, 570, 0}));
+    // Midtones' and highlights' luminance keep their own tables.
+    CameraRawGradingSettings toned;
+    toned.midtones.luminance = 60;
+    toned.highlights.luminance = -40;
+    const std::vector<CameraRawStage> lumas = CameraRawTables::gradingStages(toned);
+    QVERIFY(listed(lumas.at(0), 2) == (std::vector<double>{751, 0.8f, 752, 0.2f}) && listed(lumas.at(1), 2) == (std::vector<double>{754, 0.8f, 755, 0.2f}));
     // Balance +100 leaves the shadow wheel no share at all.
     CameraRawGradingSettings balanced;
     balanced.shadows = {200, 40, 0};
@@ -195,6 +212,15 @@ void CameraRawTablesTests::theColourGroupsPickTheirTables()
     QCOMPARE(listed(stages[4], 2), (std::vector<double>{433, 1, 434, 0}));
     QCOMPARE(listed(stages[5], 2), (std::vector<double>{435, 0.2f, 436, 0.8f}));
     QCOMPARE(listed(stages[7], 2), (std::vector<double>{453, 0.5f, 454, 0.5f}));
+    // Calibration first, Light and Color, then the measured curve.
+    CameraRawSettings ordered;
+    ordered.calibration.redHue = 60;
+    ordered.exposure = 1;
+    ordered.curve.darks = -60;
+    const std::vector<CameraRawStage> run = CameraRawTables::stages(ordered, {});
+    QCOMPARE(run.size(), size_t(3));
+    QVERIFY(listed(run[0], 2) == (std::vector<double>{408, 0.8f, 409, 0.2f}) && listed(run[1], 2) == (std::vector<double>{93, 1, 94, 0}));
+    QCOMPARE(listed(run[2], 2), (std::vector<double>{440, 0.2f, 441, 0.8f}));
     // Moved dividers leave the curve to the formula.
     settings.curve.lightSplit = 70;
     QCOMPARE(CameraRawTables::stages(settings, {}).size(), size_t(5));

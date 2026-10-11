@@ -196,15 +196,6 @@ std::array<double, 8> CameraRawMixerSettings::weights(double degrees)
     return result;
 }
 
-std::vector<float> CameraRawMixerSettings::mixerFloats() const
-{
-    std::vector<float> result;
-    for (const std::array<double, 8> *values : {&hue, &saturation, &luminance})
-        for (const double value : *values)
-            result.push_back(float(value / 100));
-    return result;
-}
-
 std::vector<float> CameraRawMixerSettings::pointFloats() const
 {
     std::vector<float> result;
@@ -256,15 +247,6 @@ bool CameraRawGradingSettings::adjusts() const
 {
     const std::array<CameraRawGradeWheel, 4> all = wheels();
     return std::any_of(all.begin(), all.end(), [](const CameraRawGradeWheel &wheel) { return wheel.saturation != 0 || wheel.luminance != 0; });
-}
-
-std::vector<float> CameraRawGradingSettings::gradeFloats() const
-{
-    std::vector<float> result;
-    for (const CameraRawGradeWheel &wheel : wheels())
-        for (const double value : {wheel.hue / 360, wheel.saturation / 100, wheel.luminance / 100})
-            result.push_back(float(value));
-    return result;
 }
 
 CameraRawGradingSettings CameraRawGradingSettings::normalized() const

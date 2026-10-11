@@ -77,7 +77,6 @@ struct CameraRawMixerSettings {
     bool adjusts() const;
     // How much each family shares a hue; neighbours overlap.
     static std::array<double, 8> weights(double degrees);
-    std::vector<float> mixerFloats() const;
     std::vector<float> pointFloats() const;
     CameraRawMixerSettings normalized() const;
     friend bool operator==(const CameraRawMixerSettings &, const CameraRawMixerSettings &) = default;
@@ -103,7 +102,6 @@ struct CameraRawGradingSettings {
     double balance = 0;
     std::array<CameraRawGradeWheel, 4> wheels() const;
     bool adjusts() const;
-    std::vector<float> gradeFloats() const;
     CameraRawGradingSettings normalized() const;
     friend bool operator==(const CameraRawGradingSettings &, const CameraRawGradingSettings &) = default;
 };
