@@ -227,6 +227,22 @@ void NavigatorTests::placedMasksMotionAndEachAxisScale()
     const QImage masked = session.navigatorImage(100).value();
     // At a quarter: white to 25, black to 50.
     QVERIFY(at(masked, 15, 25).alpha() == 255 && at(masked, 40, 25).alpha() == 0);
+    // A layer at 100, 40; its mask at 80, 20.
+    const QUuid moved = placeRed(session, QSize(120, 120), QSizeF(120, 120));
+    // Four mask pixels: white to its middle, black after.
+    QImage half(4, 1, QImage::Format_Grayscale8);
+    std::copy_n(values, 4, half.scanLine(0));
+    rewrite(session, [&](ProjectSnapshot &snapshot) {
+        record(snapshot, id).isVisible = false;
+        record(snapshot, moved).transform.origin = QPointF(100, 40);
+        setMask(snapshot, moved, LayerMask::assetFrom(half));
+        record(snapshot, moved).maskPlacement = LayerTransform{.origin = QPointF(80, 20), .size = QSizeF(160, 160)};
+    });
+    const QImage away = session.navigatorImage(100).value();
+    // Spans 25–55 and 10–40; black from 45.
+    QVERIFY(at(away, 24, 30).alpha() == 0 && at(away, 26, 30).alpha() == 255 && at(away, 33, 30).alpha() == 255);
+    QVERIFY(at(away, 30, 9).alpha() == 0 && at(away, 30, 11).alpha() == 255 && at(away, 30, 38).alpha() == 255 && at(away, 30, 41).alpha() == 0);
+    QVERIFY(at(away, 46, 30).alpha() == 0 && at(away, 53, 30).alpha() == 0);
     // Each side alone: 1000 by 15 is 100 by 2.
     session.createDocument(1000, 15);
     placeRed(session, QSize(1000, 15), QSizeF(1000, 15));
@@ -245,6 +261,8 @@ void NavigatorTests::placedMasksMotionAndEachAxisScale()
     session.updateAdjustment(streak, adjustment);
     const QImage picture = session.navigatorImage(100).value();
     QVERIFY2(at(picture, 25, 50).alpha() >= 250, qPrintable(QString::number(at(picture, 25, 50).alpha())));
+    // Five pixels of streak soften the edge; none would not.
+    QVERIFY2(at(picture, 49, 50).alpha() < 250 && at(picture, 51, 50).alpha() > 0, qPrintable(QString::number(at(picture, 49, 50).alpha())));
 }
 
 // Swift draws a bare session: a pending transform stays out.
@@ -304,6 +322,15 @@ void NavigatorTests::thePictureRedrawsOnceEditsSettle()
     QCOMPARE(shown.minimap.picture().cacheKey(), first.cacheKey());
     QTRY_COMPARE(at(shown.minimap.picture(), 150, 100), QColor(0, 255, 255));
     QVERIFY(!wait.isActive());
+    // A new edit midway waits its whole 250 ms anew.
+    shown.session.setLayerOpacity(0.8);
+    QTest::qWait(130);
+    shown.session.setLayerOpacity(0.6);
+    QVERIFY(wait.remainingTime() > 200);
+    QTRY_VERIFY(!wait.isActive());
+    // The Invert at 60% over red: 102, 153, 153.
+    const QColor mixed = at(shown.minimap.picture(), 150, 100);
+    QVERIFY2(std::abs(mixed.red() - 102) <= 1 && std::abs(mixed.green() - 153) <= 1, qPrintable(mixed.name()));
     // Hidden mid-wait, the wait goes with the picture.
     shown.session.setLayerOpacity(0.5);
     QVERIFY(wait.isActive());

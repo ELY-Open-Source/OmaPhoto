@@ -39,16 +39,16 @@ std::optional<QImage> EditorSession::navigatorImage(int maxSide) const
     const CanvasDocument &document = *m_document;
     const double scale = std::min(1.0, double(maxSide) / std::max(document.width, document.height));
     const int width = std::max(1, int(std::lround(document.width * scale))), height = std::max(1, int(std::lround(document.height * scale)));
-    QImage context;
+    // Swift's try?: no memory for the context or a flatten.
     try {
-        context = BrushRaster::context(width, height, false);
+        QImage context = BrushRaster::context(width, height, false);
+        QPainter painter(&context);
+        // A bare session: edits in progress stay out.
+        EditorSession().drawLiveComposite(placed(document, double(width) / document.width, double(height) / document.height, width, height), painter);
+        painter.end();
+        return context;
     } catch (const ExportError &error) {
         qCWarning(lcRendering) << "the navigator's picture could not be made:" << error.what();
         return std::nullopt;
     }
-    QPainter painter(&context);
-    // A bare session: edits in progress stay out.
-    EditorSession().drawLiveComposite(placed(document, double(width) / document.width, double(height) / document.height, width, height), painter);
-    painter.end();
-    return context;
 }
