@@ -28,12 +28,24 @@ Measured measure(const QImage &image, int margin)
     return {color / counted, brightness / counted};
 }
 
-CameraRawSettings colorNoise(double amount, double detail = 50)
+CameraRawSettings colorNoise(double amount, double detail = 50, double smoothness = 50)
 {
     CameraRawSettings settings;
     settings.detail.noiseColor = amount;
     settings.detail.noiseColorDetail = detail;
+    settings.detail.noiseColorSmoothness = smoothness;
     return settings;
+}
+
+// Red, then blue of some alpha from x 15.
+QImage split(int blueAlpha)
+{
+    QImage picture = BrushRaster::context(31, 21, false);
+    QPainter painter(&picture);
+    painter.setCompositionMode(QPainter::CompositionMode_Source);
+    painter.fillRect(QRect(0, 0, 15, 21), QColor(230, 51, 51));
+    painter.fillRect(QRect(15, 0, 16, 21), QColor(51, 51, 230, blueAlpha));
+    return picture;
 }
 }
 
@@ -46,6 +58,7 @@ private slots:
     void colorDetailKeepsARealColorEdge();
     void aSpeckTakesTheColorAroundItAndKeepsItsBrightness();
     void translucentPixelsKeepTheirColor();
+    void coverageWeighsNeighboursAndSmoothnessReaches();
 };
 
 void CameraRawColorNoiseTests::colorNoiseReductionRemovesColorGrainNotBrightness()
@@ -148,6 +161,16 @@ void CameraRawColorNoiseTests::translucentPixelsKeepTheirColor()
     const std::array<int, 4> after = pixels(colorNoise(100).apply(picture))[size_t(15 * 30 + 15)];
     for (size_t channel = 0; channel < 4; ++channel)
         QVERIFY2(std::abs(after[channel] - before[channel]) <= 2, qPrintable(QStringLiteral("%1: %2 → %3").arg(channel).arg(before[channel]).arg(after[channel])));
+}
+
+void CameraRawColorNoiseTests::coverageWeighsNeighboursAndSmoothnessReaches()
+{
+    // A faint blue pulls the red only by its coverage.
+    using Pixel = std::array<int, 4>;
+    QCOMPARE(pixels(colorNoise(100, 0).apply(split(32)))[size_t(10 * 31 + 14)], (Pixel{215, 53, 71, 255}));
+    // Smoothness widens the reach: none at 0, some at 100.
+    QCOMPARE(pixels(colorNoise(100, 0, 0).apply(split(255)))[size_t(10 * 31 + 9)], (Pixel{230, 51, 51, 255}));
+    QCOMPARE(pixels(colorNoise(100, 0, 100).apply(split(255)))[size_t(10 * 31 + 9)], (Pixel{203, 55, 87, 255}));
 }
 
 QTEST_MAIN(CameraRawColorNoiseTests)
