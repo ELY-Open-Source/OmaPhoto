@@ -156,7 +156,7 @@ void withFrame(int pixelWidth, int pixelHeight, const QRectF &painted, const QRe
     placement.scale(transform.flipX ? -1 : 1, transform.flipY ? -1 : 1);
     const QRectF bounds(-width / 2, -height / 2, width, height);
     const InterpolationQuality quality = LayerRenderer::interpolation(transform.sampling, width * device / pixelWidth * (1 << level),
-                                                                         LayerRenderer::upright(transform, placement, bounds, context));
+                                                                         LayerRenderer::upright(transform, placement, bounds, QSize(pixelWidth, pixelHeight), context));
     const QRectF shown = placement.inverted().mapRect(BrushRaster::visibleRect(context));
     const double sx = pixelWidth / width, sy = pixelHeight / height;
     const Frame frame{bounds, double(pixelWidth), double(pixelHeight), level, device, transform.sampling,

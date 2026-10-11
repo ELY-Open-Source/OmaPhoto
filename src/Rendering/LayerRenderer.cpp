@@ -59,7 +59,7 @@ void LayerRenderer::draw(const QImage &image, const LayerTransform &transform, Q
     placement.rotate(transform.degrees());
     placement.scale(transform.flipX ? -1 : 1, transform.flipY ? -1 : 1);
     const InterpolationQuality quality = interpolation(transform.sampling, width * device / std::max(1, image.width()) * (1 << source.level),
-                                                       upright(transform, placement, bounds, context));
+                                                       upright(transform, placement, coverage(source, bounds), source.image.size(), context));
 
     if (options.mask.isNull() && options.clip.isNull() && !HslBlend::handles(options.blendMode)) {
         const QPainter::CompositionMode mode = compositionMode(options.blendMode);
@@ -293,19 +293,20 @@ void LayerRenderer::drawCoverage(const QImage &image, const LayerTransform &tran
 }
 
 // QPainter's fixed-point bilinear strays a level where CoreGraphics copies.
-bool LayerRenderer::upright(const LayerTransform &transform, const QTransform &placement, const QRectF &bounds, const QPainter &context)
+bool LayerRenderer::upright(const LayerTransform &transform, const QTransform &placement, const QRectF &target, QSize pixels, const QPainter &context)
 {
     if (transform.radians() == 0)
         return true;
-    if (std::remainder(transform.rotation, 90) != 0)
-        return false;
-    const QTransform device = placement * context.deviceTransform();
-    for (const QPointF corner : {bounds.topLeft(), bounds.bottomRight()}) {
-        const QPointF mapped = device.map(corner);
-        if (std::abs(mapped.x() - std::round(mapped.x())) > 0.001 || std::abs(mapped.y() - std::round(mapped.y())) > 0.001)
-            return false;
-    }
-    return true;
+    // Image pixels onto device pixels: a signed permutation, whole.
+    const QTransform map = QTransform(target.width() / pixels.width(), 0, 0, target.height() / pixels.height(), target.left(), target.top()) * placement
+        * context.deviceTransform();
+    // Within a thousandth of a pixel across the whole image.
+    const double tight = 0.001 / std::max(pixels.width(), pixels.height());
+    const auto near = [](double value, double to, double within) { return std::abs(value - to) < within; };
+    const bool straight = near(std::abs(map.m11()), 1, tight) && near(map.m12(), 0, tight) && near(map.m21(), 0, tight) && near(std::abs(map.m22()), 1, tight);
+    const bool across = near(map.m11(), 0, tight) && near(std::abs(map.m12()), 1, tight) && near(std::abs(map.m21()), 1, tight) && near(map.m22(), 0, tight);
+    return (straight || across) && near(map.m13(), 0, tight) && near(map.m23(), 0, tight) && near(map.dx(), std::round(map.dx()), 0.001)
+        && near(map.dy(), std::round(map.dy()), 0.001);
 }
 
 InterpolationQuality LayerRenderer::interpolation(LayerSampling sampling, double finalFactor, bool upright)

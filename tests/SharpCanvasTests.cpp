@@ -105,26 +105,54 @@ void SharpCanvasTests::aQuarterTurnOnWholePixelsCopiesAcross()
     };
     QImage surface = BrushRaster::context(20, 120, false);
     QPainter painter(&surface);
-    const auto upright = [&](const LayerTransform &transform) {
+    const auto upright = [&](const LayerTransform &transform, QSize pixels = QSize(100, 4)) {
         QTransform placement;
         placement.translate(transform.center().x(), transform.center().y());
-        placement.rotateRadians(transform.radians());
+        placement.rotate(transform.degrees());
         const QSizeF size = transform.size;
-        return LayerRenderer::upright(transform, placement, QRectF(-size.width() / 2, -size.height() / 2, size.width(), size.height()), painter);
+        return LayerRenderer::upright(transform, placement, QRectF(-size.width() / 2, -size.height() / 2, size.width(), size.height()), pixels, painter);
     };
     for (double rotation : {90.0, -90.0, 180.0, 270.0, 450.0})
         QVERIFY2(upright(standing(rotation, 0)), qPrintable(QString::number(rotation)));
     QVERIFY(!upright(standing(90, 0.5)) && !upright(standing(90, 0.002)) && upright(standing(90, 0.0009)));
-    QVERIFY(!upright(standing(45, 0)) && !upright(standing(90.000001, 0)));
+    // 90.01° moves the far end 0.017 pixel; 90.0000001°, nothing.
+    QVERIFY(!upright(standing(45, 0)) && !upright(standing(90.01, 0)) && upright(standing(90.0000001, 0)));
     // Either axis off, or a side stretched: off the pixels.
     LayerTransform low = standing(90, 0);
     low.origin.ry() += 0.25;
     // 4.5 across: one corner on a pixel, one between.
     const LayerTransform stretched{.origin = {-40.25, 57.75}, .size = {100, 4.5}, .rotation = 90};
     QVERIFY(!upright(low) && !upright(stretched));
+    // A 30,000-pixel side at 90.0001° moves its far end 0.05.
+    const LayerTransform long_{.origin = {-14990, 58}, .size = {30000, 4}, .rotation = 90};
+    QVERIFY(upright(long_, QSize(30000, 4)));
+    LayerTransform leaning = long_;
+    leaning.rotation = 90.0001;
+    QVERIFY(!upright(leaning, QSize(30000, 4)));
+    // Stretched by 2 in 30,000, corners whole: filtered.
+    QVERIFY(!upright(LayerTransform{.origin = {-14991, 58}, .size = {30002, 4}, .rotation = 90}, QSize(30000, 4)));
     // Swift's own upright holds off whole pixels too.
     QVERIFY(upright(standing(0, 0.3)));
-    // The painter's own place counts.
+    // Ten pixels stretched to 20, corners whole: filtered.
+    QVERIFY(!upright(LayerTransform{.origin = {45, 40}, .size = {10, 20}, .rotation = 90}, QSize(10, 10)));
+    QVERIFY(upright(LayerTransform{.origin = {45, 40}, .size = {10, 20}, .rotation = 90}, QSize(10, 20)));
+    // The painter's own place and turn count.
+    painter.save();
+    painter.setTransform(QTransform(0.6, 0.8, -0.8, 0.6, 0, 0));
+    QVERIFY(!upright(standing(90, 0)));
+    painter.setTransform(QTransform(0, 1, -1, 0, 0, 0));
+    QVERIFY(upright(standing(90, 0)));
+    // A sheared painter under a half turn: filtered.
+    painter.setTransform(QTransform(1, 0, 0.5, 1, 0, 0));
+    QVERIFY(!upright(standing(180, 0)) && !upright(standing(90, 0)));
+    painter.setTransform(QTransform(1, 0.5, 0, 1, 0, 0));
+    QVERIFY(!upright(standing(180, 0)) && !upright(standing(90, 0)));
+    // Nor a painter in perspective.
+    painter.setTransform(QTransform(1, 0, 0.0001, 0, 1, 0, 0, 0, 1));
+    QVERIFY(!upright(standing(90, 0)));
+    painter.setTransform(QTransform(1, 0, 0, 0, 1, 0.0001, 0, 0, 1));
+    QVERIFY(!upright(standing(90, 0)));
+    painter.restore();
     painter.translate(0.5, 0);
     QVERIFY(!upright(standing(90, 0)) && upright(standing(90, 0.5)));
     painter.end();
@@ -151,6 +179,8 @@ void SharpCanvasTests::aQuarterTurnOnWholePixelsCopiesAcross()
         QCOMPARE(mids(standing(-90, 0), tiled), 0);
         // Half a pixel off: filtered, as CoreGraphics blends it.
         QVERIFY(mids(standing(90, 0.5), tiled) > 100);
+        // A side stretched to 8 from 4: filtered too.
+        QVERIFY(mids(LayerTransform{.origin = {-40, 56}, .size = {100, 8}, .rotation = 90}, tiled) > 100);
     }
 }
 

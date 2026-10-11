@@ -43,6 +43,7 @@ private slots:
     void guidesAndSelectionTurnWithTheCanvas();
     void turnedLayersAndPlacedMasksTurnAlong();
     void itIsOneStepRefusedWhereLayersCannotChange();
+    void everyLayerAndEveryPlacedMaskTurns();
 };
 
 void CanvasRotationTests::clockwiseTurnsThePixelsExactly()
@@ -183,6 +184,40 @@ void CanvasRotationTests::itIsOneStepRefusedWhereLayersCannotChange()
     QCOMPARE(session.history.undoName(), QString("Rotate Canvas 90° Clockwise"));
     session.undo();
     QCOMPARE(session.document().value().size(), QSizeF(3, 2));
+}
+
+void CanvasRotationTests::everyLayerAndEveryPlacedMaskTurns()
+{
+    EditorSession session;
+    session.createDocument(100, 60);
+    session.insert(ImportedImage(pixels(), pixels(), QStringLiteral("Lower")), QPointF(10, 10));
+    session.insert(ImportedImage(pixels(), pixels(), QStringLiteral("Middle")), QPointF(50, 30));
+    session.insert(ImportedImage(pixels(), pixels(), QStringLiteral("Upper")), QPointF(90, 50));
+    const std::vector<ImageLayer> before = session.document().value().layers;
+    rewrite(session, [&](ProjectSnapshot &snapshot) {
+        for (const ImageLayer &layer : before) {
+            setMask(snapshot, layer.id, coverage());
+            record(snapshot, layer.id).maskLinked = false;
+        }
+        record(snapshot, before[1].id).maskPlacement = LayerTransform{.origin = QPointF(30, 20), .size = QSizeF(8, 6)};
+        record(snapshot, before[2].id).maskPlacement = LayerTransform{.origin = QPointF(70, 44), .size = QSizeF(10, 4)};
+    });
+    const std::vector<ImageLayer> placed = session.document().value().layers;
+    session.rotateCanvas(true);
+    const std::vector<ImageLayer> &turned = session.document().value().layers;
+    QCOMPARE(turned.size(), size_t(3));
+    for (size_t index = 0; index < 3; ++index) {
+        const QPointF centre = placed[index].transform.center();
+        QCOMPARE(turned[index].transform.center(), QPointF(60 - centre.y(), centre.x()));
+        QCOMPARE(turned[index].transform.rotation, 90.0);
+        if (index == 0)
+            continue;
+        const QPointF maskCentre = placed[index].mask.value().placement.value().center();
+        QCOMPARE(turned[index].mask.value().placement.value().center(), QPointF(60 - maskCentre.y(), maskCentre.x()));
+        QCOMPARE(turned[index].mask.value().placement.value().rotation, 90.0);
+    }
+    session.undo();
+    QVERIFY(session.document().value().layers == placed);
 }
 
 QTEST_GUILESS_MAIN(CanvasRotationTests)
