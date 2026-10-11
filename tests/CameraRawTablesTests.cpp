@@ -104,10 +104,15 @@ void CameraRawTablesTests::neutralizeFindsTheGridsGrayest()
     // A refinement past −100 keeps to the range.
     const CameraRawSettings::Balance edge = CameraRawTables::neutralize(84 / 255.0, 1 / 255.0, 97 / 255.0).value();
     QVERIFY(edge.temperature == -14.5 && edge.tint == -100);
+    const CameraRawSettings::Balance hot = CameraRawTables::neutralize(240 / 255.0, 80 / 255.0, 40 / 255.0).value();
+    QVERIFY(hot.temperature == -100 && hot.tint == -13.5);
     // Ties among searched points: tint rising within each temperature.
     const CameraRawSettings::Balance tie = CameraRawTables::neutralize(144 / 255.0, 216 / 255.0, 47 / 255.0).value();
     QVERIFY(tie.temperature == -100 && tie.tint == 60);
+    // Any channel missing leaves nothing to balance from.
     QVERIFY(!CameraRawTables::neutralize(0.5, 0.0001, 0.5));
+    QVERIFY(!CameraRawTables::neutralize(0, 128 / 255.0, 128 / 255.0));
+    QVERIFY(!CameraRawTables::neutralize(128 / 255.0, 128 / 255.0, 0));
     QVERIFY(CameraRawTables::neutralize(0.5, 0.00011, 0.5));
 }
 

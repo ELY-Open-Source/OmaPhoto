@@ -47,7 +47,7 @@ void CameraRawTests::exposureAndContrastMatchPhotoshop()
     QVERIFY2(std::abs(brighter[0] - 181) <= 2, qPrintable(QString::number(brighter[0])));
     QVERIFY(brighter[0] == brighter[1] && brighter[1] == brighter[2]);
     const QImage translucent = gray(4, 4, 0.5);
-    QCOMPARE(pixels(settings.apply(translucent))[0][3], pixels(translucent)[0][3]);
+    QVERIFY((pixels(settings.apply(translucent))[0] == std::array{181, 181, 181, pixels(translucent)[0][3]}));
     settings = CameraRawSettings();
     settings.contrast = 100;
     const auto pushed = pixels(settings.apply(pair(64, 192)));
