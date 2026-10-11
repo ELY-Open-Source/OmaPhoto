@@ -319,6 +319,30 @@ void CanvasNavigationTests::ctrlOrMetaWithTheMiddleButtonZooms()
     move(QPointF(110, 60), Qt::MiddleButton);
     QVERIFY(session.viewport.zoom() == 2.0 && session.viewport.pan == before + QSizeF(10, -40));
     QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::NoModifier, QPoint(110, 60));
+    // From 75%, a hundred points up is 150%.
+    session.zoom(0.75);
+    QTest::mousePress(&canvas, Qt::MiddleButton, Qt::ControlModifier, start.toPoint());
+    move(start - QPointF(0, 100), Qt::MiddleButton);
+    QCOMPARE(session.viewport.zoom(), 1.5);
+    QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::ControlModifier, (start - QPointF(0, 100)).toPoint());
+    // A right-button tip drag waits; a left Hand drag goes on.
+    const double diameter = session.brushSettings().diameter;
+    QTest::mousePress(&canvas, Qt::RightButton, Qt::NoModifier, QPoint(100, 100));
+    QTest::mousePress(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(100, 150));
+    move(QPointF(300, 150), Qt::RightButton | Qt::MiddleButton);
+    QCOMPARE(session.brushSettings().diameter, diameter);
+    QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(300, 150));
+    QTest::mouseRelease(&canvas, Qt::RightButton, Qt::NoModifier, QPoint(100, 100));
+    session.selectTool(NavigationTool::hand);
+    canvas.synchronizeDisplay();
+    const QSizeF handStart = session.viewport.pan;
+    QTest::mousePress(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(50, 50));
+    QTest::mousePress(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(200, 200));
+    move(QPointF(60, 200), Qt::LeftButton | Qt::MiddleButton);
+    QCOMPARE(session.viewport.zoom(), 1.5);
+    QCOMPARE(session.viewport.pan, handStart + QSizeF(10, 150));
+    QTest::mouseRelease(&canvas, Qt::MiddleButton, Qt::ControlModifier, QPoint(60, 200));
+    QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(60, 200));
 }
 
 QTEST_MAIN(CanvasNavigationTests)
