@@ -66,7 +66,7 @@ class CameraRawWiringTests : public QObject {
     Q_OBJECT
 private slots:
     void aClipViewShowsOnAnUntouchedGrade();
-    void theTablesRunAroundHighlightsAndShadows();
+    void theTableReadsThePicturesBrightness();
     void autoAveragesLinearLight();
     void eachEyeClearsEveryFieldOfItsGroup();
     void effectsReachTheKernelInOrder();
@@ -85,13 +85,13 @@ void CameraRawWiringTests::aClipViewShowsOnAnUntouchedGrade()
     const QImage picture = noise();
     const QImage clipped = CameraRawSettings().apply(picture, CameraRawClipping::highlights);
     const QImage direct = kernel(picture, [](uchar *bytes, size_t w, size_t h, size_t s) {
-        adjust_camera_raw(bytes, w, h, s, nullptr, nullptr, CameraRawTables::grid, 0, 0, int(CameraRawClipping::highlights));
+        adjust_camera_raw(bytes, w, h, s, nullptr, CameraRawTables::grid, int(CameraRawClipping::highlights));
     });
     QVERIFY(pixels(clipped) == pixels(direct) && pixels(clipped) != pixels(picture));
 }
 
-// Exposure, balance and Contrast first; Whites to Vibrance after.
-void CameraRawWiringTests::theTablesRunAroundHighlightsAndShadows()
+// One composed table, its adaptive stages read from the picture.
+void CameraRawWiringTests::theTableReadsThePicturesBrightness()
 {
     const QImage picture = noise();
     CameraRawSettings settings;
@@ -101,15 +101,13 @@ void CameraRawWiringTests::theTablesRunAroundHighlightsAndShadows()
     settings.shadows = 60;
     settings.whites = -50;
     settings.saturation = 30;
-    const CameraRawTables::Stages stages = CameraRawTables::stages(settings);
-    const std::vector<float> before = CameraRawTables::compose(stages.before), after = CameraRawTables::compose(stages.after);
-    const QImage direct = kernel(picture, [&](uchar *bytes, size_t w, size_t h, size_t s) {
-        adjust_camera_raw(bytes, w, h, s, before.data(), after.data(), CameraRawTables::grid, -80, 60, 0);
-    });
-    const QImage swapped = kernel(picture, [&](uchar *bytes, size_t w, size_t h, size_t s) {
-        adjust_camera_raw(bytes, w, h, s, after.data(), before.data(), CameraRawTables::grid, -80, 60, 0);
-    });
-    QVERIFY(pixels(settings.apply(picture)) == pixels(direct) && pixels(direct) != pixels(swapped));
+    const CameraRawTables::Brightness read = CameraRawTables::brightness(picture.constBits(), picture.width(), picture.height(), picture.bytesPerLine());
+    QVERIFY(std::abs(read.brightest - 128) > 5);
+    const auto graded = [&](const CameraRawTables::Brightness &brightness) {
+        const std::vector<float> table = CameraRawTables::compose(CameraRawTables::stages(settings, brightness));
+        return kernel(picture, [&](uchar *bytes, size_t w, size_t h, size_t s) { adjust_camera_raw(bytes, w, h, s, table.data(), CameraRawTables::grid, 0); });
+    };
+    QVERIFY(pixels(settings.apply(picture)) == pixels(graded(read)) && pixels(graded(read)) != pixels(graded({})));
 }
 
 void CameraRawWiringTests::autoAveragesLinearLight()

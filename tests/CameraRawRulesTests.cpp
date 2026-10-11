@@ -130,12 +130,16 @@ void CameraRawRulesTests::theClippingAndMaskViewsShowNothingElse()
 
 void CameraRawRulesTests::theScaleDefaultsToOneAndReachesTheRadii()
 {
+    // Glow's reach reads the scale; Clarity's follows the picture.
     CameraRawSettings settings;
-    settings.clarity = 100;
+    settings.glow = 100;
     const QImage edge = step();
     QVERIFY(pixels(settings.apply(edge, std::nullopt, 0)) == pixels(settings.apply(edge, std::nullopt, 1)));
     QVERIFY(pixels(settings.apply(edge, std::nullopt, -2)) == pixels(settings.apply(edge, std::nullopt, 1)));
     QVERIFY(pixels(settings.apply(edge, std::nullopt, 0.25)) != pixels(settings.apply(edge, std::nullopt, 1)));
+    CameraRawSettings clear;
+    clear.clarity = 100;
+    QVERIFY(pixels(clear.apply(edge, std::nullopt, 0.25)) == pixels(clear.apply(edge, std::nullopt, 1)));
     // Grain's units read the scale: a negative one is one.
     CameraRawSettings grainy;
     grainy.grainAmount = 60;

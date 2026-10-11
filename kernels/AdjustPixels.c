@@ -201,6 +201,16 @@ static double camera_clamp(double value) {
     return value;
 }
 
+static double srgb_decode(double encoded) {
+    return encoded <= 0.04045 ? encoded / 12.92 : pow((encoded + 0.055) / 1.055, 2.4);
+}
+
+static double srgb_encode(double linear) {
+    if (linear <= 0) return 0;
+    if (linear >= 1) return 1;
+    return linear <= 0.0031308 ? linear * 12.92 : 1.055 * pow(linear, 1.0 / 2.4) - 0.055;
+}
+
 static double rec709(double r, double g, double b) {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
@@ -219,28 +229,6 @@ static void scale_luminance(double *r, double *g, double *b, double target) {
     *r = camera_clamp(*r * scale);
     *g = camera_clamp(*g * scale);
     *b = camera_clamp(*b * scale);
-}
-
-// A bump over a range of tones, 0 at both ends: u(1 - 2u)², largest a sixth of the way in. Its slope runs from 1
-// down to -1/3, so a curve adding up to three times it (or taking away up to once it) keeps rising: tones never swap
-// places.
-static double tone_bump(double u) {
-    if (u <= 0 || u >= 0.5) return 0;
-    double rest = 1.0 - 2.0 * u;
-    return u * rest * rest;
-}
-
-// Shadows lifts (or deepens) the dark tones, most a third of the way up to middle gray, leaving black at black and
-// middle gray where it is. It once lifted black itself to middle gray, above the tones just over it, so the darkest,
-// least certain pixels were the ones stretched furthest: a lifted dark area broke into blotches of color.
-static double tone_shadows(double y, double amount) {
-    return camera_clamp(y + amount * (amount >= 0 ? 2.5 : 1.0) * tone_bump(y));
-}
-
-// Highlights, the same in the light tones: white stays white, and pulling them down no longer drops white below the
-// tones under it.
-static double tone_highlights(double y, double amount) {
-    return camera_clamp(y + amount * (amount >= 0 ? 1.0 : 2.5) * tone_bump(1.0 - y));
 }
 
 // A measured table's color for an sRGB color (0…1), between its eight nearest entries.
@@ -324,10 +312,30 @@ static void write_premultiplied(uint8_t *p, double r, double g, double b, double
     p[2] = (uint8_t)fmin(alpha, fmax(0.0, round(b * alpha)));
 }
 
-void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride, const float *before,
-                       const float *after, int grid, double highlights, double shadows, int clipping) {
-    double highlightAmount = highlights / 100.0;
-    double shadowAmount = shadows / 100.0;
+void camera_raw_statistics(const uint8_t *rgba, size_t width, size_t height, size_t stride, double *out) {
+    double brightest = 0, luminance = 0, logBrightest = 0, weight = 0;
+    for (size_t y = 0; y < height; ++y) {
+        const uint8_t *row = rgba + y * stride;
+        for (size_t x = 0; x < width; ++x) {
+            const uint8_t *p = row + x * 4;
+            double alpha = p[3];
+            if (!alpha) continue;
+            double r = srgb_decode(fmin(1.0, p[0] / alpha)), g = srgb_decode(fmin(1.0, p[1] / alpha));
+            double b = srgb_decode(fmin(1.0, p[2] / alpha)), top = fmax(r, fmax(g, b)), w = alpha / 255.0;
+            brightest += w * top;
+            luminance += w * rec709(r, g, b);
+            logBrightest += w * log(top + 3e-4);
+            weight += w;
+        }
+    }
+    if (weight <= 0) { out[0] = out[1] = out[2] = 0.5; return; }
+    out[0] = srgb_encode(brightest / weight);
+    out[1] = srgb_encode(luminance / weight);
+    out[2] = srgb_encode(exp(logBrightest / weight) - 3e-4);
+}
+
+void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride, const float *table, int grid,
+                       int clipping) {
     for (size_t y = 0; y < height; ++y) {
         uint8_t *row = rgba + y * stride;
         for (size_t x = 0; x < width; ++x) {
@@ -337,10 +345,7 @@ void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride
             double r = fmin(255.0, p[0] * 255.0 / alpha) / 255.0;
             double g = fmin(255.0, p[1] * 255.0 / alpha) / 255.0;
             double b = fmin(255.0, p[2] * 255.0 / alpha) / 255.0;
-            if (before) composed_lookup(before, grid, &r, &g, &b);
-            if (highlightAmount != 0) scale_luminance(&r, &g, &b, tone_highlights(rec709(r, g, b), highlightAmount));
-            if (shadowAmount != 0) scale_luminance(&r, &g, &b, tone_shadows(rec709(r, g, b), shadowAmount));
-            if (after) composed_lookup(after, grid, &r, &g, &b);
+            if (table) composed_lookup(table, grid, &r, &g, &b);
             if (clipping == 1) {
                 int rc = r >= 254.5 / 255.0, gc = g >= 254.5 / 255.0, bc = b >= 254.5 / 255.0;
                 r = rc ? 1 : 0;
@@ -398,6 +403,30 @@ static int box_blur_plane(const float *src, float *dst, size_t width, size_t hei
     return 1;
 }
 
+// An edge-aware blur (He's guided filter, the plane guiding itself): smooth within regions, stopping at edges, so
+// the detail taken against it has no halos. `epsilon` is the variance an edge needs to be kept.
+static int guided_filter_plane(const float *src, float *dst, size_t width, size_t height, int radius, float epsilon) {
+    size_t count = width * height;
+    float *mean = malloc(count * sizeof(float)), *square = malloc(count * sizeof(float));
+    float *a = malloc(count * sizeof(float)), *b = malloc(count * sizeof(float));
+    int ok = mean && square && a && b && box_blur_plane(src, mean, width, height, radius);
+    if (ok) {
+        for (size_t i = 0; i < count; ++i) a[i] = src[i] * src[i];
+        ok = box_blur_plane(a, square, width, height, radius);
+    }
+    if (ok) {
+        for (size_t i = 0; i < count; ++i) {
+            float variance = square[i] - mean[i] * mean[i];
+            a[i] = variance / (variance + epsilon);
+            b[i] = mean[i] - a[i] * mean[i];
+        }
+        ok = box_blur_plane(a, mean, width, height, radius) && box_blur_plane(b, square, width, height, radius);
+    }
+    if (ok) for (size_t i = 0; i < count; ++i) dst[i] = mean[i] * src[i] + square[i];
+    free(mean); free(square); free(a); free(b);
+    return ok;
+}
+
 static int effects_radius(double base, double scale) {
     double radius = base * (scale > 0 ? scale : 1);
     if (radius < 1) radius = 1;
@@ -405,20 +434,51 @@ static int effects_radius(double base, double scale) {
     return (int)lround(radius);
 }
 
-static void effects_dehaze(double *r, double *g, double *b, double amount) {
-    double d = amount / 100.0;
-    double y = rec709(*r, *g, *b);
-    double contrast = 1.0 + 0.8 * d;
-    double pivot = 0.45 - 0.1 * (d > 0 ? d : 0);
-    double y2 = camera_clamp(pivot + (y - 0.45) * contrast);
-    if (d < 0) y2 = camera_clamp(y2 + (-d) * (1.0 - y2) * 0.45);
-    else y2 = camera_clamp(y2 - d * fmax(0.0, 0.4 - y2));
-    scale_luminance(r, g, b, y2);
-    y2 = rec709(*r, *g, *b);
-    double sat = 1.0 + 0.7 * d;
-    *r = camera_clamp(y2 + (*r - y2) * sat);
-    *g = camera_clamp(y2 + (*g - y2) * sat);
-    *b = camera_clamp(y2 + (*b - y2) * sat);
+// Dehaze, after Camera Raw's: `haze` is the picture's haze color, its brightest one percent. Taking haze away
+// (positive) removes it where a pixel's darkest channel, against the haze, says it lies; adding it (negative) veils the
+// picture in it. Measured against Photoshop's Camera Raw Filter.
+static void effects_dehaze(double *r, double *g, double *b, double amount, const double haze[3]) {
+    double d = amount / 100.0, c[3] = {*r, *g, *b};
+    if (d < 0) {
+        double veil = 0.3 * pow(-d, 1.3);
+        for (int k = 0; k < 3; ++k) c[k] = c[k] * (1 - veil) + haze[k] * veil;
+    } else {
+        double dark = 1;
+        for (int k = 0; k < 3; ++k) dark = fmin(dark, c[k] / fmax(haze[k], 1e-3));
+        double transmission = fmax(0.5, 1 - 0.7 * d * dark);
+        for (int k = 0; k < 3; ++k) c[k] = (c[k] - haze[k]) / transmission + haze[k];
+    }
+    *r = camera_clamp(c[0]);
+    *g = camera_clamp(c[1]);
+    *b = camera_clamp(c[2]);
+}
+
+// The picture's haze color for Dehaze: the mean of its brightest one percent of pixels by luminance. A picture of
+// one color is all haze, so Dehaze leaves it be, as Photoshop's does.
+static void dehaze_haze(const uint8_t *rgba, size_t width, size_t height, size_t stride, double haze[3]) {
+    double histogram[256] = {0};
+    for (size_t y = 0; y < height; ++y)
+        for (size_t x = 0; x < width; ++x) {
+            const uint8_t *p = rgba + y * stride + x * 4;
+            if (!p[3]) continue;
+            int level = (int)lround(255 * rec709(fmin(1.0, (double)p[0] / p[3]), fmin(1.0, (double)p[1] / p[3]), fmin(1.0, (double)p[2] / p[3])));
+            histogram[level] += p[3] / 255.0;
+        }
+    double total = 0;
+    for (int i = 0; i < 256; ++i) total += histogram[i];
+    int threshold = 255;
+    for (double above = 0; threshold > 0 && above + histogram[threshold] < total * 0.01; --threshold) above += histogram[threshold];
+    double sum[3] = {0, 0, 0}, weight = 0;
+    for (size_t y = 0; y < height; ++y)
+        for (size_t x = 0; x < width; ++x) {
+            const uint8_t *p = rgba + y * stride + x * 4;
+            if (!p[3]) continue;
+            double c[3] = {fmin(1.0, (double)p[0] / p[3]), fmin(1.0, (double)p[1] / p[3]), fmin(1.0, (double)p[2] / p[3])};
+            if (lround(255 * rec709(c[0], c[1], c[2])) < threshold) continue;
+            for (int k = 0; k < 3; ++k) sum[k] += c[k] * p[3];
+            weight += p[3];
+        }
+    for (int k = 0; k < 3; ++k) haze[k] = weight > 0 ? sum[k] / weight : 1;
 }
 
 /// The vignette's strength at a point `px`, `py` of a `width` × `height` frame (0 at its middle, 1 past its edges).
@@ -561,13 +621,18 @@ void adjust_camera_raw_effects(uint8_t *rgba, size_t width, size_t height, size_
                 luma[y * width + x] = (float)rec709(r, g, b);
             }
         }
+        // Radii in proportion to the picture, as fitted to Photoshop's on 1456-pixel-wide photos (8 and 32 there), so
+        // a downscaled preview matches the full-size result.
+        double side = (double)(width > height ? width : height);
         if (texture != 0) {
             fine = malloc(count * sizeof(float));
-            if (!fine || !box_blur_plane(luma, fine, width, height, effects_radius(1, scale))) failed = 1;
+            int radius = (int)fmax(1, lround(side * 8 / 1456));
+            if (!fine || !guided_filter_plane(luma, fine, width, height, radius, 0.01f)) failed = 1;
         }
         if (!failed && clarity != 0) {
             coarse = malloc(count * sizeof(float));
-            if (!coarse || !box_blur_plane(luma, coarse, width, height, effects_radius(4, scale))) failed = 1;
+            int radius = (int)fmax(2, lround(side * 32 / 1456));
+            if (!coarse || !guided_filter_plane(luma, coarse, width, height, radius, 0.01f)) failed = 1;
         }
         if (!failed && glow > 0) {
             double spread = glowSpread / 100.0;
@@ -597,6 +662,8 @@ void adjust_camera_raw_effects(uint8_t *rgba, size_t width, size_t height, size_
         free(luma); free(fine); free(coarse); free(glowPlane);
         return;
     }
+    double haze[3] = {1, 1, 1};
+    if (dehaze != 0) dehaze_haze(rgba, width, height, stride, haze);
     double warmth = glowWarmth / 100.0;
     double glowRed, glowGreen, glowBlue, glowGain;
     if (glowStyle == 2) {
@@ -624,11 +691,11 @@ void adjust_camera_raw_effects(uint8_t *rgba, size_t width, size_t height, size_
             if (fine || coarse) {
                 double tone = rec709(r, g, b);
                 double detail = 0;
-                if (fine) detail += (texture / 100.0) * (tone - fine[index]);
-                if (coarse) detail += (clarity / 100.0) * (tone - coarse[index]);
+                if (fine) detail += (texture / 100.0) * (texture > 0 ? 0.6 : 0.5) * (tone - fine[index]);
+                if (coarse) detail += (clarity / 100.0) * (clarity > 0 ? 0.85 : 0.5) * (tone - coarse[index]);
                 if (detail != 0) scale_luminance(&r, &g, &b, camera_clamp(tone + detail));
             }
-            if (dehaze != 0) effects_dehaze(&r, &g, &b, dehaze);
+            if (dehaze != 0) effects_dehaze(&r, &g, &b, dehaze, haze);
             if (glowPlane && glow > 0) {
                 double add = glowPlane[index] * (glow / 100.0) * glowGain;
                 r = camera_clamp(r + add * glowRed);
@@ -1035,9 +1102,11 @@ void adjust_camera_raw_detail(uint8_t *rgba, size_t width, size_t height, size_t
                 if (!alpha) continue;
                 size_t index = y * width + x;
                 float edge = sharpen_edge_at(luma, width, height, x, y, radius);
-                double mask = camera_clamp((edge * (0.5 + detailMix) - threshold) / fmax(0.04, 0.35 - threshold * 0.5));
+                // Masking at 0 sharpens everywhere, as in Photoshop; raising it keeps the sharpening to edges.
+                double mask = threshold > 0 ? camera_clamp((edge * (0.5 + detailMix) - threshold) / fmax(0.04, 0.35 - threshold * 0.5)) : 1;
                 double high = luma[index] - work[index];
-                double sharpened = camera_clamp(luma[index] + high * amount * mask * (0.5 + detailMix));
+                // 1.9 × (0.5 + Detail) is Photoshop's strength: 1.4 at its default Detail of 25, measured on photos.
+                double sharpened = camera_clamp(luma[index] + high * amount * mask * 1.9 * (0.5 + detailMix));
                 double r = fmin(1.0, p[0] / alpha), g = fmin(1.0, p[1] / alpha), b = fmin(1.0, p[2] / alpha);
                 scale_luminance(&r, &g, &b, sharpened);
                 write_premultiplied(p, r, g, b, alpha);

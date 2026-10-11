@@ -63,7 +63,8 @@ void CameraRawTests::tonalSlidersMoveTheEndTheyName()
     CameraRawSettings settings;
     settings.highlights = -100;
     const auto recovered = pixels(settings.apply(brightAndMid));
-    QVERIFY(recovered[0][0] < 200 && std::abs(recovered[1][0] - 128) <= 2);
+    // Photoshop: 230 to 209, mid gray kept.
+    QVERIFY(recovered[0][0] < 222 && std::abs(recovered[1][0] - 128) <= 4);
     settings = CameraRawSettings();
     settings.whites = 100;
     const auto clipped = pixels(settings.apply(brightAndMid));
@@ -74,7 +75,8 @@ void CameraRawTests::tonalSlidersMoveTheEndTheyName()
     settings = CameraRawSettings();
     settings.shadows = 100;
     const auto opened = pixels(settings.apply(darkAndMid));
-    QVERIFY(opened[0][0] > 50 && std::abs(opened[1][0] - 128) <= 2);
+    // Photoshop: 20 to 33, mid gray kept.
+    QVERIFY(opened[0][0] > 22 && std::abs(opened[1][0] - 128) <= 6);
     settings = CameraRawSettings();
     settings.blacks = -100;
     const auto crushed = pixels(settings.apply(darkAndMid));
@@ -172,15 +174,25 @@ void CameraRawTests::textureAndClaritySharpenAnEdgeAndLeaveAFlatField()
 
 void CameraRawTests::dehazeDeepensOrLiftsAndKeepsAlpha()
 {
-    const QImage dark = image(4, 4, 30 / 255.0, 30 / 255.0, 30 / 255.0), pale = image(4, 4, 180 / 255.0, 150 / 255.0, 150 / 255.0);
+    // A shadow under a pale sky; one colour, no haze.
+    QImage skyAndShadow = BrushRaster::context(10, 10, false);
+    {
+        QPainter painter(&skyAndShadow);
+        painter.fillRect(QRect(0, 0, 10, 5), QColor(200, 195, 190));
+        painter.fillRect(QRect(0, 5, 10, 5), QColor(30, 30, 30));
+    }
+    const int shadow = 5 * 10;
+    QCOMPARE(pixels(skyAndShadow)[shadow][0], 30);
     CameraRawSettings settings;
     settings.dehaze = 100;
-    QVERIFY(pixels(settings.apply(dark))[0][0] < 30);
-    const std::array<int, 4> paleBefore = pixels(pale)[0];
-    QVERIFY(chroma(pixels(settings.apply(pale))[0]) > chroma(paleBefore));
+    QVERIFY(pixels(settings.apply(skyAndShadow))[shadow][0] < 30);
     settings.dehaze = -100;
-    QVERIFY(pixels(settings.apply(dark))[0][0] > 30);
-    QVERIFY(chroma(pixels(settings.apply(pale))[0]) < chroma(paleBefore));
+    QVERIFY(pixels(settings.apply(skyAndShadow))[shadow][0] > 30);
+    const QImage pale = image(4, 4, 180 / 255.0, 150 / 255.0, 150 / 255.0);
+    for (const double amount : {100.0, -100.0}) {
+        settings.dehaze = amount;
+        QVERIFY((pixels(settings.apply(pale))[0] == std::array{180, 150, 150, 255}));
+    }
     const QImage translucent = image(4, 4, 30 / 255.0, 30 / 255.0, 30 / 255.0, 0.5);
     settings.dehaze = 100;
     QCOMPARE(pixels(settings.apply(translucent))[0][3], pixels(translucent)[0][3]);

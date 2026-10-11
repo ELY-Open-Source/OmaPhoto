@@ -41,13 +41,15 @@ typedef struct {
 void camera_raw_compose(float *out, int grid, const CameraRawStage *stages, int count, int size);
 // One stage on one sRGB color (0…1), in place.
 void camera_raw_stage_color(const CameraRawStage *stage, int size, double *rgb);
-// Camera Raw's Light and Color groups on premultiplied RGBA pixels: the composed table `before` (exposure, white
-// balance and contrast), highlights and shadows, then the composed table `after` (whites, blacks, saturation and
-// vibrance). Either table may be null, for none. Highlights and shadows are −100…100. `clipping` 0 renders the
-// grade; 1 replaces it with a highlight-clip view (clipped channels lit on black); 2 replaces it with a shadow-clip
-// view (clipped channels dark on white). Alpha is kept.
-void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride, const float *before,
-                       const float *after, int grid, double highlights, double shadows, int clipping);
+// What Camera Raw's adaptive sliders read from an image, as sRGB levels (0…1), opaque pixels counting by their
+// alpha: the mean of each pixel's brightest channel in linear light (Contrast), the mean linear luminance (Shadows),
+// and the log-average of the brightest channel (Highlights).
+void camera_raw_statistics(const uint8_t *rgba, size_t width, size_t height, size_t stride, double *out);
+// Camera Raw's Light and Color groups on premultiplied RGBA pixels, through one composed table (null for none).
+// `clipping` 0 renders the grade; 1 replaces it with a highlight-clip view (clipped channels lit on black); 2 replaces
+// it with a shadow-clip view (clipped channels dark on white). Alpha is kept.
+void adjust_camera_raw(uint8_t *rgba, size_t width, size_t height, size_t stride, const float *table, int grid,
+                       int clipping);
 // Camera Raw Effects after Light and Color. Texture is a fine local contrast, Clarity a broader one.
 // Dehaze raises contrast and saturation when positive and lifts the shadows when negative. Glow, its
 // range, spread and warmth do nothing until `glow` is above zero: styles are 0 diffusion, 1 bloom,

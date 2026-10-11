@@ -135,10 +135,11 @@ QImage CameraRawSettings::apply(const QImage &image, std::optional<CameraRawClip
         if (!clipping && !sharpenMask && settings.calibration.adjusts())
             settings.applyCalibration(pixels, width, height, stride);
         if (settings.adjustsLight() || settings.adjustsColor() || clipping) {
-            const CameraRawTables::Stages stages = CameraRawTables::stages(settings);
-            const std::vector<float> before = CameraRawTables::compose(stages.before), after = CameraRawTables::compose(stages.after);
-            adjust_camera_raw(pixels, w, h, s, before.empty() ? nullptr : before.data(), after.empty() ? nullptr : after.data(), CameraRawTables::grid,
-                              settings.highlights, settings.shadows, mode);
+            const CameraRawTables::Brightness brightness = settings.contrast != 0 || settings.highlights != 0 || settings.shadows != 0
+                ? CameraRawTables::brightness(pixels, width, height, stride)
+                : CameraRawTables::Brightness();
+            const std::vector<float> table = CameraRawTables::compose(CameraRawTables::stages(settings, brightness));
+            adjust_camera_raw(pixels, w, h, s, table.empty() ? nullptr : table.data(), CameraRawTables::grid, mode);
         }
         if (paintColor)
             settings.applyCurveColor(pixels, width, height, stride, visualizePointColor);

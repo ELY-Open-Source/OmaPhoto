@@ -4,6 +4,7 @@
 #include "Logging.h"
 
 #include <QFile>
+#include <array>
 #include <algorithm>
 #include <stdexcept>
 #include <zlib.h>
@@ -11,9 +12,11 @@
 namespace CameraRawTables {
 namespace {
 constexpr size_t entries = size_t(size) * size * size * 3;
-// White balance 9 × 9, then the six other sliders.
-constexpr int exposureStart = 81, contrastStart = 102, whitesStart = 111, blacksStart = 120;
-constexpr int saturationStart = 129, vibranceStart = 138, count = 147;
+// White balance, five sliders, then three adaptive ones.
+constexpr int exposureStart = 81, whitesStart = 102, blacksStart = 111, saturationStart = 120, vibranceStart = 129;
+constexpr int contrastStart = 138, highlightsStart = 187, shadowsStart = 236, count = 285;
+constexpr std::array<double, 7> brightnesses{53, 80, 104, 130, 160, 190, 224};
+constexpr std::array<double, 7> adaptiveValues{-100, -50, -25, 0, 25, 50, 100};
 
 // Raw DEFLATE, as Foundation's `.zlib` writes it.
 std::vector<uint8_t> inflated(const QByteArray &packed, size_t expected)
@@ -83,6 +86,26 @@ Between between(double value, double low, double step, int tables)
     return {index, position - index};
 }
 
+// An adaptive slider: four tables round value and brightness.
+Between between(double value, const std::array<double, 7> &points)
+{
+    const double held = std::min(points.back(), std::max(points.front(), value));
+    int index = 0;
+    while (index < int(points.size()) - 2 && held > points[index + 1])
+        ++index;
+    return {index, (held - points[index]) / (points[index + 1] - points[index])};
+}
+
+// An adaptive slider: four tables round its value and brightness.
+CameraRawStage adaptive(int start, double value, double brightness)
+{
+    const Between row = between(brightness, brightnesses), column = between(value, adaptiveValues);
+    const double down = row.fraction, across = column.fraction;
+    const int width = int(adaptiveValues.size()), base = start + row.index * width + column.index;
+    return CameraRawStage{{table(base), table(base + 1), table(base + width), table(base + width + 1)},
+                          {float((1 - down) * (1 - across)), float((1 - down) * across), float(down * (1 - across)), float(down * across)}};
+}
+
 CameraRawStage stage(int start, double value, double low, double step, int tables)
 {
     const Between at = between(value, low, step, tables);
@@ -106,23 +129,34 @@ CameraRawStage whiteBalance(double temperature, double tint)
                           {float((1 - down) * (1 - across)), float((1 - down) * across), float(down * (1 - across)), float(down * across)}};
 }
 
-Stages stages(const CameraRawSettings &settings)
+Brightness brightness(const uchar *pixels, int width, int height, qsizetype stride)
 {
-    Stages out;
+    double out[3] = {0, 0, 0};
+    camera_raw_statistics(pixels, size_t(width), size_t(height), size_t(stride), out);
+    return {out[0] * 255, out[1] * 255, out[2] * 255};
+}
+
+std::vector<CameraRawStage> stages(const CameraRawSettings &settings, const Brightness &brightness)
+{
+    std::vector<CameraRawStage> out;
     if (settings.exposure != 0)
-        out.before.push_back(stage(exposureStart, settings.exposure, -5, 0.5, 21));
+        out.push_back(stage(exposureStart, settings.exposure, -5, 0.5, 21));
     if (settings.temperature != 0 || settings.tint != 0)
-        out.before.push_back(whiteBalance(settings.temperature, settings.tint));
+        out.push_back(whiteBalance(settings.temperature, settings.tint));
     if (settings.contrast != 0)
-        out.before.push_back(stage(contrastStart, settings.contrast, -100, 25, 9));
+        out.push_back(adaptive(contrastStart, settings.contrast, brightness.brightest));
+    if (settings.highlights != 0)
+        out.push_back(adaptive(highlightsStart, settings.highlights, brightness.logBrightest));
+    if (settings.shadows != 0)
+        out.push_back(adaptive(shadowsStart, settings.shadows, brightness.luminance));
     if (settings.whites != 0)
-        out.after.push_back(stage(whitesStart, settings.whites, -100, 25, 9));
+        out.push_back(stage(whitesStart, settings.whites, -100, 25, 9));
     if (settings.blacks != 0)
-        out.after.push_back(stage(blacksStart, settings.blacks, -100, 25, 9));
+        out.push_back(stage(blacksStart, settings.blacks, -100, 25, 9));
     if (settings.saturation != 0)
-        out.after.push_back(stage(saturationStart, settings.saturation, -100, 25, 9));
+        out.push_back(stage(saturationStart, settings.saturation, -100, 25, 9));
     if (settings.vibrance != 0)
-        out.after.push_back(stage(vibranceStart, settings.vibrance, -100, 25, 9));
+        out.push_back(stage(vibranceStart, settings.vibrance, -100, 25, 9));
     return out;
 }
 
