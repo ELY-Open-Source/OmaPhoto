@@ -95,9 +95,25 @@ void CanvasNavigationTests::theHandToolAndSpaceDragTheView()
     QTest::keyPress(&canvas, Qt::Key_Space);
     QCOMPARE(canvas.cursor().shape(), Qt::OpenHandCursor);
     QTest::mousePress(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(50, 50));
+    QCOMPARE(canvas.cursor().shape(), Qt::ClosedHandCursor);
+    // Swift 1.4.7: Space's repeats keep the hand closed all through.
+    for (int repeat = 0; repeat < 3; ++repeat) {
+        QKeyEvent release(QEvent::KeyRelease, Qt::Key_Space, Qt::NoModifier, QStringLiteral(" "), true);
+        QApplication::sendEvent(&canvas, &release);
+        QKeyEvent press(QEvent::KeyPress, Qt::Key_Space, Qt::NoModifier, QStringLiteral(" "), true);
+        QApplication::sendEvent(&canvas, &press);
+        QCOMPARE(canvas.cursor().shape(), Qt::ClosedHandCursor);
+    }
     drag(canvas, QPointF(60, 70));
+    QCOMPARE(canvas.cursor().shape(), Qt::ClosedHandCursor);
     QCOMPARE(session.viewport.pan, pan + QSizeF(45, 40));
     QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(60, 70));
+    // Space still held: the hand opens with the button.
+    QCOMPARE(canvas.cursor().shape(), Qt::OpenHandCursor);
+    // A repeat's release is no release: the hand stays.
+    QKeyEvent repeated(QEvent::KeyRelease, Qt::Key_Space, Qt::NoModifier, QStringLiteral(" "), true);
+    QApplication::sendEvent(&canvas, &repeated);
+    QCOMPARE(canvas.cursor().shape(), Qt::OpenHandCursor);
     QTest::keyRelease(&canvas, Qt::Key_Space);
     QCOMPARE(canvas.cursor().shape(), Qt::ArrowCursor);
     // Importing, a press starts no drag.
