@@ -22,6 +22,7 @@ private slots:
     void selectionChangesDoNotRedrawThePicture();
     void placedMasksMotionAndEachAxisScale();
     void editsInProgressStayOut();
+    void blursTakeTheWidthsFactor();
     void theMinimapShowsFrom300PercentWhenTurnedOn();
     void thePictureRedrawsOnceEditsSettle();
     void aClickOrDragMovesTheView();
@@ -121,6 +122,13 @@ void NavigatorTests::centeringKeepsZoomAndStopsFollowingFit()
     QVERIFY(std::abs(visible.center().x() - 50) < 0.001 && std::abs(visible.center().y() - 60) < 0.001);
     QCOMPARE(view.zoom(), zoom);
     QVERIFY(!view.followsFit());
+    // At a backing scale of two, points per pixel halve.
+    CanvasViewport sharp;
+    sharp.resize(QSizeF(800, 600), 2, size);
+    sharp.setZoom(4, sharp.center(), size);
+    sharp.centerView(QPointF(50, 60), size);
+    QVERIFY(std::abs(sharp.visibleDocumentRect(size).center().x() - 50) < 0.001 && std::abs(sharp.visibleDocumentRect(size).center().y() - 60) < 0.001);
+    QCOMPARE(sharp.zoom(), 4.0);
     // A later window resize keeps the view where it was.
     view.resize(QSizeF(1000, 700), 1, size);
     QCOMPARE(view.zoom(), zoom);
@@ -263,6 +271,34 @@ void NavigatorTests::placedMasksMotionAndEachAxisScale()
     QVERIFY2(at(picture, 25, 50).alpha() >= 250, qPrintable(QString::number(at(picture, 25, 50).alpha())));
     // Five pixels of streak soften the edge; none would not.
     QVERIFY2(at(picture, 49, 50).alpha() < 250 && at(picture, 51, 50).alpha() > 0, qPrintable(QString::number(at(picture, 49, 50).alpha())));
+}
+
+// Swift scales both blurs by the width's factor alone.
+void NavigatorTests::blursTakeTheWidthsFactor()
+{
+    const auto edge = [](AdjustmentKind kind, QSize document, double amount, QPoint probe) {
+        EditorSession session;
+        session.createDocument(document.width(), document.height());
+        // Red on top, or on the left when wide.
+        const QSize half = document.width() > document.height() ? QSize(document.width() / 2, document.height()) : QSize(document.width(), document.height() / 2);
+        placeRed(session, half, QSizeF(half));
+        session.addAdjustment(kind);
+        session.setAdjustmentEditingID(std::nullopt);
+        const QUuid id = session.activeLayerID().value();
+        LayerAdjustment adjustment = layerWith(session, id).adjustment.value();
+        if (kind == AdjustmentKind::motionBlur)
+            adjustment.motionAngle = 90, adjustment.motionDistance = amount;
+        else
+            adjustment.blurRadius = amount;
+        session.updateAdjustment(id, adjustment);
+        return session.navigatorImage(100).value().pixelColor(probe).alpha();
+    };
+    // 3 by 1000 becomes 1 by 100: a 33-pixel streak.
+    const int streak = edge(AdjustmentKind::motionBlur, QSize(3, 1000), 100, QPoint(0, 55));
+    QVERIFY2(streak > 30, qPrintable(QString::number(streak)));
+    // 1000 by 25 becomes 100 by 3: 19, not 15.
+    const int blur = edge(AdjustmentKind::gaussianBlur, QSize(1000, 25), 100, QPoint(45, 1));
+    QVERIFY2(blur >= 18, qPrintable(QString::number(blur)));
 }
 
 // Swift draws a bare session: a pending transform stays out.
