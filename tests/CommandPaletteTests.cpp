@@ -61,7 +61,9 @@ void CommandPaletteTests::scoresAreSwiftsOwn()
         {"x2", "Layer › Box2", 2999997}, {"e u", "Edit › Undo", 3999998}, {"fl", "Layer › Flip Layer Horizontal", 4999993},
         {"é", "Café › Crème", 2999997}, {"ab", "a1b c", 1000999}, {"b", "1b", 5000000}, {"mask", "Layer › Add Layer Mask (Hide All)", 4999992},
         {"hide all", "Layer › Add Layer Mask (Hide All)", 4999992}, {"\tblur", "Filter › Gaussian Blur…", 4999995}, {"ab", "x-ab", 4999999},
-        {"lay mask", "Layer › Add Layer Mask", 3999995}, {"b a", "a bab", 1999999}, {"b a", "ab a", 2999999}};
+        {"lay mask", "Layer › Add Layer Mask", 3999995}, {"b a", "a bab", 1999999}, {"b a", "ab a", 2999999},
+        {"café", "File › Open Recent › Cafe\u0301", 4999994}, {"cafe\u0301", "File › Open Recent › Café", 4999994},
+        {"café", "File › Open Recent › Café", 4999994}, {"e\u0301", "File › Open Recent › Café", 2999994}};
     for (const auto &[query, title, score] : cases)
         QVERIFY2(CommandPaletteSearch::score(query, title).value() == score, qPrintable(query + " in " + title));
     QVERIFY(!CommandPaletteSearch::score("new layer", "Layer › Duplicate Layer"));
@@ -202,18 +204,30 @@ void CommandPaletteTests::toolsTakeTheirModes()
     session.createDocument(4, 4);
     tools = CommandPaletteCommands::tools(session);
     QVERIFY(std::ranges::all_of(tools, [](const CommandPaletteEntry &e) { return e.isEnabled; }));
-    titled(tools, "Tool › Polygonal Lasso").perform();
-    QVERIFY(session.tool() == NavigationTool::lasso && session.lassoKind() == LassoKind::polygonal);
-    titled(tools, "Tool › Elliptical Marquee").perform();
-    QVERIFY(session.tool() == NavigationTool::marquee && session.marqueeKind() == LassoKind::ellipse);
-    titled(tools, "Tool › Object Selection").perform();
-    QVERIFY(session.tool() == NavigationTool::wand && session.wandMode() == WandMode::object);
-    titled(tools, "Tool › Eraser").perform();
-    QVERIFY(session.tool() == NavigationTool::brush && session.brushMode() == BrushToolMode::erase);
-    titled(tools, "Tool › Smudge").perform();
-    QVERIFY(session.tool() == NavigationTool::blur && session.blurMode() == BlurToolMode::smudge);
-    titled(tools, "Tool › Line").perform();
-    QVERIFY(session.tool() == NavigationTool::shape && session.shapeKind() == ShapeKind::line);
+    // Each named mode, reached from its sibling.
+    const std::vector<std::tuple<QString, NavigationTool, std::function<bool()>>> modes{
+        {"Polygonal Lasso", NavigationTool::lasso, [&] { return session.lassoKind() == LassoKind::polygonal; }},
+        {"Lasso", NavigationTool::lasso, [&] { return session.lassoKind() == LassoKind::freehand; }},
+        {"Elliptical Marquee", NavigationTool::marquee, [&] { return session.marqueeKind() == LassoKind::ellipse; }},
+        {"Rectangular Marquee", NavigationTool::marquee, [&] { return session.marqueeKind() == LassoKind::rectangle; }},
+        {"Object Selection", NavigationTool::wand, [&] { return session.wandMode() == WandMode::object; }},
+        {"Magic Wand", NavigationTool::wand, [&] { return session.wandMode() == WandMode::wand; }},
+        {"Eraser", NavigationTool::brush, [&] { return session.brushMode() == BrushToolMode::erase; }},
+        {"Brush", NavigationTool::brush, [&] { return session.brushMode() == BrushToolMode::paint; }},
+        {"Blur", NavigationTool::blur, [&] { return session.blurMode() == BlurToolMode::blur; }},
+        {"Smudge", NavigationTool::blur, [&] { return session.blurMode() == BlurToolMode::smudge; }},
+        {"Liquify", NavigationTool::blur, [&] { return session.blurMode() == BlurToolMode::liquify; }},
+        {"Ellipse", NavigationTool::shape, [&] { return session.shapeKind() == ShapeKind::ellipse; }},
+        {"Rectangle", NavigationTool::shape, [&] { return session.shapeKind() == ShapeKind::rectangle; }},
+        {"Line", NavigationTool::shape, [&] { return session.shapeKind() == ShapeKind::line; }},
+        {"Move / Transform", NavigationTool::move, [] { return true; }}, {"Crop", NavigationTool::crop, [] { return true; }},
+        {"Spot Healing Brush", NavigationTool::spotHealing, [] { return true; }}, {"Clone Stamp", NavigationTool::cloneStamp, [] { return true; }},
+        {"Gradient", NavigationTool::gradient, [] { return true; }}, {"Type", NavigationTool::type, [] { return true; }},
+        {"Eyedropper", NavigationTool::eyedropper, [] { return true; }}, {"Hand", NavigationTool::hand, [] { return true; }}};
+    for (const auto &[name, tool, holds] : modes) {
+        titled(tools, "Tool › " + name).perform();
+        QVERIFY2(session.tool() == tool && holds(), qPrintable(name));
+    }
     titled(tools, "Tool › Zoom").perform();
     QVERIFY(session.tool() == NavigationTool::zoom);
     // A refused tool change leaves the mode alone.

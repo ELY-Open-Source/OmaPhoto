@@ -97,9 +97,11 @@ void CommandPaletteWindowTests::typingRanksAndReturnRunsTheChosenRow()
     // It runs once the event loop is next free.
     QCOMPARE(shown.session().viewport.zoom(), 1.0);
     QTRY_COMPARE(shown.session().viewport.zoom(), 1.25);
-    // A tool's mode by its name.
+    // A mode by its name; Enter runs the chosen row.
     shown.open();
-    QTest::keyClicks(&shown.view().field(), "polygonal");
+    QTest::keyClicks(&shown.view().field(), "lasso");
+    QCOMPARE(shown.view().model().results()[1].id, QString("Tool › Polygonal Lasso"));
+    QTest::keyClick(&shown.view().field(), Qt::Key_Down);
     QTest::keyClick(&shown.view().field(), Qt::Key_Enter);
     QTRY_VERIFY(shown.session().tool() == NavigationTool::lasso && shown.session().lassoKind() == LassoKind::polygonal);
 }

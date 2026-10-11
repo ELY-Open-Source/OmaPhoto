@@ -78,13 +78,15 @@ void collect(const QList<QAction *> &items, const QStringList &path, const std::
 
 std::optional<int> CommandPaletteSearch::score(const QString &query, const QString &text)
 {
+    // Composed: Swift's Characters compare canonically.
+    const QString lowerQuery = query.toLower().normalized(QString::NormalizationForm_C);
     QStringList wanted;
-    for (const QString &character : characters(query.toLower()))
+    for (const QString &character : characters(lowerQuery))
         if (!QChar::isSpace(first(character)))
             wanted << character;
     if (wanted.isEmpty())
         return 0;
-    const QStringList letters = characters(text.toLower());
+    const QStringList letters = characters(text.toLower().normalized(QString::NormalizationForm_C));
     int total = 0;
     qsizetype from = 0;
     qsizetype previous = -2;
@@ -99,7 +101,7 @@ std::optional<int> CommandPaletteSearch::score(const QString &query, const QStri
     }
     // How the text was found, best first; scattered letters last.
     const QString title = letters.join(QString());
-    const QString phrase = trimmedWhitespaces(query.toLower());
+    const QString phrase = trimmedWhitespaces(lowerQuery);
     const QStringList words = phrase.split(QLatin1Char(' '), Qt::SkipEmptyParts);
     int tier = 1;
     if (wordsStartWords({phrase}, letters))
