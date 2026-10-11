@@ -12,10 +12,20 @@ QColor middle(const QImage &image)
     return image.pixelColor(image.width() / 2, image.height() / 2);
 }
 
+// Each channel's mean, rounded: the import's noise averages out.
 std::array<int, 3> rgb(const QImage &image)
 {
-    const QColor colour = middle(image);
-    return {colour.red(), colour.green(), colour.blue()};
+    std::array<double, 3> sums{};
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            const QColor colour = image.pixelColor(x, y);
+            sums[0] += colour.red();
+            sums[1] += colour.green();
+            sums[2] += colour.blue();
+        }
+    }
+    const double count = double(image.width()) * image.height();
+    return {int(std::lround(sums[0] / count)), int(std::lround(sums[1] / count)), int(std::lround(sums[2] / count))};
 }
 
 // The camera's neutral under a white, through the matrix.
@@ -231,7 +241,8 @@ void RawImporterTests::theQueueKeepsThePreviewsDecodeUntilReleased()
     QCOMPARE(queue.develop(path, settings, 40).size(), QSize(32, 24));
     const QString other = DNGFixture::write(folder.filePath("other.dng"));
     QCOMPARE(rgb(queue.develop(other, settings, 20))[1], 150);
-    QCOMPARE(rgb(queue.develop(path, settings, 20))[1], 109);
+    // Qt's area average truncates the fine noise: a level low.
+    QCOMPARE(rgb(queue.develop(path, settings, 20))[1], 108);
     queue.release();
 }
 

@@ -74,9 +74,6 @@ public:
     void setImportError(std::optional<QString> error);
     bool showsConversionSheet() const { return m_showsConversionSheet; }
     const std::optional<PSDConversionRequest> &conversionRequest() const { return m_conversionRequest; }
-    // The RAW file the develop sheet shows, while it shows.
-    const std::optional<RawDevelopRequest> &rawDevelop() const { return m_rawDevelop; }
-    void finishRawDevelop(std::optional<RawDevelopSettings> settings);
     std::optional<QUuid> renamingLayerID() const { return m_renamingLayerID; }
     void setRenamingLayerID(std::optional<QUuid> id);
 
@@ -236,17 +233,7 @@ public:
     bool canMoveActiveLayer(int offset) const;
     void moveActiveLayer(int offset);
 
-    // Files decode off the UI thread; `done` follows this request.
-    void importImages(const QList<QUrl> &urls, std::optional<QPointF> point = std::nullopt, std::function<void()> done = {});
     void insert(const ImportedImage &asset, std::optional<QPointF> centeredAt = std::nullopt);
-    // The sheet shows while a Photoshop file is read.
-    void beginPSDReading(const QString &title, const QString &confirmTitle);
-    void finishPSDReading(const std::vector<PSDConversion> &conversions, std::function<void(bool)> answer);
-    void endPSDReading();
-    void finishConversion(bool confirmed);
-    void decodeRaw(const QString &path, qint64 remaining);
-    void developRaw(const QString &path, std::function<void(std::optional<RawDevelopSettings>)> answer);
-    void insertPhotoshop(const PSDImport &imported, const QString &named, std::optional<QPointF> centeredAt = std::nullopt);
     void createDocument(int width, int height, bool emptyLayer = false);
     void fit();
     void zoom(double value, std::optional<QPointF> anchor = std::nullopt);
@@ -280,6 +267,7 @@ public:
     void notify() { emit changed(); }
     // Swift's extensions, each declared in its twin's header.
 #include "Document/EditorSession+Projects.h"
+#include "Document/EditorSession+Imports.h"
 #include "IO/ImageResizer+Session.h"
 #include "Document/LayerMask+Session.h"
 #include "Document/LayerAppearance+Session.h"
@@ -324,12 +312,6 @@ private:
     void restore(const DocumentHistory::Snapshot &snapshot);
     void resumeFileRequests();
     void updateBusyIndicator();
-    void drainImports();
-    void decodeNext();
-    qint64 remainingPixels() const;
-    void decode(const QUrl &url, bool flattened);
-    void finishDecode();
-    void finishPhotoshopRead();
     void endDuplicateTransform();
     // Clone Stamp is family 1, the Smear 2, others 0.
     static int tipFamily(NavigationTool tool);
@@ -397,6 +379,7 @@ private:
     std::function<void(bool)> m_conversionAnswer;
     std::optional<RawDevelopRequest> m_rawDevelop;
     std::function<void(std::optional<RawDevelopSettings>)> m_rawAnswer;
+    bool m_rawImporting = false;
     // Cancel pressed while the file was still read.
     bool m_conversionCancelled = false;
     std::optional<QString> m_brushError;

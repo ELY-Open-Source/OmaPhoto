@@ -5,6 +5,7 @@
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QPainter>
 #include <QPainterPath>
@@ -22,6 +23,8 @@ class RawDevelopSheet::Preview : public QWidget {
 public:
     using QWidget::QWidget;
     QImage image;
+    // Swift's regular material, behind the Importing plate.
+    QWidget *plate = nullptr;
 
 protected:
     void paintEvent(QPaintEvent *) override
@@ -31,20 +34,30 @@ protected:
         QPainterPath plate;
         plate.addRoundedRect(QRectF(rect()), 6, 6);
         painter.fillPath(plate, QColor::fromRgbF(0, 0, 0, 0.35f));
-        if (image.isNull())
-            return;
-        QRectF target(QPointF(), QSizeF(image.size()).scaled(QSizeF(size()), Qt::KeepAspectRatio));
-        target.moveCenter(QRectF(rect()).center());
-        QPainterPath clip;
-        clip.addRoundedRect(target, 6, 6);
-        painter.setClipPath(clip);
-        painter.drawImage(target, image);
+        if (!image.isNull()) {
+            QRectF target(QPointF(), QSizeF(image.size()).scaled(QSizeF(size()), Qt::KeepAspectRatio));
+            target.moveCenter(QRectF(rect()).center());
+            QPainterPath clip;
+            clip.addRoundedRect(target, 6, 6);
+            painter.save();
+            painter.setClipPath(clip);
+            painter.drawImage(target, image);
+            painter.restore();
+        }
+        if (this->plate && this->plate->isVisible()) {
+            QColor material = palette().color(QPalette::Window);
+            material.setAlphaF(0.85f);
+            QPainterPath behind;
+            behind.addRoundedRect(QRectF(this->plate->geometry()), 10, 10);
+            painter.fillPath(behind, material);
+        }
     }
 };
 
 RawDevelopSheet::RawDevelopSheet(RawDevelopRequest request, std::function<void(std::optional<RawDevelopSettings>)> finish, QWidget *parent)
     : QWidget(parent), m_path(std::move(request.path)), m_finish(std::move(finish)), m_settings(request.settings), m_wait(new QTimer(this)),
-      m_preview(new Preview(this)), m_spinner(new QProgressBar(m_preview)), m_reset(new QPushButton(QStringLiteral("Reset"), this))
+      m_preview(new Preview(this)), m_spinner(new QProgressBar(m_preview)), m_reset(new QPushButton(QStringLiteral("Reset"), this)),
+      m_cancel(new QPushButton(QStringLiteral("Cancel"), this)), m_import(new QPushButton(QStringLiteral("Import"), this)), m_importing(new QWidget(m_preview))
 {
     auto *column = new QVBoxLayout(this);
     column->setContentsMargins(24, 24, 24, 24);
@@ -63,6 +76,23 @@ RawDevelopSheet::RawDevelopSheet(RawDevelopRequest request, std::function<void(s
     m_spinner->setRange(0, 0);
     m_spinner->setTextVisible(false);
     m_spinner->setGeometry(272, 162, 16, 16);
+    // Swift's VStack: a spinner over "Importing…", padded 16.
+    m_importing->setObjectName(QStringLiteral("rawImporting"));
+    auto *importingColumn = new QVBoxLayout(m_importing);
+    importingColumn->setContentsMargins(16, 16, 16, 16);
+    importingColumn->setSpacing(8);
+    auto *importingSpinner = new QProgressBar(m_importing);
+    importingSpinner->setRange(0, 0);
+    importingSpinner->setTextVisible(false);
+    importingSpinner->setFixedSize(32, 32);
+    importingColumn->addWidget(importingSpinner, 0, Qt::AlignHCenter);
+    auto *importingWords = new QLabel(QStringLiteral("Importing…"), m_importing);
+    importingWords->setForegroundRole(QPalette::PlaceholderText);
+    importingColumn->addWidget(importingWords, 0, Qt::AlignHCenter);
+    m_importing->adjustSize();
+    m_importing->move((m_preview->width() - m_importing->width()) / 2, (m_preview->height() - m_importing->height()) / 2);
+    m_importing->hide();
+    m_preview->plate = m_importing;
     column->addWidget(m_preview);
 
     // Swift's sliders are continuous; these step finer than shown.
@@ -89,18 +119,16 @@ RawDevelopSheet::RawDevelopSheet(RawDevelopRequest request, std::function<void(s
         m_settings.reset();
         changed();
     });
-    auto *cancel = new QPushButton(QStringLiteral("Cancel"), this);
-    cancel->setObjectName(QStringLiteral("rawCancel"));
-    cancel->setAutoDefault(false);
-    connect(cancel, &QPushButton::clicked, this, [this] { m_finish(std::nullopt); });
-    auto *importButton = new QPushButton(QStringLiteral("Import"), this);
-    importButton->setObjectName(QStringLiteral("rawImport"));
-    importButton->setDefault(true);
-    connect(importButton, &QPushButton::clicked, this, [this] { m_finish(m_settings); });
+    m_cancel->setObjectName(QStringLiteral("rawCancel"));
+    m_cancel->setAutoDefault(false);
+    connect(m_cancel, &QPushButton::clicked, this, [this] { m_finish(std::nullopt); });
+    m_import->setObjectName(QStringLiteral("rawImport"));
+    m_import->setDefault(true);
+    connect(m_import, &QPushButton::clicked, this, [this] { m_finish(m_settings); });
     buttons->addWidget(m_reset);
     buttons->addStretch(1);
-    buttons->addWidget(cancel);
-    buttons->addWidget(importButton);
+    buttons->addWidget(m_cancel);
+    buttons->addWidget(m_import);
     column->addLayout(buttons);
 
     // The first preview starts at once; slider bursts coalesce.
@@ -118,6 +146,37 @@ RawDevelopSheet::~RawDevelopSheet()
 {
     if (m_cancelled)
         m_cancelled->store(true);
+}
+
+void RawDevelopSheet::setImporting(bool importing)
+{
+    if (importing == !m_importing->isHidden())
+        return;
+    m_importing->setVisible(importing);
+    if (importing)
+        m_spinner->hide();
+    for (const Row &row : m_rows)
+        row.slider->setEnabled(!importing);
+    m_cancel->setEnabled(!importing);
+    m_import->setEnabled(!importing);
+    m_preview->update();
+    synchronize();
+    // Swift's interactiveDismissDisabled: Escape and close wait.
+    if (importing)
+        window()->installEventFilter(this);
+    else
+        window()->removeEventFilter(this);
+}
+
+bool RawDevelopSheet::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched != window())
+        return false;
+    if (event->type() == QEvent::Close) {
+        event->ignore();
+        return true;
+    }
+    return event->type() == QEvent::KeyPress && static_cast<QKeyEvent *>(event)->key() == Qt::Key_Escape;
 }
 
 void RawDevelopSheet::addRow(const QString &title, float RawDevelopSettings::*field, double low, double high, double scale, int precision, const QString &unit)
@@ -151,7 +210,7 @@ void RawDevelopSheet::changed()
 void RawDevelopSheet::develop()
 {
     m_cancelled = std::make_shared<std::atomic_bool>(false);
-    m_spinner->show();
+    m_spinner->setVisible(m_importing->isHidden());
     auto *watcher = new QFutureWatcher<QImage>(this);
     connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, cancelled = m_cancelled] {
         watcher->deleteLater();
@@ -184,5 +243,5 @@ void RawDevelopSheet::synchronize()
         row.slider->setValue(int(std::lround(value * row.scale)));
         row.value->setText(QString::asprintf("%.*f", row.precision, value) + row.unit);
     }
-    m_reset->setEnabled(!m_settings.isAsShot());
+    m_reset->setEnabled(!m_settings.isAsShot() && m_importing->isHidden());
 }

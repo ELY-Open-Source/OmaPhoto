@@ -19,6 +19,11 @@ class RawDevelopSheet : public QWidget {
 public:
     RawDevelopSheet(RawDevelopRequest request, std::function<void(std::optional<RawDevelopSettings>)> finish, QWidget *parent = nullptr);
     ~RawDevelopSheet() override;
+    // Import pressed: the frame develops; nothing can be changed.
+    void setImporting(bool importing);
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     class Preview;
@@ -45,4 +50,7 @@ private:
     QProgressBar *const m_spinner;
     std::vector<Row> m_rows;
     QPushButton *const m_reset;
+    QPushButton *const m_cancel;
+    QPushButton *const m_import;
+    QWidget *const m_importing;
 };

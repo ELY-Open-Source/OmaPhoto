@@ -37,15 +37,36 @@ QUrl dng(const QTemporaryDir &folder, const QString &name, const DNGFixture::Opt
     return QUrl::fromLocalFile(DNGFixture::write(folder.filePath(name), options));
 }
 
-QColor centre(const ImageLayer &layer)
+// A region's mean, rounded: the noise averages out.
+QColor tone(const QImage &image, const QRect &region)
 {
-    const QImage image = layer.asset.value().image();
-    return image.pixelColor(image.width() / 2, image.height() / 2);
+    std::array<double, 3> sums{};
+    for (int y = region.top(); y <= region.bottom(); ++y) {
+        for (int x = region.left(); x <= region.right(); ++x) {
+            const QColor colour = image.pixelColor(x, y);
+            sums[0] += colour.red();
+            sums[1] += colour.green();
+            sums[2] += colour.blue();
+        }
+    }
+    const double count = double(region.width()) * region.height();
+    return QColor(int(std::lround(sums[0] / count)), int(std::lround(sums[1] / count)), int(std::lround(sums[2] / count)));
 }
 
 QColor centre(const QImage &image)
 {
-    return image.pixelColor(image.width() / 2, image.height() / 2);
+    return tone(image, image.rect());
+}
+
+QColor centre(const ImageLayer &layer)
+{
+    return centre(layer.asset.value().image());
+}
+
+// The preview's picture, clear of the spinner and plate.
+QColor shown(QWidget *preview)
+{
+    return tone(preview->grab().toImage(), QRect(70, 20, 150, 100));
 }
 
 QString label(QWidget *sheet, const char *name)
@@ -62,6 +83,9 @@ private slots:
     void whatCannotBeDevelopedIsReported();
     void theLimitsLetTheirEdgeThrough();
     void theSheetPreviewsAndAnswers();
+    void theSheetWaitsWhileTheFrameDevelops();
+    void aLongImportShowsTheImportingPlateAlone();
+    void finishingWithNoImportWaitingClosesTheSheet();
 };
 
 void RawDevelopTests::theSheetsSettingsDevelopTheLayer()
@@ -78,11 +102,20 @@ void RawDevelopTests::theSheetsSettingsDevelopTheLayer()
     RawDevelopSettings settings = session.rawDevelop().value().settings;
     settings.boost = 0;
     settings.exposure = 1;
-    // The sheet hears at once that it has gone.
+    // The sheet hears at once that it is importing.
     QSignalSpy changed(&session, &EditorSession::changed);
     session.finishRawDevelop(settings);
-    QVERIFY(!session.rawDevelop() && changed.count() == 1);
+    QVERIFY(session.rawDevelop() && session.rawImporting() && changed.count() == 1);
+    // It goes once the layer is in.
+    std::vector<std::pair<bool, size_t>> seen;
+    connect(&session, &EditorSession::changed, this, [&] {
+        seen.emplace_back(session.rawImporting(), session.document() ? session.document().value().layers.size() : 0);
+    });
     QTRY_VERIFY(done);
+    QVERIFY(!session.rawDevelop() && !session.rawImporting());
+    const auto ended = std::find_if(seen.begin(), seen.end(), [](const auto &each) { return !each.first; });
+    QVERIFY(ended != seen.end() && ended->second == 1);
+    QVERIFY(std::all_of(seen.begin(), ended, [](const auto &each) { return each.first; }));
     QCOMPARE(names(session), (QStringList{"Gray", "Plain"}));
     const ImageLayer &developed = session.document().value().layers.front();
     QCOMPARE(developed.asset.value().size(), QSize(64, 48));
@@ -100,6 +133,7 @@ void RawDevelopTests::cancelSkipsTheFileAndTheRestImport()
     session.importImages({dng(folder, "Gray.dng"), png(folder)}, std::nullopt, [&done] { done = true; });
     QTRY_VERIFY(session.rawDevelop());
     session.finishRawDevelop(std::nullopt);
+    QVERIFY(!session.rawDevelop() && !session.rawImporting());
     QTRY_VERIFY(done);
     QCOMPARE(names(session), QStringList{"Plain"});
     QVERIFY(!session.importError() && !session.rawDevelop());
@@ -140,7 +174,10 @@ void RawDevelopTests::whatCannotBeDevelopedIsReported()
     QVERIFY(broken.open(QIODevice::WriteOnly) && broken.write("gone") == 4);
     broken.close();
     session.finishRawDevelop(session.rawDevelop().value().settings);
+    QVERIFY(session.rawImporting());
     QTRY_VERIFY(done);
+    // A develop that fails takes the sheet down too.
+    QVERIFY(!session.rawDevelop() && !session.rawImporting());
     QCOMPARE(session.importError().value(), "Gray.dng: " + unreadable);
     QCOMPARE(names(session), QStringList{"Plain"});
     // A white the camera cannot record says so.
@@ -223,7 +260,7 @@ void RawDevelopTests::theSheetPreviewsAndAnswers()
     // The first preview lands: the boosted gray, fitted.
     QWidget *preview = sheet->findChild<QWidget *>("rawPreview");
     QTRY_VERIFY(sheet->findChild<QProgressBar *>("rawSpinner")->isHidden());
-    QCOMPARE(preview->grab().toImage().pixelColor(200, 170), QColor(139, 139, 139));
+    QCOMPARE(shown(preview), QColor(139, 139, 139));
     // A develop under way spins; a newer change drops it.
     QSlider *exposure = sheet->findChild<QSlider *>("rawExposure");
     QProgressBar *spinner = sheet->findChild<QProgressBar *>("rawSpinner");
@@ -238,12 +275,12 @@ void RawDevelopTests::theSheetPreviewsAndAnswers()
     disconnect(once);
     QThreadPool::globalInstance()->waitForDone();
     QTest::qWait(50);
-    QCOMPARE(preview->grab().toImage().pixelColor(200, 170), QColor(139, 139, 139));
+    QCOMPARE(shown(preview), QColor(139, 139, 139));
     QVERIFY(!spinner->isHidden());
     RawDevelopSettings dimmer = session.rawDevelop().value().settings;
     dimmer.exposure = -1;
     wait->start();
-    QTRY_COMPARE_WITH_TIMEOUT(preview->grab().toImage().pixelColor(200, 170), centre(RawImporter::develop(path, dimmer)), 1000);
+    QTRY_COMPARE_WITH_TIMEOUT(shown(preview), centre(RawImporter::develop(path, dimmer)), 1000);
     QVERIFY(spinner->isHidden());
     // A slider changes the settings; the preview follows.
     exposure->setValue(100);
@@ -252,7 +289,7 @@ void RawDevelopTests::theSheetPreviewsAndAnswers()
     RawDevelopSettings brighter = session.rawDevelop().value().settings;
     brighter.exposure = 1;
     const QColor expected = centre(RawImporter::develop(path, brighter));
-    QTRY_COMPARE(preview->grab().toImage().pixelColor(200, 170), expected);
+    QTRY_COMPARE(shown(preview), expected);
     sheet->findChild<QSlider *>("rawTemperature")->setValue(3000);
     QCOMPARE(label(sheet, "rawTemperatureValue"), QString("3000 K"));
     reset->click();
@@ -260,11 +297,11 @@ void RawDevelopTests::theSheetPreviewsAndAnswers()
     QCOMPARE(label(sheet, "rawTemperatureValue"), QString("6501 K"));
     QCOMPARE(sheet->findChild<QSlider *>("rawExposure")->value(), 0);
     QVERIFY(!reset->isEnabled());
-    QTRY_COMPARE(preview->grab().toImage().pixelColor(200, 170), QColor(139, 139, 139));
+    QTRY_COMPARE(shown(preview), QColor(139, 139, 139));
     // Import develops the whole frame with the sheet's settings.
     sheet->findChild<QSlider *>("rawExposure")->setValue(100);
     sheet->findChild<QPushButton *>("rawImport")->click();
-    QVERIFY(!session.rawDevelop());
+    QVERIFY(session.rawDevelop() && session.rawImporting());
     QTRY_VERIFY(done);
     QTRY_VERIFY(!view.findChild<QDialog *>("rawDevelopSheet"));
     QCOMPARE(centre(session.document().value().layers.back()), expected);
@@ -290,6 +327,87 @@ void RawDevelopTests::theSheetPreviewsAndAnswers()
     view.findChild<QDialog *>("rawDevelopSheet")->findChild<QPushButton *>("rawCancel")->click();
     QTRY_VERIFY(done);
     QCOMPARE(session.document().value().layers.size(), size_t(1));
+}
+
+void RawDevelopTests::theSheetWaitsWhileTheFrameDevelops()
+{
+    const QTemporaryDir folder;
+    const QUrl raw = dng(folder, "Gray.dng");
+    EditorSession session;
+    ContentView view(session);
+    view.resize(900, 600);
+    view.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&view));
+    bool done = false;
+    session.importImages({raw}, std::nullopt, [&done] { done = true; });
+    QDialog *sheet = view.findChild<QDialog *>("rawDevelopSheet");
+    QVERIFY(sheet);
+    QTRY_VERIFY(sheet->findChild<QProgressBar *>("rawSpinner")->isHidden());
+    QWidget *plate = sheet->findChild<QWidget *>("rawImporting");
+    QVERIFY(plate->isHidden());
+    // Import pressed: the develop waits for the event loop.
+    sheet->findChild<QPushButton *>("rawImport")->click();
+    QVERIFY(!plate->isHidden() && session.rawImporting());
+    QStringList words;
+    for (const QLabel *each : plate->findChildren<QLabel *>())
+        words << each->text();
+    QCOMPARE(words, QStringList{"Importing…"});
+    QVERIFY(sheet->findChild<QProgressBar *>("rawSpinner")->isHidden());
+    for (const char *name : {"rawExposure", "rawTemperature", "rawTint", "rawBoost"})
+        QVERIFY(!sheet->findChild<QSlider *>(name)->isEnabled());
+    for (const char *name : {"rawReset", "rawCancel", "rawImport"})
+        QVERIFY(!sheet->findChild<QPushButton *>(name)->isEnabled());
+    // Escape and the close button wait for the layer.
+    QTest::keyClick(sheet, Qt::Key_Escape);
+    QVERIFY(!sheet->close());
+    QVERIFY(sheet->isVisible() && session.rawDevelop() && session.rawImporting() && !done);
+    QTRY_VERIFY(done);
+    QTRY_VERIFY(!view.findChild<QDialog *>("rawDevelopSheet"));
+    QCOMPARE(session.document().value().layers.size(), size_t(1));
+}
+
+void RawDevelopTests::aLongImportShowsTheImportingPlateAlone()
+{
+    // A frame large enough that each develop takes a while.
+    const QTemporaryDir folder;
+    DNGFixture::Options large;
+    large.width = 4000;
+    large.height = 3000;
+    const QUrl raw = dng(folder, "Large.dng", large);
+    EditorSession session;
+    ContentView view(session);
+    view.resize(900, 600);
+    view.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&view));
+    bool done = false;
+    session.importImages({raw}, std::nullopt, [&done] { done = true; });
+    QDialog *sheet = view.findChild<QDialog *>("rawDevelopSheet");
+    QProgressBar *spinner = sheet->findChild<QProgressBar *>("rawSpinner");
+    QTimer *wait = sheet->findChild<QTimer *>("rawWait");
+    QTRY_VERIFY_WITH_TIMEOUT(spinner->isHidden(), 20'000);
+    // A preview under way: Import hides its spinner at once.
+    QSlider *exposure = sheet->findChild<QSlider *>("rawExposure");
+    exposure->setValue(50);
+    QPushButton *reset = sheet->findChild<QPushButton *>("rawReset");
+    QVERIFY(reset->isEnabled());
+    QTRY_VERIFY(!spinner->isHidden());
+    // Another change waits on its timer as Import is pressed.
+    exposure->setValue(60);
+    QVERIFY(wait->isActive());
+    sheet->findChild<QPushButton *>("rawImport")->click();
+    QVERIFY(spinner->isHidden() && !reset->isEnabled());
+    // That develop starts during the import and shows no spinner.
+    QTRY_VERIFY(!wait->isActive());
+    QVERIFY(session.rawImporting() && spinner->isHidden());
+    QTRY_VERIFY_WITH_TIMEOUT(done, 60'000);
+}
+
+void RawDevelopTests::finishingWithNoImportWaitingClosesTheSheet()
+{
+    // An answer with nobody waiting cannot leave the sheet importing.
+    EditorSession session;
+    session.finishRawDevelop(RawDevelopSettings());
+    QVERIFY(!session.rawImporting() && !session.rawDevelop());
 }
 
 QTEST_MAIN(RawDevelopTests)

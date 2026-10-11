@@ -11,6 +11,10 @@
 #include <cmath>
 #include <numeric>
 #include <libraw.h>
+#include <memory>
+extern "C" {
+#include "DitherPixels.h"
+}
 
 namespace {
 [[noreturn]] void refuse(const QString &path, const char *step, int code)
@@ -173,21 +177,25 @@ QImage render(LibRaw &raw, const QString &path, const RawDevelopSettings &settin
     image.setColorSpace(QColorSpace::SRgb);
     const double gain = std::pow(2.0, double(settings.exposure)) * smallest;
     const auto *samples = reinterpret_cast<const quint16 *>(made->data);
-    uchar *const bits = image.bits();
-    const qsizetype stride = image.bytesPerLine();
+    // The look at 16 bits, as Core Image renders it.
+    const std::unique_ptr<quint16[]> wide(new (std::nothrow) quint16[size_t(image.width()) * size_t(image.height()) * 4]);
+    if (!wide)
+        throw ExportError(ExportError::Kind::render);
     std::vector<int> rows(size_t(image.height()));
     std::iota(rows.begin(), rows.end(), 0);
     PoolMap::blocking(rows, [&](int y) {
         for (int x = 0; x < image.width(); ++x) {
-            uchar *out = bits + y * stride + x * 4;
+            quint16 *out = wide.get() + (qsizetype(y) * image.width() + x) * 4;
             for (int channel = 0; channel < 3; ++channel) {
                 const double linear = std::min(samples[(qsizetype(y) * image.width() + x) * 3 + channel] / 65535.0 * gain, 1.0);
                 const double flat = srgb(linear);
-                out[channel] = uchar(std::lround(255 * (flat + settings.boost * (bt709(linear) - flat))));
+                out[channel] = quint16(std::lround(65535 * (flat + settings.boost * (bt709(linear) - flat))));
             }
-            out[3] = 255;
+            out[3] = 65535;
         }
     });
+    // To 8 bits with fine noise: gradients don't band.
+    dither_quantize16(wide.get(), image.bits(), size_t(image.width()), size_t(image.height()), size_t(image.bytesPerLine()));
     if (!limit || std::max(image.width(), image.height()) <= *limit)
         return image;
     const QImage fitted = image.scaled(QSize(int(*limit), int(*limit)), Qt::KeepAspectRatio, Qt::SmoothTransformation);

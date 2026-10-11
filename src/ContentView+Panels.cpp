@@ -183,8 +183,10 @@ void ContentView::showRawDevelopSheet()
             shown->reject();
         return;
     }
-    if (m_rawSheet)
+    if (m_rawSheet) {
+        m_rawSheet->findChild<RawDevelopSheet *>()->setImporting(m_session.rawImporting());
         return;
+    }
     m_rawSheet = new QDialog(this);
     m_rawSheet->setObjectName(QStringLiteral("rawDevelopSheet"));
     m_rawSheet->setAttribute(Qt::WA_DeleteOnClose);

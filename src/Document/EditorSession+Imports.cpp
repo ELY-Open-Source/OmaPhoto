@@ -208,13 +208,25 @@ void EditorSession::developRaw(const QString &path, std::function<void(std::opti
 
 void EditorSession::finishRawDevelop(std::optional<RawDevelopSettings> settings)
 {
+    // Importing, the sheet waits for the develop; Cancel closes it.
+    if (settings && m_rawAnswer) {
+        m_rawImporting = true;
+        notify();
+    } else {
+        endRawDevelop();
+    }
+    // The import resumes from the event loop, as a task.
+    if (const auto answer = std::exchange(m_rawAnswer, {}))
+        QMetaObject::invokeMethod(this, [answer, settings] { answer(settings); }, Qt::QueuedConnection);
+}
+
+void EditorSession::endRawDevelop()
+{
+    m_rawImporting = false;
     m_rawDevelop = std::nullopt;
     notify();
     // Frees the preview's decode on a worker, behind any preview.
     (void)QtConcurrent::run([] { RawImporter::Queue::shared().release(); });
-    // The import resumes from the event loop, as a task.
-    if (const auto answer = std::exchange(m_rawAnswer, {}))
-        QMetaObject::invokeMethod(this, [answer, settings] { answer(settings); }, Qt::QueuedConnection);
 }
 
 void EditorSession::finishDecode()
@@ -224,6 +236,9 @@ void EditorSession::finishDecode()
         insert(*decoded.asset, m_importPoint);
     else
         m_importFailures << decoded.failure;
+    // Swift's defer: the develop sheet goes once the frame lands.
+    if (m_rawImporting)
+        endRawDevelop();
     m_importIndex += 1;
     decodeNext();
 }
