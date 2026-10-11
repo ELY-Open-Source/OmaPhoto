@@ -528,7 +528,8 @@ Compositor 1.4.6:
 - 14.6 work: `UI/CommandPalette` and `UI/CommandPaletteView`, View › Search Commands… on Ctrl+F, a `Qt::Popup` centred on the window; scores checked against Swift 6.0.3 running v1.4.9's code. 57 mutants, all caught but two equivalent (AGENTS.md). Review: round 1 FAIL (canonical matching, a chosen second row, a mode back from its sibling), round 2 FAIL (the key's drawing untested), round 3 PASS.
 - [x] 14.7 Canvas Only and Toggle Fullscreen on F and Esc (`ad4bddf`, `088a5c1`, `720c121`).
 - 14.7 work: the session's three members, `ProjectWorkspaceView::toggleCanvasOnly` and its Escape filter, `ContentView`'s hidden bars, the black surround, View › Toggle Fullscreen on F; menu actions also live on the window, since a hidden bar's keys go dead. 57 mutants, all caught. Review: round 1 FAIL (the layers edge and the new definitions untested), round 2 PASS.
-- [ ] 14.8 Camera Raw's colour noise reduction: clear pixels unsaturated, brightness kept (`a2718d9`, `42a559b`).
+- [x] 14.8 Camera Raw's colour noise reduction: clear pixels unsaturated, brightness kept (`a2718d9`, `42a559b`).
+- 14.8 work: `kernels/AdjustPixels.c` copied from 42a559b unchanged; `CameraRawColorNoiseTests` holds Swift's two and pins upstream pixels. 31 mutants on the kernel's new section, all caught. Review: round 1 FAIL (coverage and Smoothness), round 2 FAIL (each plane's edge, amount and scale), round 3 FAIL (half the Detail), round 4 PASS.
 
 Compositor 1.4.7:
 
