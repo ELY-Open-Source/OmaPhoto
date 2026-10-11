@@ -60,6 +60,7 @@ private slots:
     void theBrushBarScrolls();
     void theGradientBarScrollsAndKeepsItsButtons();
     void theSelectionBarScrollsAndKeepsDeselect();
+    void eachNoteSitsWhereSwiftsDoes();
 };
 
 void ToolHeaderScrollTests::theBrushBarScrolls()
@@ -99,6 +100,34 @@ void ToolHeaderScrollTests::theSelectionBarScrollsAndKeepsDeselect()
             deselect = button;
     QVERIFY(deselect);
     QTRY_VERIFY(deselect->isVisible() && deselect->geometry().right() < 440 && deselect->parentWidget() == &bar);
+}
+
+void ToolHeaderScrollTests::eachNoteSitsWhereSwiftsDoes()
+{
+    // Clone Stamp's hint scrolls inside, after the controls.
+    const auto cloning = withLayer(NavigationTool::cloneStamp);
+    BrushControls brush(*cloning);
+    brush.resize(440, brush.height());
+    brush.show();
+    QWidget &hint = *brush.findChild<QWidget *>("cloneSourceNote");
+    QTRY_VERIFY(hint.isVisible());
+    QCOMPARE(hint.parentWidget(), brush.findChild<QScrollArea *>("brushScroll")->widget());
+    // The Gradient's Mask note stays outside, at the bar's end.
+    const auto masked = withLayer(NavigationTool::gradient);
+    GradientControls gradient(*masked);
+    masked->addMask();
+    gradient.resize(440, gradient.height());
+    gradient.show();
+    QWidget &mask = *gradient.findChild<QWidget *>("gradientMaskNote");
+    QTRY_VERIFY(mask.isVisible() && mask.parentWidget() == &gradient && mask.geometry().right() < 440);
+    // So does an empty selection's note.
+    const auto empty = withLayer(NavigationTool::marquee);
+    LassoControls selection(*empty);
+    empty->setSelection(DocumentSelection{}, QStringLiteral("Empty"));
+    selection.resize(440, selection.height());
+    selection.show();
+    QWidget &note = *selection.findChild<QWidget *>("emptySelection");
+    QTRY_VERIFY(note.isVisible() && note.parentWidget() == &selection && note.geometry().right() < 440);
 }
 
 QTEST_MAIN(ToolHeaderScrollTests)
