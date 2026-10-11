@@ -78,6 +78,12 @@ private:
     void finishing(FilterKind kind);
     // Swift's ditherControls: style, sizes, tones, colours, shape.
     void dither();
+    // Swift's scanlinesControls: lines, displacement, tone, colours.
+    void scanlines();
+    // The Colors menu, then Two Colors' dark and light swatches.
+    void colorChoices(const QString &prefix, std::function<DitherColors &(FilterSettings &)> colors,
+                      std::function<std::pair<AdjustmentColor, AdjustmentColor>(const FilterSettings &)> pair, const QString &darkHelp,
+                      const QString &lightHelp);
     // A titled menu of choices: the row and its box.
     QComboBox *menu(const QString &title, const QString &name, const QString &help);
     // Remove Background's words, Quality, and Advanced's three rows.

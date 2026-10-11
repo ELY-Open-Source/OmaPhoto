@@ -145,9 +145,8 @@ void AcceptanceFinishTests::cameraRawCurvesAndDither()
     const double grown = double(large.height()) / letter.height();
     QVERIFY2(grown > 1.6 && grown < 2.4 && inkedLarge < 0.75, qPrintable(QString::number(grown)));
     app.action("undo").trigger();
-    // Scanlines: dark gaps between the beam's rows across the sky.
-    app.action("dither").trigger();
-    choose(shownChild<QComboBox>(app, "ditherStyle"), QStringLiteral("Scanlines (CRT)"));
+    // Scanlines, its own filter: dark gaps between the beam's rows.
+    app.action("scanlines").trigger();
     QVERIFY(committed(app));
     const QImage lines = app.session().activeLayer().value().asset.value().image();
     int darkest = 255, brightest = 0;

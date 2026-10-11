@@ -59,6 +59,7 @@ add_library(compositor_core STATIC
     src/Document/ToolDefaults.cpp
     src/Document/ObjectSelection.cpp
     src/Document/Dither.cpp
+    src/Document/Scanlines.cpp
     src/Document/Filters.cpp
     src/Document/CameraRaw.cpp
     src/Document/CameraRaw+Session.cpp
@@ -154,6 +155,7 @@ add_library(compositor_core STATIC
     src/UI/FilterSheet+Adjustments.cpp
     src/UI/FilterSheet+Controls.cpp
     src/UI/FilterSheet+Dither.cpp
+    src/UI/FilterSheet+Scanlines.cpp
     src/UI/FilterSheet+Finishing.cpp
     src/UI/FloatingPanel.cpp
     src/UI/KeyboardShortcuts.cpp

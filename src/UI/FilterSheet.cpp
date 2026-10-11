@@ -186,6 +186,7 @@ FilterSheet::FilterSheet(EditorSession &session, QWidget *parent)
         noise();
         break;
     case FilterKind::dither: dither(); break;
+    case FilterKind::scanlines: scanlines(); break;
     case FilterKind::vignette:
     case FilterKind::bloomGlow:
     case FilterKind::tonalContrast: finishing(m_session.filterEdit()->kind); break;

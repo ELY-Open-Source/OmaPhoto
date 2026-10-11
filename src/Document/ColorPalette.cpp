@@ -102,7 +102,7 @@ QString ColorPickerTarget::title() const
     if (kind == Kind::vignette)
         return QStringLiteral("Color Picker (Vignette Color)");
     if (kind == Kind::dither)
-        return light ? QStringLiteral("Color Picker (Dither Light Color)") : QStringLiteral("Color Picker (Dither Dark Color)");
+        return light ? QStringLiteral("Color Picker (Light Color)") : QStringLiteral("Color Picker (Dark Color)");
     if (kind == Kind::dialog)
         return QStringLiteral("Color Picker (%1)").arg(dialogTitle);
     return background ? QStringLiteral("Color Picker (Background Color)") : QStringLiteral("Color Picker (Foreground Color)");
@@ -288,9 +288,11 @@ void EditorSession::openVignetteColorPicker()
 void EditorSession::openDitherColorPicker(bool light)
 {
     // A commit keeps the project busy: no `committing` term.
-    if (!canEditPalette() || m_colorPicker || !m_filterEdit || m_filterEdit->kind != FilterKind::dither)
+    if (!canEditPalette() || m_colorPicker || !m_filterEdit || (m_filterEdit->kind != FilterKind::dither && m_filterEdit->kind != FilterKind::scanlines))
         return;
-    const AdjustmentColor value = light ? m_filterEdit->settings.dither.light : m_filterEdit->settings.dither.dark;
+    const FilterSettings &settings = m_filterEdit->settings;
+    const bool scanlines = m_filterEdit->kind == FilterKind::scanlines;
+    const AdjustmentColor value = light ? (scanlines ? settings.scanlines.light : settings.dither.light) : (scanlines ? settings.scanlines.dark : settings.dither.dark);
     m_colorPicker = ColorPickerState({ColorPickerTarget::Kind::dither, false, std::nullopt, false, LayerEffectKind{}, light},
                                      PaletteColor{value.red, value.green, value.blue});
     notify();
@@ -302,11 +304,14 @@ void EditorSession::previewDitherColor()
         setDitherColor(m_colorPicker->color(), m_colorPicker->target.light);
 }
 
-// Its picker lives only while its Dither edit is open.
+    // Its picker lives only while Dither or Scanlines is open.
 void EditorSession::setDitherColor(const PaletteColor &color, bool light)
 {
     FilterSettings settings = m_filterEdit.value().settings;
-    (light ? settings.dither.light : settings.dither.dark) = AdjustmentColor(color);
+    if (m_filterEdit->kind == FilterKind::scanlines)
+        (light ? settings.scanlines.light : settings.scanlines.dark) = AdjustmentColor(color);
+    else
+        (light ? settings.dither.light : settings.dither.dark) = AdjustmentColor(color);
     if (settings == m_filterEdit->settings)
         return;
     updateFilter(settings, m_filterEdit->preview);

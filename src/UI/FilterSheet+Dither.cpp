@@ -52,21 +52,6 @@ void FilterSheet::dither()
     control(QStringLiteral("Text Size"), key(&DitherSettings::textSize), DitherSettings::textSizeLow, DitherSettings::textSizeHigh, QStringLiteral("px"), 0, false);
     box()->setToolTip(QStringLiteral("The height of each line of characters"));
     m_shownWhen.emplace_back(box(), [](const FilterSettings &settings) { return settings.dither.style == DitherStyle::ascii; });
-    // Scanlines' four rows.
-    const auto scanlines = [](const FilterSettings &settings) { return settings.dither.style == DitherStyle::scanlines; };
-    control(QStringLiteral("Line Spacing"), key(&DitherSettings::lineSpacing), DitherSettings::lineSpacingLow, DitherSettings::lineSpacingHigh, QStringLiteral("px"), 0,
-            false);
-    box()->setToolTip(QStringLiteral("How far apart the screen's lines are"));
-    m_shownWhen.emplace_back(box(), scanlines);
-    control(QStringLiteral("Glow"), key(&DitherSettings::glow), 0, 100, QStringLiteral("%"), 0, false);
-    box()->setToolTip(QStringLiteral("Light blooming around the lines, like a CRT's phosphors"));
-    m_shownWhen.emplace_back(box(), scanlines);
-    control(QStringLiteral("Dots"), key(&DitherSettings::dots), 0, 100, QStringLiteral("%"), 0, false);
-    box()->setToolTip(QStringLiteral("Break the lines into glowing beads"));
-    m_shownWhen.emplace_back(box(), scanlines);
-    control(QStringLiteral("Wobble"), key(&DitherSettings::wobble), DitherSettings::wobbleLow, DitherSettings::wobbleHigh, QStringLiteral("px"), 0, false);
-    box()->setToolTip(QStringLiteral("Make the lines waver sideways down the screen, like a CRT losing sync"));
-    m_shownWhen.emplace_back(box(), scanlines);
     control(QStringLiteral("Cell Size"), key(&DitherSettings::cellSize), DitherSettings::cellSizeLow, DitherSettings::cellSizeHigh, QStringLiteral("px"), 0, false);
     m_shownWhen.emplace_back(box(), [](const FilterSettings &settings) { return isHalftone(settings.dither.style); });
     control(QStringLiteral("Angle"), key(&DitherSettings::angle), -90, 90, QStringLiteral("°"), 0, false);
@@ -105,40 +90,9 @@ void FilterSheet::dither()
     control(QStringLiteral("Density"), key(&DitherSettings::density), -100, 100, QString(), 0, false);
     box()->setToolTip(QStringLiteral("More ink (darker) or less before dithering"));
     control(QStringLiteral("Contrast"), key(&DitherSettings::contrast), -100, 100, QString(), 0, false);
-    // Colors: a menu, as Swift's: the panel keeps its size.
-    QComboBox *colors = menu(QStringLiteral("Colors"), QStringLiteral("ditherColors"), QString());
-    for (const DitherColors each : allDitherColors)
-        colors->addItem(rawValue(each), int(each));
-    connect(colors, &QComboBox::activated, this, [this](int index) { update([index](FilterSettings &settings) { settings.dither.colors = DitherColors(index); }); });
-    m_follows.emplace_back([colors](const FilterSettings &settings) {
-        const QSignalBlocker quiet(colors);
-        colors->setCurrentIndex(int(settings.dither.colors));
-    });
-    // Two Colors: the dark and the light swatch.
-    auto *pair = new QWidget(this);
-    auto *swatches = new QHBoxLayout(pair);
-    swatches->setContentsMargins(0, 0, 0, 0);
-    swatches->setSpacing(8);
-    for (const bool light : {false, true}) {
-        auto *title = new QLabel(light ? QStringLiteral("Light") : QStringLiteral("Dark"), pair);
-        auto *swatch = new SwatchButton([this, light] {
-            const AdjustmentColor colour = light ? settings().dither.light : settings().dither.dark;
-            return PaletteColor{colour.red, colour.green, colour.blue};
-        }, 6, 1.5, 1, pair);
-        swatch->setObjectName(light ? QStringLiteral("ditherLight") : QStringLiteral("ditherDark"));
-        swatch->setFixedSize(24, 24);
-        swatch->setToolTip(light ? QStringLiteral("Choose the light color") : QStringLiteral("Choose the dark color"));
-        swatch->setAccessibleName(light ? QStringLiteral("Light color") : QStringLiteral("Dark color"));
-        connect(swatch, &QAbstractButton::clicked, this, [this, light] { m_session.openDitherColorPicker(light); });
-        m_follows.emplace_back([swatch](const FilterSettings &) { swatch->update(); });
-        if (light)
-            swatches->addSpacing(10);
-        swatches->addWidget(title);
-        swatches->addWidget(swatch);
-    }
-    swatches->addStretch(1);
-    m_column->addWidget(pair);
-    m_shownWhen.emplace_back(pair, [](const FilterSettings &settings) { return settings.dither.colors == DitherColors::twoColors; });
+    colorChoices(QStringLiteral("dither"), [](FilterSettings &settings) -> DitherColors & { return settings.dither.colors; },
+                 [](const FilterSettings &settings) { return std::pair(settings.dither.dark, settings.dither.light); },
+                 QStringLiteral("Choose the dark color"), QStringLiteral("Choose the light color"));
     QComboBox *shape = menu(QStringLiteral("Pixel Shape"), QStringLiteral("ditherPixelShape"),
                             QStringLiteral("Draw each chunky pixel as a solid square, or as a round dot like a dot-matrix screen"));
     for (const DitherPixelShape each : allDitherPixelShapes)

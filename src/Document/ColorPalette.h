@@ -47,7 +47,7 @@ struct ColorPickerTarget {
     bool highlights = false;
     // An effect's colour: which effect.
     LayerEffectKind effect{};
-    // Dither's Two Colors: the light one, else the dark.
+    // Dither's or Scanlines' Two Colors: light, else dark.
     bool light = false;
     // A dialog's own colour, such as Export JPEG's background.
     QString dialogTitle{};

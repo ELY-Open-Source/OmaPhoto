@@ -28,6 +28,7 @@ QString rawValue(FilterKind kind)
     case FilterKind::vignette: return QStringLiteral("Vignette");
     case FilterKind::bloomGlow: return QStringLiteral("Bloom / Glow");
     case FilterKind::dither: return QStringLiteral("Dither");
+    case FilterKind::scanlines: return QStringLiteral("Scanlines");
     case FilterKind::tonalContrast: return QStringLiteral("Tonal Contrast");
     case FilterKind::lensCorrection: return QStringLiteral("Lens Correction");
     case FilterKind::cameraRaw: return QStringLiteral("Camera Raw Filter");
@@ -93,6 +94,7 @@ FilterSettings FilterSettings::normalized() const
     result.gradientMap = gradientMap.normalized();
     result.grain = grain.normalized();
     result.dither = dither.normalized();
+    result.scanlines = scanlines.normalized();
     result.cameraRaw = cameraRaw.normalized();
     return result;
 }
@@ -164,6 +166,7 @@ QImage PixelFilter::run(const FilterJob &job)
     // Grain sits in layer pixels; the job's seed patterns it.
     case FilterKind::grain: image = settings.grain.apply(job.image, QPointF(), 1 / job.scale, job.seed); break;
     case FilterKind::dither: image = settings.dither.apply(job.image); break;
+    case FilterKind::scanlines: image = settings.scanlines.apply(job.image); break;
     case FilterKind::removeBackground: image = SubjectRemoval::run(job.image, settings); break;
     case FilterKind::contentAwareFill: image = ContentFill::run(job); break;
     // Unclamped: a blur spreads into the room made for it.
@@ -278,8 +281,9 @@ void FilterEdit::prepare(const ImportedImage &source, const LayerTransform &plac
 {
     const QSize size = source.size();
     mapping = BrushRaster::pixelToDocument(placed, size.width(), size.height());
-    // Noise, grain and dither preview whole: enlarged, they look coarse.
-    const bool whole = kind == FilterKind::addNoise || kind == FilterKind::grain || kind == FilterKind::dither || kind == FilterKind::contentAwareFill
+    // Noise, grain, dither, scanlines preview whole: enlarged, they coarsen.
+    const bool whole = kind == FilterKind::addNoise || kind == FilterKind::grain || kind == FilterKind::dither || kind == FilterKind::scanlines
+        || kind == FilterKind::contentAwareFill
         || kind == FilterKind::removeBackground;
     const double factor = whole ? 1 : std::min(1.0, previewLimit / std::max(size.width(), size.height()));
     if (!(factor < 1)) {

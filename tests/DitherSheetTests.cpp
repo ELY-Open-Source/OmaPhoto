@@ -98,7 +98,7 @@ void DitherSheetTests::theKindSitsUnderBloomAndPreviewsWhole()
 {
     QCOMPARE(rawValue(FilterKind::dither), QString("Dither"));
     const auto at = std::find(allFilterKinds.begin(), allFilterKinds.end(), FilterKind::dither);
-    QVERIFY(at != allFilterKinds.end() && *(at - 1) == FilterKind::bloomGlow && *(at + 1) == FilterKind::tonalContrast);
+    QVERIFY(at != allFilterKinds.end() && *(at - 1) == FilterKind::bloomGlow && *(at + 1) == FilterKind::scanlines);
     QVERIFY(!isAutomatic(FilterKind::dither) && !isImageAdjustment(FilterKind::dither));
     // Past the preview limit, Dither still previews at full size.
     EditorSession session;
@@ -132,7 +132,7 @@ void DitherSheetTests::theTwoColoursHaveTheirPicker()
 {
     Shown shown;
     shown.session.openDitherColorPicker(false);
-    QCOMPARE(shown.session.colorPicker().value().target.title(), QString("Color Picker (Dither Dark Color)"));
+    QCOMPARE(shown.session.colorPicker().value().target.title(), QString("Color Picker (Dark Color)"));
     QVERIFY(shown.session.colorPicker().value().original == PaletteColor::black());
     pick(shown.session, PaletteColor{0, 0, 1});
     shown.session.previewDitherColor();
@@ -141,7 +141,7 @@ void DitherSheetTests::theTwoColoursHaveTheirPicker()
     shown.session.closeColorPicker(false);
     QVERIFY(shown.dither().dark == AdjustmentColor(0, 0, 0));
     shown.session.openDitherColorPicker(true);
-    QCOMPARE(shown.session.colorPicker().value().target.title(), QString("Color Picker (Dither Light Color)"));
+    QCOMPARE(shown.session.colorPicker().value().target.title(), QString("Color Picker (Light Color)"));
     pick(shown.session, PaletteColor{1, 1, 0});
     shown.session.closeColorPicker(true);
     QVERIFY(shown.dither().light == AdjustmentColor(1, 1, 0) && shown.dither().dark == AdjustmentColor(0, 0, 0));
@@ -179,13 +179,13 @@ void DitherSheetTests::theControlsFollowTheStyle()
         dither.colors = DitherColors::twoColors;
     });
     QCOMPARE(shown.shown(), sorted(QStringList{"Style", "Pixel Size", "Density", "Contrast", "Colors", "Light on Dark", "Swatches"}));
-    // Style's menu: eleven looks in four groups.
+    // Style's menu: ten looks in four groups.
     QComboBox &style = shown.child<QComboBox>("ditherStyle");
     QStringList items;
     for (int index = 0; index < style.count(); ++index)
         items << (style.itemText(index).isEmpty() ? QStringLiteral("—") : style.itemText(index));
     QCOMPARE(items, (QStringList{"Atkinson (Classic Mac)", "Floyd–Steinberg", "—", "Bayer 2 × 2", "Bayer 4 × 4", "Bayer 8 × 8", "—", "Halftone Dots",
-                                 "Halftone Lines", "Halftone Diamonds", "—", "Mac Patterns", "ASCII", "Scanlines (CRT)"}));
+                                 "Halftone Lines", "Halftone Diamonds", "—", "Mac Patterns", "ASCII"}));
     QCOMPARE(style.currentText(), QString("Mac Patterns"));
     // Its quick preview never shows the busy line.
     QVERIFY(!shown.child<QProgressBar>("filterSpinner").isVisibleTo(shown.sheet.get()));
