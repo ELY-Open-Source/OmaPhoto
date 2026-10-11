@@ -543,7 +543,8 @@ Compositor 1.4.7:
 - 14.12 held: Swift's net change is none; the twin's Save is the default, Don't Save as plain as Cancel; tested. 3 mutants, all caught. Review: round 1 FAIL (colours unchecked), round 2 PASS.
 - [x] 14.13 A layer's name field keeps its size while renaming (`8f7d344`).
 - 14.13 work: a frameless field of the name's size, a tenth of the ink beneath, the label hidden meanwhile. 6 mutants, all caught. Review: round 1 FAIL (the old name drawn beneath), round 2 PASS.
-- [ ] 14.14 Tool headers scroll when the window is too narrow (`68396ff`).
+- [x] 14.14 Tool headers scroll when the window is too narrow (`68396ff`).
+- 14.14 work: `ToolHeaderBar::scrolling`, used by the Brush, Gradient and selection bars; the Brush's notes scroll inside. 12 mutants, all caught. Review: round 1 FAIL (each note's place), round 2 PASS.
 
 Compositor 1.4.8:
 
