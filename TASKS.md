@@ -522,7 +522,8 @@ Compositor 1.4.6:
 - 14.3 work: `NewCanvasUnit` and `NewCanvasBackground`, Swift's three pills, the resolution and background through `createNewProject`, `firstLayer`; one trim of Foundation's `.whitespaces` (U+200B included) for New Canvas, `validDimension` and hex. 33 mutants, all caught. Review: round 1 FAIL (midpoints rounded up; U+200B untrimmed), round 2 FAIL (cm and mm midpoints: Foundation rounds the shortest decimal), round 3 PASS (the reviewer compared 180,000 cases with Swift).
 - [x] 14.4 Image › Rotate Canvas 90° Clockwise and Counterclockwise (`754f188`).
 - 14.4 work: `CanvasRotation.cpp`, the Image menu's two entries, `restore` fitting a resized canvas; QPainter's turns made exact (`degrees()`, `QTransform::rotate`) and a pixel-for-pixel quarter turn unfiltered (`LayerRenderer::upright`), so Swift's exact tests hold; `ImageMenuTests` split out at 500 lines. 41 mutants, all caught or equivalent (`degrees()` at three grid maps). Review: round 1 FAIL (corners alone let a stretched side or a turned painter through; one layer tested), round 2 FAIL (no open edit before the turn), round 3 PASS.
-- [ ] 14.5 One View › Snap for all snapping (`bba92dc`'s session and menu half).
+- [x] 14.5 One View › Snap for all snapping (`bba92dc`'s session and menu half).
+- 14.5 work: `snappingEnabled()` reads `m_snapEnabled`; `setSnapEnabled` clears the guides; the first View › Snap goes. 3 mutants, all caught. Review: round 1 FAIL (the signal's order untested), round 2 PASS.
 - [ ] 14.6 The command palette: menu commands, tools and their modes, masks, toggles shown on, on Ctrl+F (`cb139a1`, `384632d`, `231b7d3`, `07b8b1e`, `94b57f7`, `bba92dc`'s palette half, the palette lines of `088a5c1` and `720c121`).
 - [ ] 14.7 Canvas Only and Toggle Fullscreen on F and Esc (`ad4bddf`, `088a5c1`, `720c121`).
 - [ ] 14.8 Camera Raw's colour noise reduction: clear pixels unsaturated, brightness kept (`a2718d9`, `42a559b`).
