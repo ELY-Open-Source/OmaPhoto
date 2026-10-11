@@ -451,11 +451,11 @@ void GuideTests::drawnPointsSnapToTheSnapToTargets()
     // The canvas's middle is no target for a drawn point.
     QCOMPARE(session->snappedPoint(QPointF(62, 149), 2), QPointF(64, 149));
     QVERIFY(session->snapGuides.ys.empty());
-    session->setSnappingEnabled(false);
+    session->setSnapEnabled(false);
     session->snapGuides = {{1}, {2}};
     QCOMPARE(session->snappedPoint(QPointF(62, 20), 3), QPointF(62, 20));
     QVERIFY(session->snapGuides.xs.empty() && session->snapGuides.ys.empty());
-    session->setSnappingEnabled(true);
+    session->setSnapEnabled(true);
     session->setSnapEnabled(false);
     QCOMPARE(session->snappedPoint(QPointF(62, 20), 3), QPointF(62, 20));
     QVERIFY(session->snapGuides.xs.empty() && session->snapGuides.ys.empty());

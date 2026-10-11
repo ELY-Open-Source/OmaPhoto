@@ -25,13 +25,13 @@ void ResizeSnapCanvasTests::resizedEdgesSnapUnlessCtrl()
     QCOMPARE(layerWith(session, shown.red).transform.size, QSizeF(246, 100));
     // Snapping off, nothing snaps.
     session.undo();
-    session.setSnappingEnabled(false);
+    session.setSnapEnabled(false);
     shown.drag(QPointF(250, 150), QPointF(396, 150));
     QCOMPARE(layerWith(session, shown.red).transform.size, QSizeF(246, 100));
     QCOMPARE(session.snapGuides, SnapGuides{});
     // Locked, Shift frees the lock: a corner snaps both edges.
     session.undo();
-    session.setSnappingEnabled(true);
+    session.setSnapEnabled(true);
     session.setLocksTransformRatio(true);
     shown.press(QPointF(250, 200));
     shown.move(QPointF(396, 296), Qt::ShiftModifier);

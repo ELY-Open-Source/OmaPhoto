@@ -77,13 +77,13 @@ void TransformSnapTests::snappedMoveNudgesWithinToleranceAndKeepsTheGuides()
     const LayerTransform snapped = session.snappedMove(draft, {a}, 5);
     QVERIFY(snapped != draft && !session.snapGuides.xs.empty());
     QSignalSpy changes(&session, &EditorSession::changed);
-    session.setSnappingEnabled(false);
+    session.setSnapEnabled(false);
     QVERIFY(!session.snappingEnabled() && changes.count() == 1);
     QCOMPARE(session.snapGuides, SnapGuides{});
     session.snapGuides = SnapGuides{{1}, {2}};
     QCOMPARE(session.snappedMove(draft, {a}, 5), draft);
     QCOMPARE(session.snapGuides, SnapGuides{});
-    session.setSnappingEnabled(true);
+    session.setSnapEnabled(true);
     QCOMPARE(session.snappedMove(draft, {a}, 5), snapped);
 }
 

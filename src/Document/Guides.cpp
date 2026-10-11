@@ -220,6 +220,8 @@ void EditorSession::setSnapEnabled(bool enabled)
 {
     m_snapEnabled = enabled;
     ToolDefaults::set(enabled, QStringLiteral("snap"));
+    if (!enabled)
+        snapGuides = {};
     notify();
 }
 

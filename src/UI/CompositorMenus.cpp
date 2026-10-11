@@ -135,8 +135,6 @@ CompositorMenus::CompositorMenus(ProjectWorkspace &workspace, QMenuBar &bar, QWi
     add(view, QStringLiteral("zoomOut"), QStringLiteral("Zoom Out"), QKeySequence(Qt::CTRL | Qt::Key_Minus), [zoomBy] { zoomBy(-1); });
     add(view, QStringLiteral("pixelGrid"), QStringLiteral("Pixel Grid (800% and above)"), QKeySequence(), [this] { session().setShowsPixelGrid(!session().showsPixelGrid()); })
         ->setCheckable(true);
-    add(view, QStringLiteral("snap"), QStringLiteral("Snap"), QKeySequence(), [this] { session().setSnappingEnabled(!session().snappingEnabled()); })
-        ->setCheckable(true);
     // Ctrl+H: the Move tool's box; the desktop hides apps.
     add(view, QStringLiteral("transformControls"), QStringLiteral("Show Transform Controls"), QKeySequence(Qt::CTRL | Qt::Key_H),
         [this] { session().setShowsTransformControls(!session().showsTransformControls()); })
@@ -356,7 +354,6 @@ void CompositorMenus::synchronize()
     for (const char *name : {"fit", "actualPixels", "zoomIn", "zoomOut"})
         action(QString::fromLatin1(name))->setEnabled(drawn);
     action(QStringLiteral("pixelGrid"))->setChecked(s.showsPixelGrid());
-    action(QStringLiteral("snap"))->setChecked(s.snappingEnabled());
     const bool opened = s.document().has_value();
     for (const auto &[name, value] : std::initializer_list<std::pair<const char *, bool>>{
              {"showGrid", s.showsGrid()}, {"showGuides", s.showsGuides()}, {"showRulers", s.showsRulers()}, {"snapEnabled", s.snapEnabled()},

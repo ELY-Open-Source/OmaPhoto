@@ -154,7 +154,7 @@ SnapGuides EditorSession::transformSnapTargets(const QSet<QUuid> &moving) const
 // `draft` nudged onto a nearby edge or middle, within `tolerance`.
 LayerTransform EditorSession::snappedMove(const LayerTransform &draft, const QSet<QUuid> &moving, double tolerance)
 {
-    if (!m_snappingEnabled) {
+    if (!snappingEnabled()) {
         snapGuides = {};
         return draft;
     }
@@ -172,7 +172,7 @@ LayerTransform EditorSession::snappedMove(const LayerTransform &draft, const QSe
 QPointF EditorSession::snappedResizePoint(QPointF point, const TransformDrag &drag, bool proportional, const QSet<QUuid> &moving,
                                           double tolerance, const std::function<LayerTransform(QPointF)> &update)
 {
-    if (!m_snappingEnabled || drag.mode.kind != TransformDrag::Kind::resize || drag.original.radians() != 0) {
+    if (!snappingEnabled() || drag.mode.kind != TransformDrag::Kind::resize || drag.original.radians() != 0) {
         snapGuides = {};
         return point;
     }
@@ -228,7 +228,7 @@ SnapGuides EditorSession::cropSnapTargets() const
 
 QPointF EditorSession::snappedPoint(QPointF point, double tolerance)
 {
-    if (!m_snappingEnabled) {
+    if (!snappingEnabled()) {
         snapGuides = {};
         return point;
     }
@@ -248,7 +248,7 @@ QPointF EditorSession::snappedPoint(QPointF point, double tolerance)
 
 QSizeF EditorSession::snappedSelectionOffset(QSizeF offset, double tolerance, bool horizontal, bool vertical)
 {
-    if (!m_snappingEnabled || !m_selectionMoveOrigin) {
+    if (!snappingEnabled() || !m_selectionMoveOrigin) {
         snapGuides = {};
         return offset;
     }

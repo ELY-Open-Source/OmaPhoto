@@ -71,15 +71,16 @@ void ViewMenuTests::thePixelGridEntryTogglesTheSession()
     QVERIFY(!grid.isChecked());
     bar.workspace.newCanvas();
     QVERIFY(grid.isChecked() && grid.isEnabled());
-    // Snap, beneath it, follows the session the same way.
-    QAction &snap = bar.action("snap");
-    QVERIFY(snap.isCheckable() && snap.isChecked() && snap.isEnabled() && snap.text() == "Snap");
-    snap.trigger();
-    QVERIFY(!bar.session().snappingEnabled() && !snap.isChecked());
-    snap.trigger();
-    QVERIFY(bar.session().snappingEnabled() && snap.isChecked());
-    bar.session().setSnappingEnabled(false);
-    QVERIFY(!snap.isChecked());
+    // One Snap for all snapping (Swift 1.4.6).
+    QVERIFY(!bar.window.findChild<QAction *>("snap"));
+    QStringList titles;
+    for (const QAction *entry : bar.window.findChildren<QAction *>())
+        titles << entry->text();
+    QCOMPARE(titles.count("Snap"), qsizetype(1));
+    bar.session().setSnapEnabled(false);
+    QVERIFY(!bar.session().snappingEnabled() && !bar.action("snapEnabled").isChecked());
+    bar.session().setSnapEnabled(true);
+    QVERIFY(bar.session().snappingEnabled() && bar.action("snapEnabled").isChecked());
 }
 
 void ViewMenuTests::guideEntriesFollowTheSession()

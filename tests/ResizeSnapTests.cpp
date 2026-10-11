@@ -171,10 +171,10 @@ void ResizeSnapTests::aTieTakesTheLowEdge()
 void ResizeSnapTests::snappingOffOrAnotherDragLeavesThePoint()
 {
     Resized resized;
-    resized.session.setSnappingEnabled(false);
+    resized.session.setSnapEnabled(false);
     const LayerTransform result = resized.resize(3, QPointF(110, 60), QPointF(147, 60), false);
     QCOMPARE(result.origin.x() + result.size.width(), 147.0);
-    resized.session.setSnappingEnabled(true);
+    resized.session.setSnapEnabled(true);
     const TransformDrag move{layerWith(resized.session, resized.layer).transform, QPointF(110, 60), {TransformDrag::Kind::move, 3}, std::nullopt};
     QCOMPARE(resized.session.snappedResizePoint(QPointF(147, 60), move, false, {resized.layer}, 5, [&](QPointF to) { return move.updated(to, false, false); }),
              QPointF(147, 60));

@@ -17,7 +17,7 @@ namespace {
 struct Snapping : Canvas {
     Snapping()
     {
-        session.setSnappingEnabled(true);
+        session.setSnapEnabled(true);
         session.setSnapEnabled(true);
         session.setSnapToDocumentBounds(true);
         session.setSnapToLayers(false);
@@ -151,7 +151,7 @@ void SnapDrawingCanvasTests::aMovedSelectionSnapsItsEdges()
     QVERIFY(session->beginSelectionMove());
     const double whole = std::round(2 - left);
     QCOMPARE(session->snappedSelectionOffset(QSizeF(whole, 0), 3), QSizeF(whole - (left + whole), 0));
-    session->setSnappingEnabled(false);
+    session->setSnapEnabled(false);
     QCOMPARE(session->snappedSelectionOffset(QSizeF(-8.6, 0), 3), QSizeF(-8.6, 0));
     QVERIFY(session->snapGuides.xs.empty());
 }
