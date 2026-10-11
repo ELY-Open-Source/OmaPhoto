@@ -361,9 +361,8 @@ void EditorSession::finishLevelsCommit()
     beginEdit(QStringLiteral("Levels"));
     ImageLayer layer = current;
     layer.asset = made.asset;
-    // Swift rebuilds the layer without shape, effects and text.
+    // Swift rebuilds the layer without shape and text.
     layer.shape = std::nullopt;
-    layer.effects = std::nullopt;
     layer.text = std::nullopt;
     m_document->layers[index] = layer;
     endEdit();

@@ -165,9 +165,8 @@ void EditorSession::finishHueSaturationCommit()
         beginEdit(QStringLiteral("Hue/Saturation"));
         ImageLayer &layer = m_document->layers[index];
         layer.asset = ImportedImage(made.pixels->image, made.pixels->thumbnail.value_or(made.pixels->image), layer.name);
-        // Swift rebuilds the layer without shape, effects and text.
+        // Swift rebuilds the layer without shape and text.
         layer.shape = std::nullopt;
-        layer.effects = std::nullopt;
         layer.text = std::nullopt;
         endEdit();
     }

@@ -133,9 +133,8 @@ void EditorSession::mergeFloatingTransform(const TransformEdit &edit, const Floa
         layer.transform = merged.transform;
         layer.isGroup = false;
         layer.mask = merged.mask;
-        // Swift rebuilds the layer without shape, effects and text.
+        // Swift rebuilds the layer without shape and text.
         layer.shape = std::nullopt;
-        layer.effects = std::nullopt;
         layer.text = std::nullopt;
         m_document->selection = moved;
         setActiveLayerID(source.id);

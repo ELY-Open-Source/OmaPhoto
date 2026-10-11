@@ -85,6 +85,24 @@ bool LayerEffects::isValid() const
         && (!innerShadow || innerShadow->isValid()) && (!outerGlow || outerGlow->isValid()) && (!innerGlow || innerGlow->isValid());
 }
 
+// Swift 1.4.9's Scale Styles for Image Size.
+LayerEffects LayerEffects::scaled(double factor) const
+{
+    const auto scale = [factor](double value, double limit) { return std::min(limit, value * factor); };
+    LayerEffects result = *this;
+    if (result.stroke)
+        result.stroke->size = scale(stroke->size, 500);
+    if (result.shadow)
+        result.shadow->distance = scale(shadow->distance, 5000), result.shadow->blur = scale(shadow->blur, 500);
+    if (result.innerShadow)
+        result.innerShadow->distance = scale(innerShadow->distance, 5000), result.innerShadow->blur = scale(innerShadow->blur, 500);
+    if (result.outerGlow)
+        result.outerGlow->size = scale(outerGlow->size, 500);
+    if (result.innerGlow)
+        result.innerGlow->size = scale(innerGlow->size, 500);
+    return result;
+}
+
 std::vector<LayerEffectKind> LayerEffects::kinds() const
 {
     std::vector<LayerEffectKind> result;

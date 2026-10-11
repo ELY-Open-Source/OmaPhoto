@@ -24,7 +24,8 @@ ImageLayer::ImageLayer(const ProjectLayerRecord &record, std::optional<ImportedI
     : id(record.id), asset(std::move(asset)), transform(record.transform), name(record.name), isVisible(record.isVisible),
       parentID(record.parentID), isGroup(record.isGroup == true), opacity(record.opacity.value_or(1)),
       blendMode(record.blendMode.value_or(LayerBlendMode::normal)), maskSourceID(record.maskSourceID), mask(std::move(mask)),
-      adjustment(record.adjustment), effects(record.effects)
+      adjustment(record.adjustment), shape(LayerShape::loaded(record.shape, this->asset)), effects(record.effects),
+      text(LayerText::loaded(record.text, this->asset))
 {
 }
 

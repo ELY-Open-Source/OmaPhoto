@@ -127,6 +127,8 @@ struct LayerEffects {
     void setEnabled(bool enabled, LayerEffectKind kind);
     // The effects that are switched on.
     LayerEffects visible() const;
+    // Resampled by `factor`: sizes, distances and blurs, within range.
+    LayerEffects scaled(double factor) const;
     friend bool operator==(const LayerEffects &, const LayerEffects &) = default;
 };
 

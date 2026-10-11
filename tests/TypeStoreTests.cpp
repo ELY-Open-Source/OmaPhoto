@@ -230,8 +230,11 @@ void TypeStoreTests::resizersKeepOrDropTheText()
     const ProjectSnapshot canvas = CanvasResizer::resize(snapshot, {.width = 500, .height = 400});
     QCOMPARE(canvas.manifest.layers[1].text, snapshot.manifest.layers[1].text);
     QVERIFY(!ImageResizer::resize(snapshot, {.width = 800, .height = 600, .resolution = 72}).manifest.layers[1].text);
-    // Swift's rebuild after a resize leaves the text out.
+    // Since 1.4.9 the rebuild keeps the text live.
     session->applyDocumentSize(canvas, QStringLiteral("Canvas Size"));
+    QVERIFY(session->document().value().layers[1].liveText());
+    QCOMPARE(session->document().value().layers[1].text.value().style, snapshot.manifest.layers[1].text.value());
+    session->applyImageSize(ImageResizer::resize(session->projectSnapshot().value(), {.width = 1000, .height = 800, .resolution = 72}));
     QVERIFY(!session->document().value().layers[1].text);
 }
 

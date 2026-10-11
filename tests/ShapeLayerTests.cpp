@@ -379,9 +379,13 @@ void ShapeLayerTests::resizersKeepOrDropTheShape()
     QCOMPARE(canvas.manifest.layers[1].shape, snapshot.manifest.layers[1].shape);
     const ProjectSnapshot image = ImageResizer::resize(snapshot, {.width = 200, .height = 160, .resolution = 72});
     QVERIFY(!image.manifest.layers[1].shape);
-    // Swift's rebuild after a resize leaves every shape out.
+    // Since 1.4.9 the rebuild keeps the shape live.
     session->applyDocumentSize(canvas, QStringLiteral("Canvas Size"));
     QCOMPARE(session->history.undoName(), QString("Canvas Size"));
+    QVERIFY(session->document().value().layers[1].liveShape());
+    QCOMPARE(session->document().value().layers[1].shape.value().style, snapshot.manifest.layers[1].shape.value());
+    // Image Size resamples it into pixels.
+    session->applyImageSize(ImageResizer::resize(session->projectSnapshot().value(), {.width = 240, .height = 180, .resolution = 72}));
     QVERIFY(!session->document().value().layers[1].shape);
 }
 

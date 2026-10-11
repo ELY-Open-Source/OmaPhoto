@@ -41,7 +41,7 @@ ProjectSnapshot resized(const ProjectSnapshot &snapshot, const CanvasSizeOptions
                                    .opacity = layer.opacity, .blendMode = layer.blendMode, .maskFile = layer.maskFile,
                                    .maskEnabled = layer.maskEnabled, .maskSourceID = layer.maskSourceID, .adjustment = layer.adjustment,
                                    .maskPlacement = placement,
-                                   .maskLinked = layer.maskLinked, .shape = layer.shape,
+                                   .maskLinked = layer.maskLinked, .shape = layer.shape, .effects = layer.effects,
                                    .text = layer.text});
     }
     std::map<QUuid, ImportedImage> images = snapshot.images;

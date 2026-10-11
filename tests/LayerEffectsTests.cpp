@@ -75,7 +75,7 @@ private slots:
     void decodingRefusesWhatSwiftRefuses();
     void effectsSaveLoadAndExportWithTheirLayer();
     void duplicatesAndBrushCommitsKeepThem();
-    void rebuildsCopiesAndResizesDropThem();
+    void rebuildsAndResizesKeepThem();
 };
 
 void LayerEffectsTests::kindsKeepSwiftsNamesAndOrder()
@@ -308,28 +308,28 @@ void LayerEffectsTests::duplicatesAndBrushCommitsKeepThem()
     QVERIFY(session->activeLayer().value().effects == every());
 }
 
-void LayerEffectsTests::rebuildsCopiesAndResizesDropThem()
+// Swift 1.4.9 (`94e90bd`): every rebuild keeps them.
+void LayerEffectsTests::rebuildsAndResizesKeepThem()
 {
-    // Swift rebuilds these layers from lists that leave effects out.
-    const auto dropped = [](const std::function<void(EditorSession &)> &edit, const char *name) {
+    const auto kept = [](const std::function<void(EditorSession &)> &edit, const char *name) {
         const std::unique_ptr<EditorSession> session = withEffects();
         edit(*session);
-        return session->history.undoName() == QString::fromLatin1(name) && !session->activeLayer().value().effects;
+        return session->history.undoName() == QString::fromLatin1(name) && session->activeLayer().value().effects == every();
     };
-    QVERIFY(dropped([](EditorSession &session) { QVERIFY(awaited([&](std::function<void()> done) { session.invertPixels(std::move(done)); })); }, "Invert"));
-    QVERIFY(dropped([](EditorSession &session) {
+    QVERIFY(kept([](EditorSession &session) { QVERIFY(awaited([&](std::function<void()> done) { session.invertPixels(std::move(done)); })); }, "Invert"));
+    QVERIFY(kept([](EditorSession &session) {
         session.beginLevels();
         LevelsSettings settings;
         settings.ranges[0].outputWhite = 100;
         session.updateLevels(settings, false);
         QVERIFY(awaited([&](std::function<void()> done) { session.commitLevels(std::move(done)); }));
     }, "Levels"));
-    QVERIFY(dropped([](EditorSession &session) {
+    QVERIFY(kept([](EditorSession &session) {
         session.beginHueSaturation();
         session.updateHueSaturation(HueSaturationSettings(90), false);
         QVERIFY(awaited([&](std::function<void()> done) { session.commitHueSaturation(std::move(done)); }));
     }, "Hue/Saturation"));
-    QVERIFY(dropped([](EditorSession &session) {
+    QVERIFY(kept([](EditorSession &session) {
         session.applySelection(rectPath(QRectF(2, 2, 6, 4)), SelectionMode::replace, QStringLiteral("Select"));
         QVERIFY(awaited([&](std::function<void()> done) { session.beginSelectionTransform(std::move(done)); }));
         LayerTransform draft = session.transformEdit().value().draft;
@@ -337,10 +337,13 @@ void LayerEffectsTests::rebuildsCopiesAndResizesDropThem()
         session.previewTransform(draft);
         session.commitTransform();
     }, "Transform Selection"));
-    // Both resizers rebuild their records without them, as Swift's.
+    // The canvas resizer carries them; the image resizer scales them.
     const ProjectSnapshot snapshot = withEffects()->projectSnapshot().value();
-    QVERIFY(!ImageResizer::resize(snapshot, ImageSizeOptions{.width = 40, .height = 20, .resolution = 72}).manifest.layers[0].effects);
-    QVERIFY(!CanvasResizer::resize(snapshot, CanvasSizeOptions{.width = 30, .height = 12}).manifest.layers[0].effects);
+    QVERIFY(CanvasResizer::resize(snapshot, CanvasSizeOptions{.width = 30, .height = 12}).manifest.layers[0].effects == every());
+    LayerEffects doubled = every();
+    doubled.stroke->size = 14, doubled.shadow->distance = 24, doubled.shadow->blur = 12;
+    doubled.innerShadow->distance = 6, doubled.innerShadow->blur = 4, doubled.outerGlow->size = 66, doubled.innerGlow->size = 28;
+    QVERIFY(ImageResizer::resize(snapshot, ImageSizeOptions{.width = 40, .height = 20, .resolution = 72}).manifest.layers[0].effects == doubled);
 }
 
 QTEST_GUILESS_MAIN(LayerEffectsTests)

@@ -42,6 +42,8 @@ ProjectSnapshot resized(const ProjectSnapshot &snapshot, const ImageSizeOptions 
     if (options.width * options.height > DocumentLimits::maxSurfacePixels)
         throw ProjectError(ProjectError::Kind::tooLarge);
     const double sx = double(options.width) / double(old.width), sy = double(options.height) / double(old.height);
+    // Effects scale by the factors' mean; text and shapes flatten.
+    const double effectScale = std::sqrt(sx * sy);
     // Guides scale with the pixels.
     if (manifest.guides) {
         for (CanvasGuide &guide : *manifest.guides)
@@ -108,7 +110,8 @@ ProjectSnapshot resized(const ProjectSnapshot &snapshot, const ImageSizeOptions 
                                    .opacity = layer.opacity, .blendMode = layer.blendMode, .maskFile = layer.maskFile,
                                    .maskEnabled = layer.maskEnabled, .maskSourceID = layer.maskSourceID, .adjustment = layer.adjustment,
                                    .maskPlacement = placement,
-                                   .maskLinked = layer.maskLinked});
+                                   .maskLinked = layer.maskLinked,
+                                   .effects = layer.effects ? std::optional(layer.effects->scaled(effectScale)) : std::nullopt});
     }
     qCInfo(lcIO) << "resized" << old.width << "x" << old.height << "to" << options.width << "x" << options.height;
     return {.manifest = manifest, .images = images, .masks = masks};

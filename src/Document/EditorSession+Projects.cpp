@@ -32,12 +32,6 @@ void EditorSession::installProject(const ProjectSnapshot &snapshot, const QStrin
     m_guideDrag = std::nullopt;
     m_transformEdit = std::nullopt;
     m_document = CanvasDocument(snapshot);
-    // Install loads shapes and text; Swift's resize rebuild does not.
-    for (size_t index = 0; index < m_document->layers.size(); ++index) {
-        ImageLayer &layer = m_document->layers[index];
-        layer.shape = LayerShape::loaded(snapshot.manifest.layers[index].shape, layer.asset);
-        layer.text = LayerText::loaded(snapshot.manifest.layers[index].text, layer.asset);
-    }
     setActiveLayerID(snapshot.manifest.activeLayerID);
     m_projectPath = path;
     m_renamingLayerID = std::nullopt;

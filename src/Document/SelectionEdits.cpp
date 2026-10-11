@@ -211,9 +211,8 @@ void EditorSession::finishInvert()
                     const ImportedImage asset(*result.image, PixelAdjust::thumbnail(*result.image), current.name);
                     beginEdit(QStringLiteral("Invert"));
                     m_document->layers[size_t(index)].asset = asset;
-                    // Swift rebuilds the layer without shape, effects and text.
+                    // Swift rebuilds the layer without shape and text.
                     m_document->layers[size_t(index)].shape = std::nullopt;
-                    m_document->layers[size_t(index)].effects = std::nullopt;
                     m_document->layers[size_t(index)].text = std::nullopt;
                 }
                 endEdit();
