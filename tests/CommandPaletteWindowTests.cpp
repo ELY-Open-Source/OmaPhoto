@@ -1,5 +1,6 @@
 #include "MenuFixtures.h"
 #include "UI/CommandPaletteView.h"
+#include <QFontDatabase>
 #include <QLabel>
 #include <QScrollBar>
 
@@ -40,6 +41,7 @@ private slots:
     void aDisabledRowStaysOpenAndEscapeCloses();
     void aClickRunsARowAndAClickOutsideCloses();
     void rowsDrawChecksKeysAndTheEmptyWords();
+    void aRowDrawsItsKeyAtItsEnd();
 };
 
 void CommandPaletteWindowTests::ctrlFOpensItOverTheWindowAndAgainCloses()
@@ -177,6 +179,52 @@ void CommandPaletteWindowTests::rowsDrawChecksKeysAndTheEmptyWords()
     QVERIFY(shown.view().findChild<QLabel *>("noCommands")->isVisible());
     QTest::keyClick(&shown.view().field(), Qt::Key_Return);
     QVERIFY(shown.panel()->isVisible());
+}
+
+void CommandPaletteWindowTests::aRowDrawsItsKeyAtItsEnd()
+{
+    Shown shown;
+    shown.open();
+    const auto keyInk = [&](const QString &query) {
+        shown.view().field().setText(query);
+        auto *rows = shown.view().findChild<CommandPaletteRows *>();
+        const QImage drawn = rows->grab().toImage();
+        const QRect row = rows->rowRect(0);
+        int ink = 0;
+        for (int x = row.right() - 40; x < row.right() - 10; ++x)
+            for (int y = row.top() + 2; y < row.bottom() - 2; ++y)
+                ink += drawn.pixelColor(x, y) != drawn.pixelColor(row.right() - 3, y);
+        return ink;
+    };
+    // A long title ends, elided, six points before the key.
+    QVERIFY(keyInk("fit canvas") > 20);
+    QCOMPARE(shown.view().model().results()[0].shortcut.value(), QKeySequence(Qt::CTRL | Qt::Key_0).toString(QKeySequence::NativeText));
+    QVERIFY(keyInk("tool lasso") > 5);
+    QCOMPARE(shown.view().model().results()[0].shortcut.value(), QString("L"));
+    QCOMPARE(keyInk("pixel grid"), 0);
+    QVERIFY(!shown.view().model().results()[0].shortcut);
+    // A long title ends, elided, six points before its key.
+    const QString key = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_P).toString(QKeySequence::NativeText);
+    CommandPaletteView view({{.id = "Long", .title = QString("Layer › ").repeated(30), .shortcut = key, .isEnabled = true, .isOn = false, .perform = [] {}}},
+                            [](const CommandPaletteEntry &) {}, nullptr);
+    view.resize(460, 290);
+    view.show();
+    auto *rows = view.findChild<CommandPaletteRows *>();
+    QFont fixed = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    fixed.setPixelSize(12);
+    const QRect row = rows->rowRect(0);
+    const int keyLeft = row.right() - 10 - QFontMetrics(fixed).horizontalAdvance(key);
+    const QImage drawn = rows->grab().toImage();
+    int between = 0;
+    for (int x = keyLeft - 5; x < keyLeft - 1; ++x)
+        for (int y = row.top() + 2; y < row.bottom() - 2; ++y)
+            between += drawn.pixelColor(x, y) != drawn.pixelColor(row.right() - 3, y);
+    QCOMPARE(between, 0);
+    int title = 0;
+    for (int x = keyLeft - 40; x < keyLeft - 8; ++x)
+        for (int y = row.top() + 2; y < row.bottom() - 2; ++y)
+            title += drawn.pixelColor(x, y) != drawn.pixelColor(row.right() - 3, y);
+    QVERIFY(title > 10);
 }
 
 QTEST_MAIN(CommandPaletteWindowTests)
