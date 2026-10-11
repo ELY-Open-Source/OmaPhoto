@@ -558,7 +558,8 @@ Compositor 1.4.8:
 - 14.18 Export As: PNG, JPEG and one-page PDF (a hand-written PDF 1.4, since QPdfWriter rounds pages), sized and scaled, over Swift's checkerboard; the last format remembered; passed review round 5.
 - [x] 14.19 Filter › Scanlines, its own filter: Displace, Threshold, Thickness, Color Split, smoothed displacement, Dots by tone, Black Level (`06c3a22`, `1187736`, `cdde327`).
 - 14.19 Filter › Scanlines on cdde327's kernel (blocks as band functions), Swift's own bytes matched; passed review round 2.
-- [ ] 14.20 The Navigator: a minimap in the canvas's corner from 300% (`6490bb3`, `3e09948`; `3c6cf5e` resolves a conflict in `ContentView` between the Navigator's column and Canvas Only, which the minimap supersedes).
+- [x] 14.20 The Navigator: a minimap in the canvas's corner from 300% (`6490bb3`, `3e09948`; `3c6cf5e` resolves a conflict in `ContentView` between the Navigator's column and Canvas Only, which the minimap supersedes).
+- 14.20 The Navigator minimap from 300% (View › Navigator), Swift's geometry and picture; passed review round 3.
 - [ ] 14.21 The slider snap test draws its slider before pressing it (`07eee7e`).
 
 Compositor 1.4.9:
