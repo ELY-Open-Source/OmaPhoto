@@ -1,13 +1,13 @@
-# OmaPhoto 1.4.5 acceptance
+# OmaPhoto 1.4.9 acceptance
 
-The acceptance table for OmaPhoto 1.4.5, the Linux port of Compositor 1.4.5. Each row is a feature from the README. The rows under "New in 1.4.5" cover what changed since 1.3.3. A "pending" result waits for the release.
+The acceptance table for OmaPhoto 1.4.9, the Linux port of Compositor 1.4.9. Each row is a feature from the README. The rows under "New in 1.4.5" cover what changed since 1.3.3, those under "New in 1.4.6 to 1.4.9" what changed since 1.4.5. A "pending" result waits for the release.
 
-The acceptance run drives the app's own window, the way a person uses it. It chooses menu entries, drags on the canvas, types into sheets and answers the real file panels. Then it checks concrete results: pixels, layers, sizes and files on disk. The run is six test programs: `AcceptanceTests`, `AcceptanceColorTests` and `AcceptanceProjectTests` for the table, `AcceptanceNewTests`, `AcceptanceEditTests` and `AcceptanceFinishTests` for the rows new in 1.4.5. They take the screenshots below when `ACCEPTANCE_SHOTS` names a folder.
+The acceptance run drives the app's own window, the way a person uses it. It chooses menu entries, drags on the canvas, types into sheets and answers the real file panels. Then it checks concrete results: pixels, layers, sizes and files on disk. The run is seven test programs: `AcceptanceTests`, `AcceptanceColorTests` and `AcceptanceProjectTests` for the table, `AcceptanceNewTests`, `AcceptanceEditTests` and `AcceptanceFinishTests` for the rows new in 1.4.5, and `AcceptanceLatestTests` for those new in 1.4.6 to 1.4.9. They take the screenshots below when `ACCEPTANCE_SHOTS` names a folder.
 
 ```sh
 docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e QT_QPA_PLATFORM=offscreen -v "$PWD:$PWD" -w "$PWD" omaphoto-dev \
-  sh -c 'cmake -S . -B build && cmake --build build --target AcceptanceTests AcceptanceColorTests AcceptanceProjectTests AcceptanceNewTests AcceptanceEditTests AcceptanceFinishTests &&
-         for t in AcceptanceTests AcceptanceColorTests AcceptanceProjectTests AcceptanceNewTests AcceptanceEditTests AcceptanceFinishTests; do ACCEPTANCE_SHOTS=$PWD/docs/acceptance build/$t || exit 1; done'
+  sh -c 'cmake -S . -B build && cmake --build build --target AcceptanceTests AcceptanceColorTests AcceptanceProjectTests AcceptanceNewTests AcceptanceEditTests AcceptanceFinishTests AcceptanceLatestTests &&
+         for t in AcceptanceTests AcceptanceColorTests AcceptanceProjectTests AcceptanceNewTests AcceptanceEditTests AcceptanceFinishTests AcceptanceLatestTests; do ACCEPTANCE_SHOTS=$PWD/docs/acceptance build/$t || exit 1; done'
 ```
 
 The screenshots come from Qt's offscreen platform, so floating panels appear without the window manager's title bars. The run uses the built-in dark theme, except for the last row.
@@ -32,7 +32,7 @@ The screenshots come from Qt's offscreen platform, so floating panels appear wit
 | Reload a project changed on disk | With unsaved edits open, another program renames a layer on disk. The app's alert asks, Revert is chosen, and the saved state shows with the new name. | [15](acceptance/15-shortcuts.png) | `ExternalChangeTests` | pass |
 | Follows the Omarchy theme | Starts in the built-in dark. A Catppuccin Latte `colors.toml` written while the app runs retints the window. | [16](acceptance/16-omarchy-light.png) | `OmarchyThemeTests` | pass |
 | Builds and tests on each system | The full suite, 334 binaries, passes on Ubuntu 24.04 (Qt 6.4.2), Ubuntu 26.04 (6.10.2), Arch (6.11.2), Fedora 43 and 44, and NixOS (6.11.2). Warnings count as errors. | — | `scripts/distro-check.sh` | pass |
-| Packages and install scripts | Each install script runs from Gitea in a fresh container. On Ubuntu 24.04 and 26.04, Fedora 43 and 44 and Arch, it checks its package against `SHA256SUMS`, installs it and starts 1.4.5. On NixOS, `nixos.sh` resolves `v1.4.5`, builds its flake and starts 1.4.5. Debian 13 is refused, as intended. | — | `DesktopIntegrationTests`, `scripts/release.sh` | pending |
+| Packages and install scripts | Each install script runs from Gitea in a fresh container. On Ubuntu 24.04 and 26.04, Fedora 43 and 44 and Arch, it checks its package against `SHA256SUMS`, installs it and starts 1.4.9. On NixOS, `nixos.sh` resolves `v1.4.9`, builds its flake and starts 1.4.9. Debian 13 is refused, as intended. | — | `DesktopIntegrationTests`, `scripts/release.sh` | pending |
 
 ## New in 1.4.5
 
@@ -55,6 +55,18 @@ The screenshots come from Qt's offscreen platform, so floating panels appear wit
 | Dither ASCII and Scanlines | In the Dither sheet, ASCII of "@" draws that letter, holes and all, about twice as tall at a text size of 28; Filter › Scanlines, a filter of its own since 1.4.9, draws dark gaps between rows. | — | `DitherTests`, `ScanlinesTests` | pass |
 | Export JPEG preview | The View keys zoom the preview to 100%, in, and back to Fit. | — | `JPEGPreviewTests`, `ExportAsSheetTests` | pass |
 | Quit mid-edit | Quits with a gradient pending: it is applied before the one question. With Levels open, Levels closes and the window goes. | — | `QuitPendingEditsTests`, `WindowTeardownTests` | pass |
+
+## New in 1.4.6 to 1.4.9
+
+| Feature | What the run checks | Screenshot | Suites that hold the details | Result |
+| --- | --- | --- | --- | --- |
+| Search Commands and Rotate Canvas 90° | Ctrl+F, "rotate canvas clockwise" and Return turn a 1200 × 800 photo to 800 × 1200, one undo step. | [19](acceptance/19-search.png) | `CommandPaletteTests`, `CommandPaletteWindowTests`, `CanvasRotationTests` | pass |
+| Toggle Fullscreen | F puts the menus and toolbar away over the whole screen; Escape brings them back. | — | `CanvasOnlyWindowTests`, `CanvasOnlySessionTests` | pass |
+| Last Filter | After a Gaussian Blur, Filter › Last Filter is titled for it and blurs again as one more step, without its panel. | — | `LastFilterTests` | pass |
+| Camera Raw as Photoshop's | Temperature +100 typed into the docked panel turns mid gray to Photoshop's own warm (235, 189, 117), within four levels. | [20](acceptance/20-camera-raw.png) | `CameraRawTests`, `CameraRawTablesTests`, `CameraRawFoldTests` | pass |
+| Navigator and Ctrl with the middle button | At 400% the minimap shows in the corner; a click at its edge moves the view there. Ctrl with the middle button dragged up 100 points doubles the zoom. | [21](acceptance/21-navigator.png) | `NavigatorTests`, `CanvasNavigationTests` | pass |
+| New Canvas in units, DPI and background | The blank start tab has no close button and Close Project leaves it. Inches, 300 DPI and White make a 2 × 1 inch canvas of 600 × 300 white pixels at 300 DPI. | — | `NewCanvasUnitTests`, `NewCanvasSheetTests`, `ProjectTabStripTests` | pass |
+| Export As PDF | Export As in PDF writes a one-page PDF 1.4 whose page is 144 × 72 points, two inches by one. | [22](acceptance/22-export-as.png) | `ExportPDFTests`, `ExportAsSheetTests`, `ProjectExportTests` | pass |
 
 ## Known differences from Compositor
 
