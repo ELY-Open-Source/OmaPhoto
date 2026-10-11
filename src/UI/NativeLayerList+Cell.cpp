@@ -150,8 +150,9 @@ void LayerCell::configure(const ImageLayer &layer, bool enabled, int depth, bool
         }
     }
     setFixedHeight(rowHeight + int(kinds.size()) * effectHeight);
+    // Swift's effect eyes keep the real gate, not the look.
     for (LayerEffectRow *row : m_effectButtons)
-        row->configure(layer.effects->isEnabled(row->kind), enabled, m_indent);
+        row->configure(layer.effects->isEnabled(row->kind), session.canEditLayers(), m_indent);
     relayout();
 }
 

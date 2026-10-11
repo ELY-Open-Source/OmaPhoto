@@ -89,17 +89,24 @@ void LayersLookEditableTests::theFooterAndListFollowTheLook()
     auto *effects = panel.findChild<QToolButton *>("layerEffects");
     auto *mask = panel.findChild<QToolButton *>("addLayerMask");
     auto *eye = panel.list().cells().at(0)->findChild<QToolButton *>("layerEye");
+    auto *adjustments = panel.findChild<QToolButton *>("addAdjustment");
+    session->addEffect(LayerEffectKind::stroke);
+    const auto effectEye = [&] { return panel.list().cells().at(0)->findChild<LayerEffectRow *>()->findChild<QToolButton *>(); };
+    QVERIFY(effectEye()->isEnabled());
     // Mid-stroke nothing flashes, and a click changes nothing.
     session->selectTool(NavigationTool::brush);
     session->beginBrush(QPointF(5, 5));
-    QVERIFY(add->isEnabled() && effects->isEnabled() && mask->isEnabled() && eye->isEnabled());
+    QVERIFY(session->brushStroke());
+    QVERIFY(add->isEnabled() && effects->isEnabled() && mask->isEnabled() && eye->isEnabled() && adjustments->isEnabled());
+    // An effect's eye keeps Swift's own gate: the session's.
+    QVERIFY(!effectEye()->isEnabled());
     QTest::mouseClick(add, Qt::LeftButton);
     QCOMPARE(session->document().value().layers.size(), size_t(1));
     session->cancelBrush();
     // A pending transform grays them.
     session->selectTool(NavigationTool::move);
     session->beginTransform();
-    QVERIFY(!add->isEnabled() && !effects->isEnabled() && !mask->isEnabled() && !eye->isEnabled());
+    QVERIFY(!add->isEnabled() && !effects->isEnabled() && !mask->isEnabled() && !eye->isEnabled() && !adjustments->isEnabled());
     session->cancelTransform();
     // Effects want pixels: no folder, no adjustment, no layer.
     session->addGroup();
