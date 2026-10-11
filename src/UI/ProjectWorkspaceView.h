@@ -15,9 +15,13 @@ public:
 
     ContentView *content() const { return m_content; }
     ProjectTabStrip *tabs() const { return m_tabs; }
+    // Canvas Only: the window fills the screen, bars away.
+    void toggleCanvasOnly();
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    // Escape leaves fullscreen once nothing is left to cancel.
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void synchronize();
@@ -35,5 +39,7 @@ private:
     ContentView *m_content = nullptr;
     // Held until its editor goes, as Swift's views hold sessions.
     std::shared_ptr<ProjectTab> m_shownTab;
+    // The window's state before Canvas Only, to put back.
+    std::optional<Qt::WindowStates> m_beforeCanvasOnly;
     QMetaObject::Connection m_sessionWatch;
 };

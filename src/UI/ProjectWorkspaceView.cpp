@@ -1,5 +1,11 @@
 #include "UI/ProjectWorkspaceView.h"
+#include "Logging.h"
+#include <QApplication>
 #include <QCloseEvent>
+#include <QDialog>
+#include <QKeyEvent>
+#include <QLineEdit>
+#include <QMenuBar>
 
 namespace {
 QAction *action(QToolBar *bar, const QString &text, const QString &help, const QString &name)
@@ -41,6 +47,7 @@ ProjectWorkspaceView::ProjectWorkspaceView(ProjectWorkspace &workspace, QWidget 
     connect(m_zoomIn, &QAction::triggered, this, [this] { m_workspace.current().session.zoomKeyboard(1); });
     connect(m_zoomOut, &QAction::triggered, this, [this] { m_workspace.current().session.zoomKeyboard(-1); });
     connect(&m_workspace, &ProjectWorkspace::changed, this, &ProjectWorkspaceView::synchronize);
+    qApp->installEventFilter(this);
     synchronize();
 }
 
@@ -94,6 +101,47 @@ void ProjectWorkspaceView::synchronizeSession()
     setWindowTitle(m_workspace.current().title() + QStringLiteral("[*]"));
     setWindowModified(session.isModified());
     setWindowFilePath(session.projectPath().value_or(QString()));
+}
+
+void ProjectWorkspaceView::toggleCanvasOnly()
+{
+    EditorSession &session = m_workspace.current().session;
+    if (!session.canvasOnly()) {
+        // Already fullscreen, it has the screen: only bars go.
+        if (!windowState().testFlag(Qt::WindowFullScreen)) {
+            m_beforeCanvasOnly = windowState();
+            menuBar()->hide();
+            setWindowState(windowState() | Qt::WindowFullScreen);
+        }
+        m_toolbar->hide();
+        session.setCanvasOnly(true);
+    } else {
+        session.setCanvasOnly(false);
+        if (m_beforeCanvasOnly) {
+            menuBar()->show();
+            setWindowState(m_beforeCanvasOnly.value());
+            m_beforeCanvasOnly.reset();
+        }
+        m_toolbar->show();
+    }
+    qCInfo(lcApp) << "canvas only" << session.canvasOnly();
+}
+
+bool ProjectWorkspaceView::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() != QEvent::KeyPress || static_cast<QKeyEvent *>(event)->key() != Qt::Key_Escape)
+        return QMainWindow::eventFilter(watched, event);
+    const Qt::KeyboardModifiers held = static_cast<QKeyEvent *>(event)->modifiers() & (Qt::ControlModifier | Qt::MetaModifier | Qt::AltModifier | Qt::ShiftModifier);
+    const EditorSession &session = m_workspace.current().session;
+    QWidget *focus = QApplication::focusWidget();
+    // A field's Escape is its own, and a docked panel's.
+    bool typing = qobject_cast<QLineEdit *>(focus) != nullptr;
+    for (QWidget *each = focus; each && !typing; each = each->parentWidget())
+        typing = qobject_cast<QDialog *>(each) != nullptr;
+    if (held || !session.canvasOnly() || !session.escapeHasNothingToCancel() || QApplication::activeWindow() != this || typing)
+        return QMainWindow::eventFilter(watched, event);
+    toggleCanvasOnly();
+    return true;
 }
 
 void ProjectWorkspaceView::closeEvent(QCloseEvent *event)

@@ -138,7 +138,7 @@ const std::vector<ShortcutDefinition> &ShortcutDefinition::all()
             entry("Move Layer Down", "[", 1, true), entry("Merge Layers", "e", 1, true), entry("Show Grid", "'", 1, true),
             entry("Show Guides", ";", 1, true), entry("Show Rulers", "r", 1, true), entry("Snap", ";", 9, true), entry("Lock Guides", ";", 3, true)};
         const std::vector<std::pair<const char *, QString>> tools{
-            {"Select tool", "a"}, {"Move / Transform tool", "v"}, {"Hand tool", "h"}, {"Zoom tool", "z"}, {"Brush tool", "b"},
+            {"Toggle Fullscreen: the canvas alone on black (Esc also leaves)", "f"}, {"Select tool", "a"}, {"Move / Transform tool", "v"}, {"Hand tool", "h"}, {"Zoom tool", "z"}, {"Brush tool", "b"},
             {"Eraser", "e"}, {"Spot Healing", "j"}, {"Clone Stamp", "s"}, {"Type tool", "t"}, {"Gradient tool", "g"},
             {"Shape tool", "u"}, {"Eyedropper tool", "i"}, {"Marquee / cycle shape", "m"}, {"Magic", "w"},
             {"Lasso / cycle mode", "l"}, {"Blur / Smudge / Liquify", "r"}, {"Crop tool", "c"}, {"Swap foreground/background", "x"},

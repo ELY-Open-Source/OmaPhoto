@@ -9,11 +9,13 @@
 #include <QMenuBar>
 #include <QPointer>
 
+class ProjectWorkspaceView;
+
 // The menu bar: Swift's commands whose session functions exist.
 class CompositorMenus : public QObject {
     Q_OBJECT
 public:
-    CompositorMenus(ProjectWorkspace &workspace, QMenuBar &bar, QWidget &window);
+    CompositorMenus(ProjectWorkspace &workspace, QMenuBar &bar, ProjectWorkspaceView &window);
     // The panel's hide moves the focus: stop listening first.
     ~CompositorMenus() override { disconnect(qApp, nullptr, this, nullptr); }
 
@@ -35,6 +37,7 @@ private:
 
     ProjectWorkspace &m_workspace;
     QWidget &m_window;
+    ProjectWorkspaceView &m_view;
     FloatingPanel m_shortcutsPanel{QStringLiteral("keyboardShortcuts"), m_window};
     CommandPaletteController m_palette{m_window};
     QMetaObject::Connection m_sessionWatch;

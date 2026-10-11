@@ -111,6 +111,8 @@ private:
         // Every change to a stroke, so a press repaints.
         int brushRevision;
         bool pixelGrid;
+        // Canvas Only's black surround.
+        bool canvasOnly;
         // A distortion's corners: the warp follows them.
         std::optional<Corners> corners;
         std::optional<QUuid> documentID;

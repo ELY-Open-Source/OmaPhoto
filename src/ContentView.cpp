@@ -253,7 +253,9 @@ ContentView::ContentView(EditorSession &session, ProjectController *projects, QW
     auto *middle = new QHBoxLayout;
     middle->setSpacing(0);
     middle->addWidget(rail);
-    middle->addWidget(divider(QFrame::VLine, this));
+    m_panels = {rail, divider(QFrame::VLine, this), new PanelResizeEdge(*m_layersPanel, this), m_layersPanel, divider(QFrame::HLine, this),
+                divider(QFrame::HLine, this), new QWidget(this)};
+    middle->addWidget(m_panels[1]);
     // The rulers frame the canvas above and left, Swift's stacks.
     auto *framed = new QWidget(this);
     auto *rulers = new QGridLayout(framed);
@@ -267,7 +269,7 @@ ContentView::ContentView(EditorSession &session, ProjectController *projects, QW
     rulers->addWidget(canvas, 1, 1);
     middle->addWidget(framed, 1);
     m_layersPanel->setFixedWidth(int(layersPanelWidth()));
-    middle->addWidget(new PanelResizeEdge(*m_layersPanel, this));
+    middle->addWidget(m_panels[2]);
     middle->addWidget(m_layersPanel);
     m_dock->setObjectName(QStringLiteral("panelDock"));
     m_dock->setFixedWidth(FloatingPanel::dockedWidth);
@@ -284,7 +286,7 @@ ContentView::ContentView(EditorSession &session, ProjectController *projects, QW
     m_spinner->setRange(0, 0);
     m_spinner->setTextVisible(false);
     m_spinner->setFixedSize(36, 6);
-    auto *status = new QWidget(this);
+    QWidget *status = m_panels[6];
     status->setObjectName(QStringLiteral("statusBar"));
     status->setFixedHeight(30);
     auto *statusRow = new QHBoxLayout(status);
@@ -297,9 +299,9 @@ ContentView::ContentView(EditorSession &session, ProjectController *projects, QW
     // The hint takes what is left, and shrinks first.
     statusRow->addWidget(m_activity, 1);
 
-    m_column->addWidget(divider(QFrame::HLine, this));
+    m_column->addWidget(m_panels[4]);
     m_column->addLayout(middle, 1);
-    m_column->addWidget(divider(QFrame::HLine, this));
+    m_column->addWidget(m_panels[5]);
     m_column->addWidget(status);
 
     // The filter panel follows the session by itself.
@@ -403,7 +405,12 @@ void ContentView::synchronize()
         m_maskAloneBadge->setLayerName(alone->name);
     m_maskAloneBadge->setVisible(alone.has_value());
     for (QWidget *ruler : m_rulers)
-        ruler->setVisible(m_session.showsRulers() && document);
+        ruler->setVisible(m_session.showsRulers() && document && !m_session.canvasOnly());
+    for (QWidget *panel : m_panels)
+        panel->setVisible(!m_session.canvasOnly());
+    // A bar being made signals too: there is none yet.
+    if (m_header)
+        m_header->setVisible(!m_session.canvasOnly());
     m_zoom->setVisible(document.has_value());
     m_dimensions->setVisible(document.has_value());
     if (document) {
@@ -457,6 +464,7 @@ void ContentView::showHeader(NavigationTool tool)
         return;
     m_shownTool = tool;
     delete m_header;
+    m_header = nullptr;
     // A tool without a bar yet keeps the bar's height.
     if (tool == NavigationTool::idle)
         m_header = new ToolHeaderBar(QStringLiteral("Select a tool"), this);

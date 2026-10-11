@@ -77,6 +77,7 @@ CanvasView::DisplayState CanvasView::displayState() const
     const std::optional<TransformEdit> &edit = m_session.transformEdit();
     DisplayState state{.brushRevision = m_session.brushRevision(),
                        .pixelGrid = m_session.showsPixelGrid(),
+                       .canvasOnly = m_session.canvasOnly(),
                        .corners = edit ? edit->corners : std::nullopt,
                        .documentID = document ? std::optional(document->id) : std::nullopt,
                        .size = document ? std::optional(document->size()) : std::nullopt,
@@ -210,8 +211,8 @@ void CanvasView::paintEvent(QPaintEvent *event)
 
 void CanvasView::draw(QPainter &context, const QRectF &dirty)
 {
-    // The surround is the palette's Base: Swift's 0.105 when dark.
-    context.fillRect(dirty, palette().color(QPalette::Base));
+    // The palette's Base, Swift's 0.105 when dark; Canvas Only, black.
+    context.fillRect(dirty, m_session.canvasOnly() ? QColor(Qt::black) : palette().color(QPalette::Base));
     const std::optional<CanvasDocument> &document = m_session.document();
     if (!document)
         return;

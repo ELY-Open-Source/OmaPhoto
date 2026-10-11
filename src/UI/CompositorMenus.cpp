@@ -2,6 +2,7 @@
 #include "IO/RecentProjects.h"
 #include "Logging.h"
 #include "UI/KeyboardShortcuts.h"
+#include "UI/ProjectWorkspaceView.h"
 #include <QApplication>
 #include <QMenu>
 
@@ -22,8 +23,8 @@ QString filterName(FilterKind kind)
 }
 }
 
-CompositorMenus::CompositorMenus(ProjectWorkspace &workspace, QMenuBar &bar, QWidget &window)
-    : QObject(&bar), m_workspace(workspace), m_window(window)
+CompositorMenus::CompositorMenus(ProjectWorkspace &workspace, QMenuBar &bar, ProjectWorkspaceView &window)
+    : QObject(&bar), m_workspace(workspace), m_window(window), m_view(window)
 {
     QMenu *file = bar.addMenu(QStringLiteral("&File"));
     add(file, QStringLiteral("newCanvas"), QStringLiteral("New Canvas…"), QKeySequence(Qt::CTRL | Qt::Key_N), [this] { projects().newCanvas(); });
@@ -126,6 +127,9 @@ CompositorMenus::CompositorMenus(ProjectWorkspace &workspace, QMenuBar &bar, QWi
     QMenu *view = bar.addMenu(QStringLiteral("&View"));
     add(view, QStringLiteral("searchCommands"), QStringLiteral("Search Commands…"), QKeySequence(Qt::CTRL | Qt::Key_F),
         [this, &bar] { m_palette.toggle(session(), bar, action(QStringLiteral("searchCommands"))); });
+    // A plain F; a field takes its letters first.
+    add(view, QStringLiteral("toggleFullscreen"), QStringLiteral("Toggle Fullscreen"), QKeySequence(Qt::Key_F), [this] { m_view.toggleCanvasOnly(); })
+        ->setCheckable(true);
     view->addSeparator();
     add(view, QStringLiteral("fit"), QStringLiteral("Fit Canvas"), QKeySequence(Qt::CTRL | Qt::Key_0), [this] { session().fit(); });
     add(view, QStringLiteral("actualPixels"), QStringLiteral("Actual Pixels"), QKeySequence(Qt::CTRL | Qt::Key_1), [this] { session().zoom(1); });
@@ -291,6 +295,8 @@ QAction *CompositorMenus::add(QMenu *menu, const QString &name, const QString &t
     made->setObjectName(name);
     made->setProperty("originalShortcut", shortcut);
     made->setShortcut(ShortcutSettings::shared().menu(shortcut));
+    // Keys still work while Canvas Only hides the bar.
+    m_window.addAction(made);
     connect(made, &QAction::triggered, this, run);
     return made;
 }
@@ -357,6 +363,8 @@ void CompositorMenus::synchronize()
     for (const char *name : {"fit", "actualPixels", "zoomIn", "zoomOut"})
         action(QString::fromLatin1(name))->setEnabled(drawn);
     action(QStringLiteral("pixelGrid"))->setChecked(s.showsPixelGrid());
+    action(QStringLiteral("toggleFullscreen"))->setChecked(s.canvasOnly());
+    action(QStringLiteral("toggleFullscreen"))->setEnabled(s.canToggleCanvasOnly());
     const bool opened = s.document().has_value();
     for (const auto &[name, value] : std::initializer_list<std::pair<const char *, bool>>{
              {"showGrid", s.showsGrid()}, {"showGuides", s.showsGuides()}, {"showRulers", s.showsRulers()}, {"snapEnabled", s.snapEnabled()},

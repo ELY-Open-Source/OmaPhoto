@@ -243,6 +243,13 @@ public:
     // The View menu's grid, shown from 800%.
     bool showsPixelGrid() const { return m_showsPixelGrid; }
     void setShowsPixelGrid(bool shows);
+    // F: the canvas alone on black, panels and bars away.
+    bool canvasOnly() const { return m_canvasOnly; }
+    void setCanvasOnly(bool only);
+    // Nothing in progress for Escape to cancel: it leaves fullscreen.
+    bool escapeHasNothingToCancel() const;
+    // A canvas, and no text or dialog for an F.
+    bool canToggleCanvasOnly() const;
     // Swift's alias of View › Snap: moves, crops, drawing.
     bool snappingEnabled() const { return m_snapEnabled; }
     // The Eyedropper's ring: the sampled colour over the original.
@@ -344,6 +351,7 @@ private:
     std::optional<QUuid> m_renamingLayerID;
     std::optional<QString> m_projectPath;
     bool m_showsPixelGrid = ToolDefaults::boolean(QStringLiteral("pixelGrid"), true);
+    bool m_canvasOnly = false;
     // The layout grid starts off; guides show; rulers hide.
     bool m_showsGrid = ToolDefaults::boolean(QStringLiteral("grid"), false);
     LayoutGrid m_layoutGrid = LayoutGrid::stored();

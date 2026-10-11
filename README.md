@@ -18,6 +18,7 @@ It is a Linux port of [Compositor](https://github.com/robbietilton/Compositor) b
 - Imports JPEG, PNG, TIFF, HEIC, SVG, Photoshop files (PSD and PSB) and camera RAW
 - Open Recent, and a Keyboard Shortcuts window
 - Search Commands (Ctrl+F): find every menu command and tool by name and run it with Return
+- Toggle Fullscreen (F): the canvas alone on black over the whole screen, every panel put away; F or Esc brings them back
 - Drag a number's label to scrub its value
 - Keep working while a project saves
 - Project tabs that drag to reorder; those that do not fit gather in a menu

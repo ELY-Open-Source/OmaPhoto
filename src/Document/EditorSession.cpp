@@ -361,6 +361,24 @@ void EditorSession::zoomKeyboard(int step)
     notify();
 }
 
+void EditorSession::setCanvasOnly(bool only)
+{
+    m_canvasOnly = only;
+    notify();
+}
+
+bool EditorSession::escapeHasNothingToCancel() const
+{
+    return !m_textDraft && !m_levels && !m_brushStroke && !m_warpStroke && !m_lassoDraft && !m_shapeDraft && !m_gradientEdit && !m_cropRect
+        && !m_guideDrag && !m_transformEdit && !m_pixelMove;
+}
+
+bool EditorSession::canToggleCanvasOnly() const
+{
+    return m_document && !m_textDraft && !m_filterEdit && !m_hueSaturation && !m_levels && !m_colorPicker && !adjustmentEditingID() && !m_effectsEditing
+        && !m_colorRange && !selectionAmountOperation();
+}
+
 void EditorSession::setShowsPixelGrid(bool shows)
 {
     m_showsPixelGrid = shows;

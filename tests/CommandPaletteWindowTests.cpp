@@ -49,9 +49,9 @@ void CommandPaletteWindowTests::ctrlFOpensItOverTheWindowAndAgainCloses()
     Shown shown;
     QAction &search = shown.action("searchCommands");
     QVERIFY(search.text() == "Search Commands…" && search.isEnabled());
-    // First in View, a separator after it.
+    // First in View; Toggle Fullscreen, then a separator.
     const QList<QAction *> view = qobject_cast<QMenu *>(search.parent())->actions();
-    QVERIFY(view[0] == &search && view[1]->isSeparator());
+    QVERIFY(view[0] == &search && view[1] == &shown.action("toggleFullscreen") && view[2]->isSeparator());
     const QPoint centred = shown.window.frameGeometry().center() - QPoint(230, 145);
     shown.open();
     QCOMPARE(shown.panel()->size(), QSize(460, 290));
