@@ -45,6 +45,7 @@ private slots:
     void anAutomaticFilterRunsAgainThroughItsPreview();
     void theMenuNamesItAndRunsWithoutThePanel();
     void aRepeatThatCannotBeginOrLandLeavesNothingOpen();
+    void aNewerEditOutlastsTheRepeat();
 };
 
 void LastFilterTests::runsTheLastFilterAgainWithItsSettingsAsOneUndoStep()
@@ -62,12 +63,12 @@ void LastFilterTests::runsTheLastFilterAgainWithItsSettingsAsOneUndoStep()
     QVERIFY(repeated(*session));
     const ImageLayer twice = active(*session);
     QVERIFY(!session->filterEdit() && session->history.undoCount() == count + 1 && session->history.undoName() == "Gaussian Blur");
-    QVERIFY(twice.asset->identity() != once.asset->identity());
+    QVERIFY(twice.asset.value().identity() != once.asset.value().identity());
     // Blurred by 3 again, it spreads past the edge further.
     QVERIFY(twice.transform.size.width() > once.transform.size.width());
     QCOMPARE(session->filterSettings().radius, 3.0);
     session->undo();
-    QVERIFY(active(*session).asset->identity() == once.asset->identity());
+    QVERIFY(active(*session).asset.value().identity() == once.asset.value().identity());
 }
 
 void LastFilterTests::aCancelledFilterOrAnImageAdjustmentIsNotTheLastFilter()
@@ -107,7 +108,7 @@ void LastFilterTests::theGatesAndAPendingGradient()
     // A refused run warns and calls back, changing nothing.
     QTest::ignoreMessage(QtWarningMsg, "no last filter to run here");
     QVERIFY(repeated(*session));
-    QCOMPARE(session->filterEdit()->kind, FilterKind::gaussianBlur);
+    QCOMPARE(session->filterEdit().value().kind, FilterKind::gaussianBlur);
     session->cancelFilter();
     session->beginHueSaturation();
     QVERIFY(session->hueSaturation() && !session->canRepeatLastFilter());
@@ -119,7 +120,7 @@ void LastFilterTests::theGatesAndAPendingGradient()
     QVERIFY(session->canRepeatLastFilter());
     // A pending gradient lands first, then the filter: two steps.
     session->setLastFilter(FilterKind::addNoise);
-    session->selectLayer(session->document()->layers.front().id);
+    session->selectLayer(session->document().value().layers.front().id);
     session->selectTool(NavigationTool::gradient);
     session->beginGradient(QPointF(2, 2));
     session->moveGradient(std::nullopt, QPointF(30, 2));
@@ -187,10 +188,10 @@ void LastFilterTests::aRepeatThatCannotBeginOrLandLeavesNothingOpen()
     // A repeat begins without a preview, unless automatic.
     const auto session = halfWhite();
     session->beginFilter(FilterKind::gaussianBlur, true);
-    QVERIFY(session->filterEdit()->repeating && !session->filterEdit()->preview);
+    QVERIFY(session->filterEdit().value().repeating && !session->filterEdit().value().preview);
     session->cancelFilter();
     session->beginFilter(FilterKind::removeBackground, true);
-    QVERIFY(session->filterEdit()->repeating && session->filterEdit()->preview);
+    QVERIFY(session->filterEdit().value().repeating && session->filterEdit().value().preview);
     session->cancelFilter();
     // No subject: the preview fails, and the repeat closes it.
     session->setLastFilter(FilterKind::removeBackground);
@@ -206,6 +207,25 @@ void LastFilterTests::aRepeatThatCannotBeginOrLandLeavesNothingOpen()
     wide.setLastFilter(FilterKind::gaussianBlur);
     QVERIFY(repeated(wide));
     QVERIFY(!wide.filterEdit() && wide.brushError() && !wide.isProjectBusy());
+}
+
+void LastFilterTests::aNewerEditOutlastsTheRepeat()
+{
+    // A filter opened as the repeat lands stays open.
+    const auto session = halfWhite();
+    session->setLastFilter(FilterKind::gaussianBlur);
+    const int count = session->history.undoCount();
+    bool queued = false;
+    QObject::connect(session.get(), &EditorSession::changed, session.get(), [&] {
+        if (!queued && session->history.undoCount() == count + 1 && !session->isProjectBusy() && !session->filterEdit()) {
+            queued = true;
+            QMetaObject::invokeMethod(session.get(), [&] { session->beginFilter(FilterKind::addNoise); }, Qt::QueuedConnection);
+        }
+    });
+    QVERIFY(repeated(*session));
+    QVERIFY(queued);
+    QCOMPARE(session->filterEdit().value().kind, FilterKind::addNoise);
+    QVERIFY(!session->filterEdit().value().repeating);
 }
 
 QTEST_MAIN(LastFilterTests)
