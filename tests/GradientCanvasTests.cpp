@@ -297,8 +297,8 @@ void GradientCanvasTests::theBarSetsTheGradient()
     session.beginGradient(QPointF(1, 1));
     session.moveGradient(std::nullopt, QPointF(30, 1));
     QVERIFY(apply.isVisible() && cancel.isVisible());
-    bar.resize(bar.sizeHint().width() + 300, bar.height());
-    QTRY_VERIFY(cancel.x() - field.geometry().right() > 250 && apply.x() > cancel.x());
+    bar.resize(1600, bar.height());
+    QTRY_VERIFY(cancel.x() - field.mapTo(&bar, QPoint(field.width(), 0)).x() > 250 && apply.x() > cancel.x());
     const int count = session.history.undoCount();
     cancel.click();
     QVERIFY(!session.gradientEdit());

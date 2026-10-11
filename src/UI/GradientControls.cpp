@@ -95,9 +95,8 @@ GradientControls::GradientControls(EditorSession &session, QWidget *parent)
                                    changeGradient(m_session, [value](GradientSettings &gradient) { gradient.opacity = value; });
                                    m_opacity->showValue();
                                }});
-    for (QWidget *widget : std::initializer_list<QWidget *>{m_linear, m_radial, m_swatch, m_style, m_reverse, opacity,
-                                                             m_opacitySlider, m_opacity, new QLabel(QStringLiteral("%"), this)})
-        row->insertWidget(row->count() - 1, widget);
+    scrolling({m_linear, m_radial, m_swatch, m_style, m_reverse, opacity, m_opacitySlider, m_opacity, new QLabel(QStringLiteral("%"), this)},
+              QStringLiteral("gradientScroll"));
     for (QWidget *widget : std::initializer_list<QWidget *>{m_mask, m_cancel, m_apply})
         row->addWidget(widget);
     connect(&m_session, &EditorSession::changed, this, &GradientControls::synchronize);

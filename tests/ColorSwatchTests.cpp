@@ -43,6 +43,8 @@ void ColorSwatchTests::theBrushBarPicksTheForeground()
 {
     const std::unique_ptr<EditorSession> session = sessionWithLayer(NavigationTool::brush);
     BrushControls bar(*session);
+    // Wide enough that nothing scrolls out of sight.
+    bar.resize(1600, bar.height());
     bar.show();
     QVERIFY(QTest::qWaitForWindowExposed(&bar));
     QAbstractButton &colour = swatch(bar, "brushColor");

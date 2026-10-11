@@ -193,12 +193,10 @@ LassoControls::LassoControls(EditorSession &session, QWidget *parent)
     scrub(m_featherUnit, m_featherAmount, 1, 250, [this] { return double(m_session.selectionFeatherAmount()); },
           [this](double amount) { m_session.setSelectionFeatherAmount(int(amount)); });
     // Swift's `unitSuffix`: a unit sits by each field.
-    for (QWidget *widget : std::initializer_list<QWidget *>{m_rectangle, m_ellipse, m_wandMode, m_objectMode, m_freehand, m_polygonal, m_replace, m_add,
-                                                             m_subtract, m_toleranceLabel, m_tolerance, m_sampleSize, m_thisLayer, m_allLayers, m_contiguous,
-                                                             m_objectThisLayer, m_objectAllLayers, m_edgeLabel, m_edge, m_edgeUnit, m_antialias,
-                                                             divider, m_expand, m_expandAmount, m_expandUnit, m_contract, m_contractAmount,
-                                                             m_contractUnit, m_feather, m_featherAmount, m_featherUnit})
-        row->insertWidget(row->count() - 1, widget);
+    scrolling({m_rectangle, m_ellipse, m_wandMode, m_objectMode, m_freehand, m_polygonal, m_replace, m_add, m_subtract, m_toleranceLabel, m_tolerance,
+               m_sampleSize, m_thisLayer, m_allLayers, m_contiguous, m_objectThisLayer, m_objectAllLayers, m_edgeLabel, m_edge, m_edgeUnit, m_antialias,
+               divider, m_expand, m_expandAmount, m_expandUnit, m_contract, m_contractAmount, m_contractUnit, m_feather, m_featherAmount, m_featherUnit},
+              QStringLiteral("selectionScroll"));
     row->addWidget(m_empty);
     row->addWidget(m_deselect);
     connect(&m_session, &EditorSession::changed, this, &LassoControls::synchronize);

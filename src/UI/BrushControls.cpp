@@ -165,10 +165,9 @@ BrushControls::BrushControls(EditorSession &session, QWidget *parent)
     widgets.insert(widgets.end(), {size, m_size, label(QStringLiteral("px"), this), hardness,
                                    m_hardnessSlider, m_hardness, label(QStringLiteral("%"), this), m_opacityLabel, m_opacitySlider, m_opacity,
                                    label(QStringLiteral("%"), this), m_radiusLabel, m_radiusSlider, m_radius, m_radiusUnit, m_smoothingLabel, m_smoothingSlider, m_smoothing, m_paintLabel, m_maskPaint, m_colourLabel, m_colour});
-    for (QWidget *widget : widgets)
-        row->insertWidget(row->count() - 1, widget);
-    row->addWidget(m_cloneNote);
-    row->addWidget(m_mask);
+    // Swift 1.4.7: the notes scroll with the controls.
+    widgets.insert(widgets.end(), {m_cloneNote, m_mask});
+    scrolling(widgets, QStringLiteral("brushScroll"));
     connect(&m_session, &EditorSession::changed, this, &BrushControls::synchronize);
     synchronize();
 }

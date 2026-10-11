@@ -2,7 +2,9 @@
 #include <QFont>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QScrollArea>
 #include <QWidget>
+#include <vector>
 
 // Shared metrics: switching tools never moves the canvas.
 namespace ToolHeaderStyle {
@@ -21,4 +23,6 @@ public:
     QLabel *const title;
     // Controls go before the stretch that ends the row.
     QHBoxLayout *const row;
+    // Swift's horizontal ScrollView: these scroll, not squeeze, when narrow.
+    QScrollArea *scrolling(const std::vector<QWidget *> &controls, const QString &name);
 };
