@@ -1,3 +1,4 @@
+#include "DragAt.h"
 #include "ContentView.h"
 #include "IO/ImageFileDrop.h"
 #include "DNGFixture.h"
@@ -83,7 +84,7 @@ QStringList names(const EditorSession &session)
 
 bool dropOn(QWidget &target, QMimeData *data, QPoint at, Qt::KeyboardModifiers modifiers = Qt::NoModifier)
 {
-    QDragEnterEvent entered(at, Qt::CopyAction, data, Qt::LeftButton, modifiers);
+    QDragEnterEvent entered(DragAt(at), Qt::CopyAction, data, Qt::LeftButton, modifiers);
     QApplication::sendEvent(&target, &entered);
     QDropEvent dropped(at, Qt::CopyAction, data, Qt::LeftButton, modifiers);
     QApplication::sendEvent(&target, &dropped);

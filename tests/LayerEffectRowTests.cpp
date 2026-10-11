@@ -1,3 +1,4 @@
+#include "DragAt.h"
 #include "Document/ProjectWorkspace.h"
 #include "Rendering/EditorCanvas.h"
 #include "UI/LayerIcons.h"
@@ -106,7 +107,7 @@ struct Listed {
     bool drop(QMimeData *data, QPoint listPoint)
     {
         const QPointF inViewport = list.viewport()->mapFromParent(listPoint);
-        QDragEnterEvent enter(inViewport.toPoint(), Qt::CopyAction, data, Qt::LeftButton, Qt::AltModifier);
+        QDragEnterEvent enter(DragAt(inViewport.toPoint()), Qt::CopyAction, data, Qt::LeftButton, Qt::AltModifier);
         QApplication::sendEvent(list.viewport(), &enter);
         QDropEvent drop(inViewport, Qt::CopyAction, data, Qt::LeftButton, Qt::AltModifier);
         QApplication::sendEvent(list.viewport(), &drop);
