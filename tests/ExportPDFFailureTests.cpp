@@ -9,6 +9,7 @@ class ExportPDFFailureTests : public QObject {
     Q_OBJECT
 private slots:
     void aStarvedPDFThrowsOrIsWhole();
+    void aStarvedPNGThrowsOrIsWhole();
 };
 
 namespace {
@@ -56,6 +57,35 @@ void ExportPDFFailureTests::aStarvedPDFThrowsOrIsWhole()
         ++whole;
     }
     // The sweep reaches both sides of the limit.
+    QVERIFY(refused > 0 && whole > 0);
+}
+
+// Export As encodes PNG on a worker that catches ExportError.
+void ExportPDFFailureTests::aStarvedPNGThrowsOrIsWhole()
+{
+    QImage noise(360, 360, QImage::Format_RGBA8888_Premultiplied);
+    quint32 seed = 11;
+    for (int y = 0; y < noise.height(); ++y) {
+        auto *row = reinterpret_cast<quint32 *>(noise.scanLine(y));
+        for (int x = 0; x < noise.width(); ++x)
+            row[x] = (seed = seed * 1664525u + 1013904223u) | 0xff000000u;
+    }
+    const ExportRaster raster{noise, 72};
+    const QByteArray full = ImageExporter::pngData(raster);
+    int refused = 0, whole = 0;
+    for (qint64 kilobytes = 64; kilobytes <= 4096; kilobytes += 32) {
+        QByteArray png;
+        try {
+            const AddressSpaceLimit limit(kilobytes << 10);
+            png = ImageExporter::pngData(raster);
+        } catch (const ExportError &error) {
+            QVERIFY(error.kind == ExportError::Kind::render || error.kind == ExportError::Kind::encode);
+            ++refused;
+            continue;
+        }
+        QCOMPARE(png, full);
+        ++whole;
+    }
     QVERIFY(refused > 0 && whole > 0);
 }
 

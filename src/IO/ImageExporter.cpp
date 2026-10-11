@@ -32,7 +32,7 @@ std::string description(ExportError::Kind kind)
 
 // Quality runs 0 to 100; -1 means the format's own.
 QByteArray encode(QImage image, const char *format, int quality, double resolution)
-{
+try {
     const int dotsPerMeter = qRound(resolution / 0.0254);
     image.setDotsPerMeterX(dotsPerMeter);
     image.setDotsPerMeterY(dotsPerMeter);
@@ -44,6 +44,8 @@ QByteArray encode(QImage image, const char *format, int quality, double resoluti
     if (!writer.write(image))
         throw ExportError(ExportError::Kind::encode);
     return data;
+} catch (const std::bad_alloc &) {
+    throw ExportError(ExportError::Kind::render);
 }
 
 QByteArray scaledJPEG(const QImage &image, double longSide)

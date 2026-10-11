@@ -23,6 +23,7 @@
 #include <QtConcurrent>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 const QString ExportAsSheet::qualityKey = QStringLiteral("jpegExportQuality");
 
@@ -64,22 +65,54 @@ QString inches(double value)
     return shown;
 }
 
-// Swift's Int field: a whole Int64, else a number truncated.
+// Swift's Int field: any number spelt out, truncated, within Int64.
 std::optional<qint64> typedInteger(const QLineEdit &field)
 {
-    QLocale locale = field.locale();
-    locale.setNumberOptions(locale.numberOptions() | QLocale::RejectGroupSeparator);
-    // QLocale's readers skip spaces at either end.
-    const QString text = field.text();
-    bool number = false;
-    const qint64 whole = locale.toLongLong(text, &number);
-    if (number)
-        return whole;
-    const double value = locale.toDouble(text, &number);
-    // Int64 holds whatever lies strictly inside ±2^63.
-    if (!number || !(std::abs(value) < 0x1p63))
+    const QLocale locale = field.locale();
+    const QString text = field.text().trimmed();
+    qsizetype at = 0;
+    const auto take = [&text, &at](const QStringList &marks) {
+        for (const QString &mark : marks)
+            if (!mark.isEmpty() && text.mid(at).startsWith(mark))
+                return at += mark.size(), true;
+        return false;
+    };
+    const auto digits = [&text, &at] {
+        QString read;
+        for (; at < text.size() && text[at].isDigit(); ++at)
+            read += QChar(u'0' + text[at].digitValue());
+        return read;
+    };
+    const bool negative = take({QStringLiteral("-"), locale.negativeSign()});
+    if (!negative)
+        take({QStringLiteral("+"), locale.positiveSign()});
+    const QString whole = digits();
+    const QString fraction = take({locale.decimalPoint()}) ? digits() : QString();
+    QString mantissa = whole + fraction;
+    qint64 point = whole.size();
+    if (!mantissa.isEmpty() && take({QStringLiteral("e"), QStringLiteral("E")})) {
+        const bool down = take({QStringLiteral("-")});
+        if (!down)
+            take({QStringLiteral("+")});
+        // No digits after it is no exponent, as in Swift.
+        const QString power = digits();
+        // Past six digits the number is zero or too large.
+        const qint64 exponent = power.size() > 6 ? 1'000'000 : power.toLongLong();
+        point += down ? -exponent : exponent;
+    }
+    if (at != text.size() || mantissa.isEmpty())
         return std::nullopt;
-    return qint64(std::trunc(value));
+    while (mantissa.startsWith(u'0'))
+        mantissa.remove(0, 1), --point;
+    if (mantissa.isEmpty() || point <= 0)
+        return 0;
+    if (point > 19)
+        return std::nullopt;
+    // The whole part once the point moves by the exponent.
+    const quint64 magnitude = mantissa.left(point).leftJustified(point, u'0').toULongLong();
+    if (magnitude > quint64(std::numeric_limits<qint64>::max()) + (negative ? 1 : 0))
+        return std::nullopt;
+    return negative ? qint64(0 - magnitude) : qint64(magnitude);
 }
 
 struct Made {

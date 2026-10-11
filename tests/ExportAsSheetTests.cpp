@@ -326,7 +326,7 @@ void ExportAsSheetTests::theSizeKeepsTheProportionsWithinTheLimits()
     const auto type = [](QLineEdit &field, const QString &text) {
         field.setFocus();
         field.selectAll();
-        QTest::keyClicks(&field, text);
+        field.insert(text);
         QTest::keyClick(&field, Qt::Key_Return);
     };
     type(width, "32");
@@ -347,7 +347,7 @@ void ExportAsSheetTests::theSizeKeepsTheProportionsWithinTheLimits()
     QVERIFY(width.text() == "20000" && height.text() == "10000");
     // Swift's Int field: past Int32, exponents, fractions truncated.
     const auto both = [&](QLineEdit &field, const char *typed) {
-        type(field, QString::fromLatin1(typed));
+        type(field, QString::fromUtf8(typed));
         return width.text() + QLatin1Char('x') + height.text();
     };
     QCOMPARE(both(width, "1e3"), QString("1000x500"));
@@ -356,12 +356,35 @@ void ExportAsSheetTests::theSizeKeepsTheProportionsWithinTheLimits()
     QCOMPARE(both(width, "1E2"), QString("100x50"));
     QCOMPARE(both(height, "-12.7"), QString("1x1"));
     QCOMPARE(both(width, "9223372036854775807"), QString("20000x10000"));
+    QCOMPARE(both(width, "9223372036854775807.0"), QString("20000x10000"));
+    QCOMPARE(both(width, "64"), QString("64x32"));
+    QCOMPARE(both(width, "-9.223372036854775808e18"), QString("1x1"));
+    QCOMPARE(both(width, "64"), QString("64x32"));
+    QCOMPARE(both(width, "1e-400"), QString("1x1"));
+    QCOMPARE(both(width, "0.00032e5"), QString("32x16"));
+    QCOMPARE(both(width, "+00128"), QString("128x64"));
+    QCOMPARE(both(width, ".5e2"), QString("50x25"));
+    QCOMPARE(both(width, "5.e1"), QString("50x25"));
+    QCOMPARE(both(width, "١٢٨"), QString("128x64"));
+    QCOMPARE(both(width, "1e+2"), QString("100x50"));
+    QCOMPARE(both(width, "99e-1"), QString("9x5"));
+    QCOMPARE(both(width, "000000000000000000000128"), QString("128x64"));
+    QCOMPARE(both(width, "1.28e"), QString("1x1"));
+    QCOMPARE(both(width, "128e-"), QString("128x64"));
+    QCOMPARE(both(width, "0e30"), QString("1x1"));
+    QCOMPARE(both(width, "64"), QString("64x32"));
+    QCOMPARE(both(width, "1e-99999999999999999999"), QString("1x1"));
+    QCOMPARE(both(width, "64"), QString("64x32"));
+    QCOMPARE(both(width, "1e99999999999999999999"), QString("64x32"));
     QCOMPARE(both(width, "64"), QString("64x32"));
     // Past Int64, or grouped, Swift reads nothing here.
     QCOMPARE(both(width, "9223372036854775808"), QString("64x32"));
     QCOMPARE(both(width, "1e19"), QString("64x32"));
     QCOMPARE(both(width, "-1e19"), QString("64x32"));
     QCOMPARE(both(width, "1,000"), QString("64x32"));
+    QCOMPARE(both(width, "9223372036854775807.5e1"), QString("64x32"));
+    QCOMPARE(both(width, "e5"), QString("64x32"));
+    QCOMPARE(both(width, "."), QString("64x32"));
     // The menu's steps.
     QStringList steps;
     for (QAction *each : scale.menu()->actions())
