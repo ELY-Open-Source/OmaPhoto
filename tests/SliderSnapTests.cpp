@@ -23,8 +23,15 @@ public:
     }
 };
 
+// Every paint the slider takes, from before it shows.
+struct Paints : QObject {
+    int count = 0;
+    bool eventFilter(QObject *, QEvent *event) override { return count += event->type() == QEvent::Paint, false; }
+};
+
 struct Probe {
     QSlider slider;
+    Paints paints;
     QStringList log;
     explicit Probe(Qt::Orientation orientation = Qt::Horizontal)
         : slider(orientation)
@@ -32,6 +39,7 @@ struct Probe {
         slider.setRange(0, 100);
         slider.setValue(10);
         slider.resize(orientation == Qt::Horizontal ? QSize(200, 24) : QSize(24, 200));
+        slider.installEventFilter(&paints);
         slider.show();
         QObject::connect(&slider, &QSlider::sliderPressed, [this] { log << "began"; });
         QObject::connect(&slider, &QSlider::valueChanged, [this] { log << "set"; });
@@ -65,14 +73,9 @@ void SliderSnapTests::clickingTheTrackSnapsTheKnobAndStillEditsTheValue()
     }
     SliderSnap::install();
     Probe probe;
-    // Swift 07eee7e draws first; Qt's style knows the track undrawn.
-    struct Paints : QObject {
-        int count = 0;
-        bool eventFilter(QObject *, QEvent *event) override { return count += event->type() == QEvent::Paint, false; }
-    } paints;
-    probe.slider.installEventFilter(&paints);
     QTest::mousePress(&probe.slider, Qt::LeftButton, Qt::NoModifier, QPoint(180, 12));
-    QCOMPARE(paints.count, 0);
+    // Swift 07eee7e draws first; Qt's style knows the track undrawn.
+    QCOMPARE(probe.paints.count, 0);
     // Editing begins, then the value lands under the press.
     QCOMPARE(probe.slider.value(), centred.at(1));
     QVERIFY(centred.at(1) > 85 && centred.at(1) < 100);
