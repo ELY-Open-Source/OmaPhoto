@@ -2,6 +2,7 @@
 #include "DialogDesk.h"
 #include "UI/ExportAsSheet.h"
 #include "UI/NewCanvasSheet.h"
+#include "Rendering/NavigatorGeometry.h"
 #include <QAbstractButton>
 #include <QLineEdit>
 #include <QMenuBar>
@@ -55,6 +56,7 @@ void AcceptanceLatestTests::searchRotateAndFullscreen()
 {
     App app;
     photo(app);
+    const int steps = app.session().history.undoCount();
     // Ctrl+F finds Rotate Canvas 90° Clockwise by words.
     QTest::keyClick(&app.window, Qt::Key_F, Qt::ControlModifier);
     QLineEdit &search = shownChild<QLineEdit>(app.window, QStringLiteral("commandSearch"));
@@ -62,6 +64,11 @@ void AcceptanceLatestTests::searchRotateAndFullscreen()
     QTest::keyClick(&search, Qt::Key_Return);
     QTRY_COMPARE(documentSize(app), QSize(800, 1200));
     QCOMPARE(app.session().history.undoName(), QString("Rotate Canvas 90° Clockwise"));
+    QCOMPARE(app.session().history.undoCount(), steps + 1);
+    // Clockwise: the new top left was the old bottom left.
+    const QImage old = scene(1200, 800);
+    QCOMPARE(app.shown(100, 50), old.pixelColor(50, 799 - 100));
+    QCOMPARE(app.shown(700, 1100), old.pixelColor(1100, 799 - 700));
     app.shot(QStringLiteral("19-search"));
     // F: the canvas alone, bars away; Escape brings them back.
     app.canvas().setFocus();
@@ -76,10 +83,14 @@ void AcceptanceLatestTests::searchRotateAndFullscreen()
 void AcceptanceLatestTests::lastFilterAndCameraRaw()
 {
     App app;
-    const QUuid layer = photo(app);
-    // Gaussian Blur once, then Last Filter repeats it.
+    photo(app);
+    // Gaussian Blur at radius 3; Last Filter repeats it.
     app.action("gaussianBlur").trigger();
-    shownChild<QPushButton>(app.window, QStringLiteral("filterOK")).click();
+    QLineEdit &radius = shownChild<QLineEdit>(app.window, QStringLiteral("radiusField"));
+    radius.setFocus();
+    radius.selectAll();
+    QTest::keyClicks(&radius, QStringLiteral("3"));
+    QTest::keyClick(&radius, Qt::Key_Return);
     QTRY_VERIFY(!app.session().filterEdit() && !app.session().isProjectBusy());
     QCOMPARE(app.action("lastFilter").text(), QString("Last Filter: Gaussian Blur"));
     const int steps = app.session().history.undoCount();
@@ -87,6 +98,14 @@ void AcceptanceLatestTests::lastFilterAndCameraRaw()
     QTRY_COMPARE(app.session().history.undoCount(), steps + 1);
     QCOMPARE(app.session().history.undoName(), QString("Gaussian Blur"));
     QVERIFY(!app.session().filterEdit());
+    const QImage repeated = app.session().activeLayer().value().asset.value().image();
+    // The sheet again, as it opens, blurs the same.
+    app.action("undo").trigger();
+    app.action("gaussianBlur").trigger();
+    QCOMPARE(shownChild<QLineEdit>(app.window, QStringLiteral("radiusField")).text(), QString("3"));
+    shownChild<QPushButton>(app.window, QStringLiteral("filterOK")).click();
+    QTRY_VERIFY(!app.session().filterEdit() && !app.session().isProjectBusy());
+    QVERIFY(app.session().activeLayer().value().asset.value().image() == repeated);
     // Camera Raw's Temperature +100 on mid gray, as Photoshop's.
     app.session().createDocument(64, 64);
     QImage gray(64, 64, QImage::Format_RGB32);
@@ -106,7 +125,6 @@ void AcceptanceLatestTests::lastFilterAndCameraRaw()
     QCOMPARE(app.session().history.undoName(), QString("Camera Raw Filter"));
     const QColor warm = app.shown(32, 32);
     QVERIFY2(std::abs(warm.red() - 235) <= 4 && std::abs(warm.green() - 189) <= 4 && std::abs(warm.blue() - 117) <= 4, qPrintable(warm.name()));
-    static_cast<void>(layer);
 }
 
 void AcceptanceLatestTests::navigatorAndMiddleZoom()
@@ -117,10 +135,13 @@ void AcceptanceLatestTests::navigatorAndMiddleZoom()
     app.action("navigator").trigger();
     app.session().zoom(4, app.session().viewport.center());
     QWidget &minimap = shownChild<QWidget>(app.window, QStringLiteral("navigatorMinimap"));
-    const QRectF before = app.session().viewport.visibleDocumentRect(QSizeF(1200, 800));
     QTest::mouseClick(&minimap, Qt::LeftButton, Qt::NoModifier, QPoint(4, 4));
-    const QRectF after = app.session().viewport.visibleDocumentRect(QSizeF(1200, 800));
-    QVERIFY2(after.center().x() < before.center().x() - 100, qPrintable(QString::number(after.center().x())));
+    // The view's middle on the document point under the click.
+    const QPointF target = NavigatorGeometry{QSizeF(1200, 800), QSizeF(minimap.size())}.documentPoint(QPointF(4, 4));
+    const QPointF middle = app.session().viewport.visibleDocumentRect(QSizeF(1200, 800)).center();
+    QVERIFY2(std::abs(middle.x() - target.x()) < 1 && std::abs(middle.y() - target.y()) < 1,
+             qPrintable(QStringLiteral("%1,%2 %3,%4").arg(middle.x()).arg(middle.y()).arg(target.x()).arg(target.y())));
+    QVERIFY(target.x() < 300 && target.y() < 200);
     app.shot(QStringLiteral("21-navigator"));
     app.action("navigator").trigger();
     // Ctrl with the middle button: a hundred points up doubles.
@@ -140,9 +161,10 @@ void AcceptanceLatestTests::newCanvasExportAndTabs()
     // The blank start tab has no cross; Close leaves it.
     QToolButton *cross = app.window.findChild<QToolButton *>(QStringLiteral("closeTab"));
     QVERIFY(cross && cross->isHidden());
+    const QUuid start = app.workspace.current().id;
     app.action("closeProject").trigger();
     QTest::qWait(100);
-    QCOMPARE(int(app.workspace.tabs().size()), 1);
+    QVERIFY(app.workspace.tabs().size() == 1 && app.workspace.selectedID() == start && app.workspace.tabs()[0]->id == start);
     // New Canvas: two by one inches, 300 DPI, white.
     NewCanvasSheet &sheet = shownChild<NewCanvasSheet>(app.window, QString());
     QAbstractButton &unit = shownChild<QAbstractButton>(sheet, QStringLiteral("canvasUnit"));
@@ -165,16 +187,16 @@ void AcceptanceLatestTests::newCanvasExportAndTabs()
     QCOMPARE(app.session().document().value().resolution, 300.0);
     QCOMPARE(app.shown(300, 150), QColor(Qt::white));
     QTRY_VERIFY(!cross->isHidden());
-    // Export As a one-page PDF, two inches by one.
+    // File › Export As, PDF chosen: two inches by one.
     DialogDesk desk;
     desk.replies = {app.path("page.pdf")};
-    bool done = false;
-    app.workspace.current().controller.exportAs(ExportFormat::pdf, [&done] { done = true; });
+    app.action("exportAs").trigger();
+    shownChild<QAbstractButton>(app.window, QStringLiteral("exportFormatPDF")).click();
     QPushButton &exporting = shownChild<QPushButton>(app.window, QStringLiteral("exportExport"));
-    QTRY_VERIFY(exporting.isEnabled());
+    QTRY_VERIFY(shownChild<QWidget>(app.window, QStringLiteral("exportPage")).isVisible() && exporting.isEnabled());
     app.shot(QStringLiteral("22-export-as"));
     exporting.click();
-    QTRY_VERIFY_WITH_TIMEOUT(done, 30000);
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(app.path("page.pdf")) && !app.session().isProjectBusy(), 30000);
     QFile pdf(app.path("page.pdf"));
     QVERIFY(pdf.open(QIODevice::ReadOnly));
     const QByteArray bytes = pdf.readAll();

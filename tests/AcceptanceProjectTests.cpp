@@ -106,6 +106,11 @@ void AcceptanceProjectTests::imports()
     QVERIFY(scene(200, 150).save(app.path("Scene.jpg")));
     QVERIFY(scene(200, 150).save(app.path("Scene.png")));
     QVERIFY(scene(200, 150).save(app.path("Scene.tif")));
+    // WebP, lossless: red on the left, clear on the right.
+    QImage half(40, 20, QImage::Format_ARGB32);
+    half.fill(Qt::transparent);
+    QPainter(&half).fillRect(QRect(0, 0, 20, 20), QColor(200, 20, 20));
+    QVERIFY(half.save(app.path("Half.webp"), "webp", 100));
     QVERIFY(QFile::copy(QFINDTESTDATA("fixtures/red.heic"), app.path("Red.heic")));
     QFile svg(app.path("Mark.svg"));
     QVERIFY(svg.open(QIODevice::WriteOnly));
@@ -118,7 +123,7 @@ void AcceptanceProjectTests::imports()
     psd.close();
     DNGFixture::write(app.path("Gray.dng"), {});
     QList<QUrl> urls;
-    for (const char *name : {"Scene.jpg", "Scene.png", "Scene.tif", "Red.heic", "Mark.svg", "Trip.psd", "Gray.dng"})
+    for (const char *name : {"Scene.jpg", "Scene.png", "Scene.tif", "Half.webp", "Red.heic", "Mark.svg", "Trip.psd", "Gray.dng"})
         urls << QUrl::fromLocalFile(app.path(QString::fromLatin1(name)));
     bool done = false;
     app.session().importImages(urls, std::nullopt, [&done] { done = true; });
@@ -132,10 +137,12 @@ void AcceptanceProjectTests::imports()
     for (const ImageLayer &layer : app.session().document().value().layers)
         names << layer.name;
     // A layered Photoshop file arrives as a folder of layers.
-    QCOMPARE(names, (QStringList{"Scene", "Scene", "Scene", "Red", "Mark", "Trip", "Sky", "Gray"}));
+    QCOMPARE(names, (QStringList{"Scene", "Scene", "Scene", "Half", "Red", "Mark", "Trip", "Sky", "Gray"}));
     const std::vector<ImageLayer> &layers = app.session().document().value().layers;
-    QVERIFY(layers[5].isGroup);
-    QCOMPARE(layers[6].parentID, std::optional<QUuid>(layers[5].id));
+    QVERIFY(layers[6].isGroup);
+    QCOMPARE(layers[7].parentID, std::optional<QUuid>(layers[6].id));
+    const QImage webp = layers[3].asset.value().image();
+    QVERIFY(webp.size() == QSize(40, 20) && webp.pixelColor(5, 10) == QColor(200, 20, 20) && webp.pixelColor(35, 10).alpha() == 0);
     app.shot(QStringLiteral("13-imports"));
 }
 
