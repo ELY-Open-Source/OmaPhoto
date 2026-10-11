@@ -15,6 +15,7 @@
 #include <cctype>
 #include <clocale>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 
 namespace {
@@ -134,13 +135,8 @@ NewCanvasUnit next(NewCanvasUnit unit)
 
 std::optional<int> pixels(NewCanvasUnit unit, const QString &text, double resolution)
 {
-    QString trimmed = text;
-    // Spaces and tabs trimmed; a comma is the point.
-    while (!trimmed.isEmpty() && (trimmed.front() == u'\t' || trimmed.front().category() == QChar::Separator_Space))
-        trimmed.remove(0, 1);
-    while (!trimmed.isEmpty() && (trimmed.back() == u'\t' || trimmed.back().category() == QChar::Separator_Space))
-        trimmed.chop(1);
-    const std::optional<double> value = number(trimmed.replace(u',', u'.'));
+    // A comma is the decimal point.
+    const std::optional<double> value = number(trimmedWhitespaces(text).replace(u',', u'.'));
     if (!value || *value <= 0)
         return std::nullopt;
     const std::optional<double> inch = perInch(unit);
@@ -155,8 +151,13 @@ QString text(NewCanvasUnit unit, int pixels, double resolution)
     const std::optional<double> inch = perInch(unit);
     if (!inch)
         return QString::number(pixels);
-    // Two decimals at most, none trailing, never grouped.
-    QString written = QString::number(double(pixels) / resolution * *inch, 'f', 2);
+    // glibc's halves go to even, as Foundation's; Qt's do not.
+    static const locale_t c = newlocale(LC_ALL_MASK, "C", locale_t(nullptr));
+    const locale_t previous = uselocale(c);
+    char digits[64];
+    std::snprintf(digits, sizeof digits, "%.2f", double(pixels) / resolution * *inch);
+    uselocale(previous);
+    QString written = QString::fromLatin1(digits);
     while (written.endsWith(u'0'))
         written.chop(1);
     if (written.endsWith(u'.'))

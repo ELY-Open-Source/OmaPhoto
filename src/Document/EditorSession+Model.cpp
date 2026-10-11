@@ -59,7 +59,7 @@ namespace {
 // Swift's CharacterSet.whitespaces: category Zs and tab.
 bool isWhitespace(QChar character)
 {
-    return character == u'\t' || character.category() == QChar::Separator_Space;
+    return character == u'\t' || character == QChar(0x200B) || character.category() == QChar::Separator_Space;
 }
 
 // Swift's Int(String): optional sign, then ASCII digits only.
@@ -78,14 +78,19 @@ std::optional<int> wholeNumber(QStringView text)
 }
 }
 
+QString trimmedWhitespaces(const QString &text)
+{
+    qsizetype first = 0, last = text.size();
+    while (first < last && isWhitespace(text[first]))
+        ++first;
+    while (last > first && isWhitespace(text[last - 1]))
+        --last;
+    return text.mid(first, last - first);
+}
+
 std::optional<int> CanvasDocument::validDimension(const QString &value)
 {
-    qsizetype first = 0, last = value.size();
-    while (first < last && isWhitespace(value[first]))
-        ++first;
-    while (last > first && isWhitespace(value[last - 1]))
-        --last;
-    const std::optional<int> number = wholeNumber(QStringView(value).mid(first, last - first));
+    const std::optional<int> number = wholeNumber(trimmedWhitespaces(value));
     if (!number || *number < 1 || *number > DocumentLimits::maxSide)
         return std::nullopt;
     return number;

@@ -20,14 +20,8 @@ QString PaletteColor::hex() const
 
 std::optional<PaletteColor> PaletteColor::fromHex(const QString &hex)
 {
-    // Swift trims spaces and tabs, not line breaks.
-    const auto blank = [](QChar character) { return character.category() == QChar::Separator_Space || character == u'\t'; };
-    qsizetype start = 0, end = hex.size();
-    while (start < end && blank(hex.at(start)))
-        ++start;
-    while (end > start && blank(hex.at(end - 1)))
-        --end;
-    QString text = hex.mid(start, end - start);
+    // Swift trims .whitespaces, never line breaks.
+    QString text = trimmedWhitespaces(hex);
     if (text.startsWith(u'#'))
         text.remove(0, 1);
     if (text.size() == 3)

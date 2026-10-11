@@ -28,6 +28,9 @@ void NewCanvasUnitTests::printSizesBecomePixelsAtTheDPI()
     QCOMPARE(pixels(NewCanvasUnit::inches, "0.0016", 300), std::nullopt);
     QCOMPARE(pixels(NewCanvasUnit::inches, " 1\t", 72), std::optional(72));
     QCOMPARE(pixels(NewCanvasUnit::inches, "\t\u00a01", 72), std::optional(72));
+    // Foundation's .whitespaces holds U+200B; a line break is none.
+    QCOMPARE(pixels(NewCanvasUnit::inches, "\u200b1\u200b", 72), std::optional(72));
+    QCOMPARE(pixels(NewCanvasUnit::inches, "1\n", 72), std::nullopt);
     // Infinity and NaN fail the range and the whole number.
     QCOMPARE(pixels(NewCanvasUnit::inches, "inf", 72), std::nullopt);
     QCOMPARE(pixels(NewCanvasUnit::pixels, "nan", 72), std::nullopt);
@@ -42,6 +45,10 @@ void NewCanvasUnitTests::unitsRoundTripAndCycle()
     QCOMPARE(text(NewCanvasUnit::inches, 3000, 300), QString("10"));
     QCOMPARE(text(NewCanvasUnit::millimeters, 2480, 300), QString("209.97"));
     QCOMPARE(text(NewCanvasUnit::centimeters, 30000, 72), QString("1058.33"));
+    // Exact halves go to the even digit, as Foundation rounds.
+    QCOMPARE(text(NewCanvasUnit::inches, 153, 72), QString("2.12"));
+    QCOMPARE(text(NewCanvasUnit::inches, 9, 72), QString("0.12"));
+    QCOMPARE(text(NewCanvasUnit::inches, 27, 72), QString("0.38"));
     QCOMPARE(text(NewCanvasUnit::pixels, 30000, 72), QString("30000"));
     for (NewCanvasUnit unit : {NewCanvasUnit::inches, NewCanvasUnit::centimeters, NewCanvasUnit::millimeters})
         QCOMPARE(pixels(unit, text(unit, 2550, 300), 300), std::optional(2550));

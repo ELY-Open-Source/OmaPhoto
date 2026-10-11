@@ -90,5 +90,7 @@ enum class NavigationTool {
 
 // The rail's tooltip: the tool's name and its key.
 QString label(NavigationTool tool);
+// Swift's trim of .whitespaces: tab, space separators, U+200B.
+QString trimmedWhitespaces(const QString &text);
 bool isBrushTool(NavigationTool tool);
 bool isSelectionTool(NavigationTool tool);

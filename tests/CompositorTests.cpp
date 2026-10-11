@@ -27,6 +27,7 @@ void CompositorTests::dimensionValidation()
     QCOMPARE(CanvasDocument::validDimension(" 1920 "), std::optional<int>(1920));
     QCOMPARE(CanvasDocument::validDimension("30000"), std::optional<int>(30000));
     QCOMPARE(CanvasDocument::validDimension("\t+64\u00a0"), std::optional<int>(64));
+    QCOMPARE(CanvasDocument::validDimension(QChar(0x200B) + QString("64") + QChar(0x200B)), std::optional<int>(64));
     QCOMPARE(CanvasDocument::validDimension("1920\n"), std::nullopt);
     QCOMPARE(CanvasDocument::validDimension(QString::fromUtf8("1920\0px", 7)), std::nullopt);
     QCOMPARE(CanvasDocument::validDimension("19 20"), std::nullopt);

@@ -57,6 +57,8 @@ void ColorPickerTests::hexParsesFullShorthandAndRejectsInvalid()
     // Swift trims tabs and wide spaces, never line breaks.
     QCOMPARE(PaletteColor::fromHex(QStringLiteral("\t#abc") + QChar(0x00A0)), std::optional(PaletteColor{170.0 / 255, 187.0 / 255, 204.0 / 255}));
     QVERIFY(!PaletteColor::fromHex(QStringLiteral("\n00ff00")));
+    // Foundation's .whitespaces holds U+200B too.
+    QCOMPARE(PaletteColor::fromHex(QChar(0x200B) + QStringLiteral("0f0") + QChar(0x200B)), std::optional(PaletteColor{0, 1, 0}));
     // Its UInt32 takes signs, minus for zero only; no 0x.
     QCOMPARE(PaletteColor::fromHex(QStringLiteral("+0F800")), std::optional(PaletteColor{0, 248.0 / 255, 0}));
     QCOMPARE(PaletteColor::fromHex(QStringLiteral("-00000")), std::optional(PaletteColor::black()));
