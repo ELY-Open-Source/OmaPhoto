@@ -14,6 +14,7 @@ It is a Linux port of [Compositor](https://github.com/robbietilton/Compositor) b
 - Camera Raw Filter, docked beside the canvas, with Photoshop's curves
 - Layer effects: stroke, drop shadow, outer and inner glow, color overlay, inner shadow
 - Filters: Gaussian and motion blur, noise, lens correction, Vignette, Bloom / Glow, Tonal Contrast, Dither, Content-Aware Fill and Remove Background (U²-Net on ONNX Runtime, offline)
+- Last Filter (Ctrl+Meta+F) runs the last filter again with the same settings
 - Crop, trim, canvas size, image size; PNG and JPEG export with a zoomable preview; New Canvas presets for screens and social formats
 - Imports JPEG, PNG, TIFF, HEIC, SVG, Photoshop files (PSD and PSB) and camera RAW
 - Open Recent, and a Keyboard Shortcuts window

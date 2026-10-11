@@ -16,7 +16,7 @@ bool EditorSession::canContentAwareFill() const
     return canAdjustColors() && selection().has_value() && !m_hueSaturation;
 }
 
-void EditorSession::beginFilter(FilterKind kind)
+void EditorSession::beginFilter(FilterKind kind, bool repeating)
 {
     if (kind == FilterKind::contentAwareFill && !canContentAwareFill())
         return;
@@ -61,12 +61,57 @@ void EditorSession::beginFilter(FilterKind kind)
         if (fillsCanvas)
             m_filterEdit->canvas = canvas;
         m_filterEdit->startedEmpty = startedEmpty;
-        updateFilter(m_filterEdit->settings, true);
+        m_filterEdit->repeating = repeating;
+        // An automatic filter commits its preview, so needs one.
+        updateFilter(m_filterEdit->settings, !repeating || isAutomatic(kind));
     } catch (const ProjectError &error) {
         setBrushError(QString::fromUtf8(error.what()));
     } catch (const ExportError &error) {
         setBrushError(QString::fromUtf8(error.what()));
     }
+}
+
+void EditorSession::setLastFilter(std::optional<FilterKind> kind)
+{
+    m_lastFilter = kind;
+    notify();
+}
+
+bool EditorSession::canRepeatLastFilter() const
+{
+    if (!m_lastFilter || m_filterEdit || m_hueSaturation)
+        return false;
+    return m_lastFilter == FilterKind::vignette ? canVignette() : canAdjustColors();
+}
+
+void EditorSession::repeatLastFilter(std::function<void()> done)
+{
+    if (!canRepeatLastFilter()) {
+        qCWarning(lcApp) << "no last filter to run here";
+        if (done)
+            QMetaObject::invokeMethod(this, done, Qt::QueuedConnection);
+        return;
+    }
+    const FilterKind kind = m_lastFilter.value();
+    const auto run = [this, kind, done] {
+        beginFilter(kind, true);
+        if (!m_filterEdit) {
+            if (done)
+                QMetaObject::invokeMethod(this, done, Qt::QueuedConnection);
+            return;
+        }
+        // Nothing applied: no panel is left to close it.
+        commitFilter([this, id = m_filterEdit->id, done] {
+            if (m_filterEdit && m_filterEdit->id == id)
+                cancelFilter();
+            if (done)
+                done();
+        });
+    };
+    if (m_gradientEdit)
+        commitGradient(run);
+    else
+        run();
 }
 
 void EditorSession::updateFilter(const FilterSettings &settings, bool preview)
@@ -243,6 +288,8 @@ void EditorSession::commitFilter(std::function<void()> done)
     m_filterPreviewFor = QUuid();
     if (edit.kind != FilterKind::cameraRaw)
         m_filterSettings = edit.settings;
+    if (repeatsAsLastFilter(edit.kind))
+        m_lastFilter = edit.kind;
     setIsProjectBusy(true);
     m_committingFilter = Committing{edit.id, std::move(done)};
     // A mask hides the background, which can come back.

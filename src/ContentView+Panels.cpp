@@ -52,8 +52,10 @@ void ContentView::synchronizePanels()
             m_colorRangePanel.close();
         }
     }
-    if (m_filterShown != m_session.filterEdit().has_value()) {
-        m_filterShown = m_session.filterEdit().has_value();
+    // Last Filter applies without the panel.
+    const bool filtering = m_session.filterEdit() && !m_session.filterEdit()->repeating;
+    if (m_filterShown != filtering) {
+        m_filterShown = filtering;
         if (m_filterShown) {
             m_filterPanel.onClose = [this] { m_session.cancelFilter(); };
             const FilterKind kind = m_session.filterEdit()->kind;

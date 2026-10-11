@@ -26,6 +26,8 @@ QString rawValue(FilterKind kind);
 bool isAutomatic(FilterKind kind);
 // The Image menu's colour adjustments, not under Filter.
 bool isImageAdjustment(FilterKind kind);
+// The Filter menu's own, which Last Filter runs again.
+bool repeatsAsLastFilter(FilterKind kind);
 // Swift's allCases, the menus' order.
 inline constexpr std::array allFilterKinds{FilterKind::gaussianBlur,     FilterKind::motionBlur,       FilterKind::addNoise,
                                            FilterKind::vignette,         FilterKind::bloomGlow,        FilterKind::dither,
@@ -183,6 +185,8 @@ public:
     std::optional<QRectF> canvas;
     // The layer had no pixels: the filter began clear.
     bool startedEmpty = false;
+    // Last Filter: applied at once, without preview or panel.
+    bool repeating = false;
 
 private:
     void grow(const QRectF &extent);

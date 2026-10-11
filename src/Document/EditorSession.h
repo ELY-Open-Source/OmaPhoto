@@ -441,6 +441,7 @@ private:
     QFutureWatcher<RasterMade> m_rasterCommit;
     std::optional<FilterEdit> m_filterEdit;
     FilterSettings m_filterSettings;
+    std::optional<FilterKind> m_lastFilter;
     QFutureWatcher<Filtered> m_filterPreview;
     // Out until its finish runs: setFuture drops a pending signal.
     bool m_filterRendering = false;

@@ -93,7 +93,7 @@ void KeyboardShortcutsTests::theListIsSwiftsWithoutHide()
 {
     const std::vector<ShortcutDefinition> &all = ShortcutDefinition::all();
     // Swift's 113 with Ungroup Layers, less Hide Compositor.
-    QCOMPARE(int(all.size()), 114);
+    QCOMPARE(int(all.size()), 115);
     QSet<QString> ids;
     for (const ShortcutDefinition &definition : all)
         ids.insert(definition.id());
@@ -119,6 +119,16 @@ void KeyboardShortcutsTests::theListIsSwiftsWithoutHide()
     QCOMPARE(fullscreen.original, ShortcutChord("f"));
     QCOMPARE(fullscreen.group, QString("Canvas & Layers"));
     QCOMPARE(std::ranges::find_if(all, [](const ShortcutDefinition &d) { return !d.isMenu(); })->title, fullscreen.title);
+    QCOMPARE(named("Last Filter").original, ShortcutChord("f", 5));
+    // Swift's: no two menu keys are the same.
+    QSet<QString> chords;
+    int menus = 0;
+    for (const ShortcutDefinition &definition : all)
+        if (definition.isMenu()) {
+            chords.insert(definition.original.label());
+            ++menus;
+        }
+    QCOMPARE(int(chords.size()), menus);
     // Swift's defaults hold together.
     QVERIFY(!ShortcutSettings::problem({}));
 }

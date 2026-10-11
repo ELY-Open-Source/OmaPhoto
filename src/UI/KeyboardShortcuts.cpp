@@ -130,7 +130,7 @@ const std::vector<ShortcutDefinition> &ShortcutDefinition::all()
             entry("Copy", "c", 1, true), entry("Copy Merged", "c", 9, true), entry("Paste", "v", 1, true),
             entry("Fill with Foreground", backspace, 2, true), entry("Fill with Background", backspace, 1, true),
             entry("Content-Aware Fill", backspace, 8, true), entry("Select All", "a", 1, true), entry("Deselect", "d", 1, true),
-            entry("Inverse Selection", "i", 9, true), entry("Select Subject", "a", 3, true), entry("Curves", "m", 1, true),
+            entry("Inverse Selection", "i", 9, true), entry("Select Subject", "a", 3, true), entry("Last Filter", "f", 5, true), entry("Curves", "m", 1, true),
             entry("Levels", "l", 1, true), entry("Hue/Saturation", "u", 1, true), entry("Invert Pixels / Mask", "i", 1, true),
             entry("Canvas Size", "c", 3, true), entry("Image Size", "i", 3, true), entry("Transform Layer / Selection", "t", 1, true),
             entry("Duplicate / Layer via Copy", "j", 1, true), entry("Toggle Clipping Mask", "g", 3, true),

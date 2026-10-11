@@ -225,6 +225,10 @@ CompositorMenus::CompositorMenus(ProjectWorkspace &workspace, QMenuBar &bar, Pro
     add(image, QStringLiteral("flipCanvasVertical"), QStringLiteral("Flip Canvas Vertical"), QKeySequence(), [this] { session().flipCanvas(false); });
 
     QMenu *filter = bar.addMenu(QStringLiteral("Fil&ter"));
+    // Ctrl+Meta+F, Swift's Cmd+Control: Ctrl+F searches commands.
+    add(filter, QStringLiteral("lastFilter"), QStringLiteral("Last Filter"), QKeySequence(Qt::CTRL | Qt::META | Qt::Key_F),
+        [this] { session().repeatLastFilter(); });
+    filter->addSeparator();
     for (const FilterKind kind : allFilterKinds) {
         if (kind != FilterKind::contentAwareFill && !isImageAdjustment(kind))
             add(filter, filterName(kind), rawValue(kind) + QStringLiteral("…"), QKeySequence(), [this, kind] { session().beginFilter(kind); });
@@ -387,6 +391,8 @@ void CompositorMenus::synchronize()
     for (const char *name : {"expandSelection", "contractSelection", "featherSelection"})
         action(QString::fromLatin1(name))->setEnabled(s.canModifySelection());
     action(QStringLiteral("levels"))->setEnabled(s.canAdjustColors() && !s.hueSaturation());
+    action(QStringLiteral("lastFilter"))->setText(s.lastFilter() ? QStringLiteral("Last Filter: ") + rawValue(s.lastFilter().value()) : QStringLiteral("Last Filter"));
+    action(QStringLiteral("lastFilter"))->setEnabled(s.canRepeatLastFilter());
     for (const FilterKind kind : allFilterKinds) {
         if (kind != FilterKind::contentAwareFill)
             action(filterName(kind))->setEnabled((kind == FilterKind::vignette ? s.canVignette() : s.canAdjustColors()) && !s.hueSaturation());

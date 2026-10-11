@@ -53,6 +53,11 @@ QString rawValue(BackgroundQuality quality)
     return quality == BackgroundQuality::basic ? QStringLiteral("Basic") : QStringLiteral("Advanced");
 }
 
+bool repeatsAsLastFilter(FilterKind kind)
+{
+    return kind != FilterKind::contentAwareFill && !isImageAdjustment(kind);
+}
+
 bool isImageAdjustment(FilterKind kind)
 {
     return kind == FilterKind::curves || kind == FilterKind::exposure || kind == FilterKind::gradientMap || kind == FilterKind::grain
