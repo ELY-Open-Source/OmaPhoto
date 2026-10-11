@@ -169,13 +169,15 @@ void LayerListFocusTests::aNewPaletteRedrawsEveryIcon()
     QApplication::setPalette(changed);
     const double ratio = panel.devicePixelRatio();
     auto *add = panel.findChild<QToolButton *>("addBlankLayer");
-    QTRY_COMPARE(iconImage(add->icon(), 16), iconImage(LayerIcons::pixmap(LayerIcon::newLayer, 16, QColor(10, 200, 30), ratio), 16));
-    QCOMPARE(iconImage(panel.findChild<QToolButton *>("addLayerMask")->icon(), 16), iconImage(LayerIcons::pixmap(LayerIcon::addMask, 16, QColor(10, 200, 30), ratio), 16));
+    // Buttons take the primary ink since 14.11; menus the secondary.
+    QTRY_COMPARE(iconImage(add->icon(), 16), iconImage(LayerIcons::pixmap(LayerIcon::newLayer, 16, QColor(200, 10, 30), ratio), 16));
+    QCOMPARE(iconImage(panel.findChild<QToolButton *>("addLayerMask")->icon(), 16), iconImage(LayerIcons::pixmap(LayerIcon::addMask, 16, QColor(200, 10, 30), ratio), 16));
+    QCOMPARE(iconImage(panel.findChild<QToolButton *>("layerEffects")->icon(), 16), iconImage(LayerIcons::pixmap(LayerIcon::sparkles, 16, QColor(10, 200, 30), ratio), 16));
     LayerCell &folder = *panel.list().cells().at(0);
     QTRY_COMPARE(iconImage(folder.findChild<QToolButton *>("layerEye")->icon(), 16), iconImage(LayerIcons::pixmap(LayerIcon::eye, 16, QColor(200, 10, 30), ratio), 16));
     QCOMPARE(iconImage(folder.thumbnail().icon(), 36), iconImage(LayerIcons::pixmap(LayerIcon::folder, 36 * 0.8, QColor(200, 10, 30), ratio), 36));
     QApplication::setPalette(before);
-    QTRY_COMPARE(iconImage(add->icon(), 16), iconImage(LayerIcons::pixmap(LayerIcon::newLayer, 16, before.color(QPalette::PlaceholderText), ratio), 16));
+    QTRY_COMPARE(iconImage(add->icon(), 16), iconImage(LayerIcons::pixmap(LayerIcon::newLayer, 16, before.color(QPalette::Active, QPalette::WindowText), ratio), 16));
 }
 
 void LayerListFocusTests::aSwipeReleasedOverAPopupStillEnds()

@@ -1,6 +1,8 @@
 #include "UI/LayersPanel.h"
 #include "UI/LayerAppearanceControls.h"
 #include "UI/LayerIcons.h"
+#include <QStyle>
+#include <QStyleOption>
 #include "UI/LayerMaskMenu.h"
 #include "UI/NativeLayerList.h"
 #include <QEvent>
@@ -107,23 +109,36 @@ LayersPanel::LayersPanel(EditorSession &session, QWidget *parent)
     synchronize();
 }
 
+QIcon footerIcon(LayerIcon icon, const QWidget &button)
+{
+    // Disabled, the menus' own dimmed ink: Qt dims their icons.
+    QStyleOption option;
+    option.initFrom(&button);
+    const QPixmap menuInk = LayerIcons::pixmap(icon, 16, button.palette().color(QPalette::Active, QPalette::PlaceholderText), button.devicePixelRatio());
+    QIcon made(LayerIcons::pixmap(icon, 16, button.palette().color(QPalette::Active, QPalette::WindowText), button.devicePixelRatio()));
+    made.addPixmap(button.style()->generatedIconPixmap(QIcon::Disabled, menuInk, &option), QIcon::Disabled);
+    return made;
+}
+
 // The icons take the palette's ink, again after each theme.
 void LayersPanel::applyIcons()
 {
     const QColor ink = palette().color(QPalette::PlaceholderText);
     m_emptyIcon->setPixmap(LayerIcons::pixmap(LayerIcon::layers, 25, ink, devicePixelRatio()));
-    m_addBlankLayer->setIcon(LayerIcons::pixmap(LayerIcon::newLayer, 16, ink, devicePixelRatio()));
-    m_group->setIcon(LayerIcons::pixmap(LayerIcon::newFolder, 16, ink, devicePixelRatio()));
+    // Buttons in the primary ink; the two menus keep theirs.
+    m_addBlankLayer->setIcon(footerIcon(LayerIcon::newLayer, *m_addBlankLayer));
+    m_group->setIcon(footerIcon(LayerIcon::newFolder, *m_group));
     m_effects->setIcon(LayerIcons::pixmap(LayerIcon::sparkles, 16, ink, devicePixelRatio()));
     m_adjustments->setIcon(LayerIcons::pixmap(LayerIcon::halfFilledCircle, 16, ink, devicePixelRatio()));
-    m_delete->setIcon(LayerIcons::pixmap(LayerIcon::trash, 16, ink, devicePixelRatio()));
+    m_delete->setIcon(footerIcon(LayerIcon::trash, *m_delete));
 }
 
 void LayersPanel::changeEvent(QEvent *event)
 {
     QWidget::changeEvent(event);
+    // Once the buttons carry the new palette too.
     if (event->type() == QEvent::PaletteChange)
-        applyIcons();
+        QMetaObject::invokeMethod(this, &LayersPanel::applyIcons, Qt::QueuedConnection);
 }
 
 QToolButton *LayersPanel::footerButton(const QString &name, const QString &label, const QString &tip, const std::function<void()> &run)

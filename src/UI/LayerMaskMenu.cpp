@@ -1,5 +1,6 @@
 #include "UI/LayerMaskMenu.h"
 #include "UI/LayerIcons.h"
+#include "UI/LayersPanel.h"
 #include <QEvent>
 #include <QGuiApplication>
 #include <QHBoxLayout>
@@ -23,7 +24,7 @@ void LayerMaskMenu::synchronize()
     setEnabled(m_session.canEditMask() && !(active && active->mask));
     setToolTip(m_session.selection() ? QStringLiteral("Add layer mask revealing the selection (Alt-click to hide it)")
                                      : QStringLiteral("Add layer mask (Alt-click for a black mask)"));
-    setIcon(LayerIcons::pixmap(LayerIcon::addMask, 16, palette().color(QPalette::PlaceholderText), devicePixelRatio()));
+    setIcon(footerIcon(LayerIcon::addMask, *this));
 }
 
 void LayerMaskMenu::changeEvent(QEvent *event)

@@ -1,5 +1,7 @@
 #pragma once
 #include "Document/EditorSession.h"
+#include "UI/LayerIcons.h"
+#include <QIcon>
 #include <QLabel>
 #include <QStackedWidget>
 #include <QToolButton>
@@ -7,7 +9,11 @@
 
 class NativeLayerList;
 
+// Swift's FooterIcon: full ink; disabled, as dim as menus.
+QIcon footerIcon(LayerIcon icon, const QWidget &button);
+
 // The layers panel: heading, appearance, the rows, the footer.
+
 class LayersPanel : public QWidget {
     Q_OBJECT
 public:

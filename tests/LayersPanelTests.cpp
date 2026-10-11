@@ -7,6 +7,8 @@
 #include <QStackedWidget>
 #include <QToolButton>
 #include <QMenu>
+#include <QStyle>
+#include <QStyleOption>
 #include <QtTest>
 #include "SessionFixtures.h"
 
@@ -18,6 +20,18 @@ template <typename Widget> Widget &find(QWidget &root, const char *name)
     if (!found)
         throw std::runtime_error(std::string("no widget named ") + name);
     return *found;
+}
+
+// The brightest ink an icon draws in a mode.
+QColor brightest(const QIcon &icon, QIcon::Mode mode)
+{
+    const QImage drawn = icon.pixmap(16, mode).toImage().convertToFormat(QImage::Format_ARGB32);
+    QColor best(0, 0, 0, 0);
+    for (int y = 0; y < drawn.height(); ++y)
+        for (int x = 0; x < drawn.width(); ++x)
+            if (drawn.pixelColor(x, y).alpha() > best.alpha())
+                best = drawn.pixelColor(x, y);
+    return best;
 }
 
 void drag(QWidget &edge, int fromX, int toX)
@@ -40,6 +54,7 @@ private slots:
     void theEdgeResizesThePanelWithinRangeAndRemembersIt();
     void aStoredWidthOutOfRangeIsTheDefault();
     void theMaskButtonUsesTheSelection();
+    void footerButtonsTakeThePrimaryInkAndDimAsTheMenus();
 };
 
 void LayersPanelTests::initTestCase()
@@ -172,6 +187,45 @@ void LayersPanelTests::aStoredWidthOutOfRangeIsTheDefault()
     QSettings().setValue(QStringLiteral("layersPanelWidth"), QStringLiteral("wide"));
     QTest::ignoreMessage(QtWarningMsg, QRegularExpression("layersPanelWidth 0 is out of range, using 252"));
     QCOMPARE(ContentView::layersPanelWidth(), 252.0);
+}
+
+void LayersPanelTests::footerButtonsTakeThePrimaryInkAndDimAsTheMenus()
+{
+    EditorSession session;
+    LayersPanel panel(session);
+    // Opaque inks, each group its own: disabled reads the active.
+    const QColor primary(230, 230, 230), secondary(150, 150, 150);
+    QPalette inks = panel.palette();
+    inks.setColor(QPalette::Active, QPalette::WindowText, primary);
+    inks.setColor(QPalette::Inactive, QPalette::WindowText, primary);
+    inks.setColor(QPalette::Active, QPalette::PlaceholderText, secondary);
+    inks.setColor(QPalette::Inactive, QPalette::PlaceholderText, secondary);
+    inks.setColor(QPalette::Disabled, QPalette::WindowText, QColor(60, 20, 20));
+    inks.setColor(QPalette::Disabled, QPalette::PlaceholderText, QColor(20, 60, 20));
+    panel.setPalette(inks);
+    QVERIFY(!find<QToolButton>(panel, "addLayerMask").isEnabled());
+    QTRY_COMPARE(brightest(find<QToolButton>(panel, "addBlankLayer").icon(), QIcon::Normal).rgb(), primary.rgb());
+    // Swift 1.4.7: primary ink; disabled, dimmed as a menu's.
+    const std::vector<std::pair<const char *, LayerIcon>> buttons{
+        {"addBlankLayer", LayerIcon::newLayer}, {"groupLayers", LayerIcon::newFolder}, {"addLayerMask", LayerIcon::addMask}, {"deleteLayer", LayerIcon::trash}};
+    for (const auto &[name, shape] : buttons) {
+        QToolButton &button = find<QToolButton>(panel, name);
+        QVERIFY2(brightest(button.icon(), QIcon::Normal).rgb() == primary.rgb(), name);
+        QStyleOption option;
+        option.initFrom(&button);
+        const QPixmap menuInk = LayerIcons::pixmap(shape, 16, secondary, button.devicePixelRatio());
+        const QImage dimmed = button.style()->generatedIconPixmap(QIcon::Disabled, menuInk, &option).toImage();
+        QVERIFY2(button.icon().pixmap(menuInk.size(), QIcon::Disabled).toImage() == dimmed, name);
+        QVERIFY2(button.icon().pixmap(menuInk.size(), QIcon::Disabled).toImage() != button.icon().pixmap(menuInk.size(), QIcon::Normal).toImage(), name);
+    }
+    for (const char *name : {"layerEffects", "addAdjustment"})
+        QVERIFY2(brightest(find<QToolButton>(panel, name).icon(), QIcon::Normal).rgb() == secondary.rgb(), name);
+    // A theme's new ink reaches both.
+    QPalette next = panel.palette();
+    next.setColor(QPalette::WindowText, QColor(250, 200, 40));
+    panel.setPalette(next);
+    QTRY_COMPARE(brightest(find<QToolButton>(panel, "addBlankLayer").icon(), QIcon::Normal).rgb(), QColor(250, 200, 40).rgb());
+    QTRY_COMPARE(brightest(find<QToolButton>(panel, "addLayerMask").icon(), QIcon::Normal).rgb(), QColor(250, 200, 40).rgb());
 }
 
 QTEST_MAIN(LayersPanelTests)
