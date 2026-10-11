@@ -504,43 +504,59 @@ Reviews for this section ran on codex `gpt-6.1-sol` at `max` (agent `codex-sol`)
   - 13.19j work: `versionupdate.md` gains 13.19i's blend menu fix; `v1.4.5` tagged on main and pushed; the workflow's run is checked below.
   - [x] 13.19j Tag `v1.4.5`; every package published.
   - 2026-10-11: GitHub suspended the account; the project moved to Gitea (git.zacharyzhang.com), the workflow became `scripts/release.sh`, and releases gain an AppImage. `scripts/release.sh v1.4.5` published both DEBs, both RPMs, the Arch package, the AppImage and `SHA256SUMS`.
-  - 13.19k (live installs) and 13.19l (the acceptance checklist) move to 14.30: the user's order of 2026-10-11 ports on to v1.4.9 and releases that.
+  - 13.19k (live installs) and 13.19l (the acceptance checklist) move to 14.32: the user's order of 2026-10-11 ports on to v1.4.9 and releases that.
 
 ## 14 Compositor 1.4.9 (the user's order, 2026-10-11: port through v1.4.9, release OmaPhoto 1.4.9 on Gitea)
 
-`Compositor-Ref` moves to `v1.4.9`. One item at a time, top to bottom. Each is reviewed by codex (`gpt-6.1-sol`, `xhigh`, fast) in a herdr pane split to the right, five rounds at most. A later fix to a feature travels with the item that ports the feature; a C kernel is taken at its v1.4.9 state. Nothing to port: release, feed and Xcode commits (`11d8d7a`, `e64f749`, `fa41b9b`, `675d8a4`, `af30c45`, `24ef288`, `22c7b8d`, `0ab3ff5`), merges that resolve no conflict (`673cdb6`, `c9d769d`, `41bd281`, `aac6e02`, `3c6cf5e`, `7e14acc`, `28d237c`, `61ea182`, `b5f9b80`), macOS's Edit menu extras (`710dd66`: Writing Tools, AutoFill, Dictation and Emoji are AppKit's own) and Sparkle's update alert (`759bcbe`: no updater on Linux).
+`Compositor-Ref` moves to `v1.4.9`. One item at a time, top to bottom. Each is reviewed by codex (`gpt-6.1-sol`, `xhigh`, fast) in a herdr pane split to the right, five rounds at most. Items follow the first release that holds each feature (`git merge-base --is-ancestor`); a later fix to a feature travels with it. A C kernel is copied whole at the state of the item's last upstream commit, and later items move it on (`DitherPixels` at `196342c` in 14.2, at `cdde327` in 14.19; `AdjustPixels` at `42a559b` in 14.8, `0b4c56c` in 14.16, then 14.25 to 14.28). Nothing to port: release, feed and Xcode commits (`11d8d7a`, `e64f749`, `fa41b9b`, `675d8a4`, `af30c45`, `24ef288`, `22c7b8d`, `0ab3ff5`), merges with no conflict (`673cdb6`, `c9d769d`, `41bd281`, `aac6e02`, `7e14acc`, `28d237c`, `61ea182`, `b5f9b80`; `git show --remerge-diff` shows none), macOS's Edit menu extras (`710dd66`: Writing Tools, AutoFill, Dictation and Emoji are AppKit's own) and Sparkle's update alert (`759bcbe`: no updater on Linux). Keys: Cmd is Ctrl, Option is Alt, Control is Meta.
+
+Compositor 1.4.6:
 
 - [ ] 14.0 Survey v1.4.5..v1.4.9 (76 commits) and split them into the items below; `Compositor-Ref` at `v1.4.9`; 13.19 closed.
-- [ ] 14.1 Layer effects and live text survive Canvas Size, Image Size, Crop and the colour adjustments (`94e90bd`), with `docs/project-format.md`.
-- [ ] 14.2 Color Overlay, Inner Glow and Inner Shadow recolour translucent pixels fully (`e7e295e`, `9cb57db`); the effects button says "Add layer effect" (`f25effa`).
-- [ ] 14.3 RAW import rounds to 8 bits with fine noise, in C (`6345432`, `196342c`, `6e6ca38`'s test); the develop sheet says Importing… until the layer lands (`0907f51`).
-- [ ] 14.4 New Canvas: inches, cm or mm at 72 or 300 DPI, transparent, white or black, every setting a pill; it opens transparent, in pixels, at 72 DPI (`b0b4f01`, `ab9779a`, `a00d8b6`).
-- [ ] 14.5 Image › Rotate Canvas 90° Clockwise and Counterclockwise (`754f188`).
-- [ ] 14.6 Filter › Last Filter on Ctrl+Meta+F, the last filter with its settings (`0415aa4`, `6b81d4a`).
-- [ ] 14.7 One View › Snap for all snapping (`bba92dc`'s session half).
-- [ ] 14.8 The command palette (Ctrl+F): menu commands, tools and their modes, masks, toggles shown on (`cb139a1`, `384632d`, `231b7d3`, `07b8b1e`, `94b57f7`, `bba92dc`'s palette half, `720c121`'s and `088a5c1`'s palette lines).
-- [ ] 14.9 Canvas Only and Toggle Fullscreen on F and Esc (`ad4bddf`, `088a5c1`, `720c121`).
+- [ ] 14.1 Color Overlay, Inner Glow and Inner Shadow recolour translucent pixels fully (`e7e295e`, `9cb57db`); the effects button says "Add layer effect" (`f25effa`).
+- [ ] 14.2 RAW import rounds to 8 bits with fine noise, in C (`6345432`, `196342c`, `6e6ca38`'s test); the develop sheet says Importing… until the layer lands (`0907f51`).
+- [ ] 14.3 New Canvas: inches, cm or mm at 72 or 300 DPI, transparent, white or black, every setting a pill; it opens transparent, in pixels, at 72 DPI (`b0b4f01`, `ab9779a`, `a00d8b6`).
+- [ ] 14.4 Image › Rotate Canvas 90° Clockwise and Counterclockwise (`754f188`).
+- [ ] 14.5 One View › Snap for all snapping (`bba92dc`'s session and menu half).
+- [ ] 14.6 The command palette: menu commands, tools and their modes, masks, toggles shown on, on Ctrl+F (`cb139a1`, `384632d`, `231b7d3`, `07b8b1e`, `94b57f7`, `bba92dc`'s palette half, the palette lines of `088a5c1` and `720c121`).
+- [ ] 14.7 Canvas Only and Toggle Fullscreen on F and Esc (`ad4bddf`, `088a5c1`, `720c121`).
+- [ ] 14.8 Camera Raw's colour noise reduction: clear pixels unsaturated, brightness kept (`a2718d9`, `42a559b`).
+
+Compositor 1.4.7:
+
+- [ ] 14.9 Filter › Last Filter on Ctrl+Meta+F, the last filter with its settings (`0415aa4`, `6b81d4a`).
 - [ ] 14.10 The hand stays closed for a whole Space or Hand pan (`c0a1cd0`).
-- [ ] 14.11 Layers footer: the primary colour, dimmed as far as its menus when disabled (`7fb40a9`, `790195f`); the panel grays only for what lasts (`06313a9`).
+- [ ] 14.11 Layers footer in the primary colour, dimmed as far as its menus when disabled (`7fb40a9`, `790195f`).
 - [ ] 14.12 The unsaved-changes alert: Don't Save destructive, as plain as Cancel (`283d360`, `4e035bf`).
 - [ ] 14.13 A layer's name field keeps its size while renaming (`8f7d344`).
 - [ ] 14.14 Tool headers scroll when the window is too narrow (`68396ff`).
+
+Compositor 1.4.8:
+
 - [ ] 14.15 Layers selected on the canvas are revealed in the Layers panel (`d2b8aaf`, `b4e147b`).
-- [ ] 14.16 File › Export As…: PNG, JPEG or PDF, sized and previewed over the checkerboard (`9287cf1`, `450af5f`, `b1db93d`).
-- [ ] 14.17 Filter › Scanlines, its own filter: Displace, Threshold, Thickness, Color Split, smoothed displacement, Dots by tone, Black Level (`06c3a22`, `1187736`, `cdde327`), the kernel at v1.4.9.
-- [ ] 14.18 The Navigator minimap in the canvas's corner from 300% (`6490bb3`, `3e09948`).
-- [ ] 14.19 WebP import (`5724099`).
-- [ ] 14.20 Ctrl or Meta with a middle drag zooms (`e03923f`).
-- [ ] 14.21 Camera Raw's colour noise reduction: clear pixels unsaturated, brightness kept (`a2718d9`, `42a559b`); Shadows and Highlights keep tones in order (`0b4c56c`).
-- [ ] 14.22 Camera Raw's Light and Color sliders match Photoshop's, with `CameraRawTables` (`57ab3bb`).
-- [ ] 14.23 Camera Raw's adaptive Contrast, Highlights and Shadows; Dehaze, Texture, Clarity and Sharpening (`75147a2`).
-- [ ] 14.24 Camera Raw's Color Mixer, Calibration, curve, vignettes and Color Grading (`bdfb9c2`, `9dac4f1`, `7b5a592`).
-- [ ] 14.25 Camera Raw's preview 5 to 20 times faster (`a8630e4`).
-- [ ] 14.26 Tabs: the blank start tab stays put; Untitled numbers stay low (`d0ec2f3`).
-- [ ] 14.27 The slider snap test draws its slider before pressing it (`07eee7e`); README lines (`cea9083`, `e1a5210`, `75f3556`).
-- [ ] 14.28 Version 1.4.9: CMake, PKGBUILD, flake, `versionupdate.md`, README, AGENTS.md.
-- [ ] 14.29 The acceptance run for the rows new in 1.4.6 to 1.4.9; the full suite; distro checks (arch, fedora, fedora44, nixos, resolute).
-- [ ] 14.30 Tag `v1.4.9`, `scripts/release.sh v1.4.9`, live installs from Gitea in fresh containers, the acceptance checklist.
+- [ ] 14.16 Camera Raw's Shadows and Highlights keep tones in order (`0b4c56c`).
+- [ ] 14.17 The Layers panel grays only for what lasts (`06313a9`).
+- [ ] 14.18 File › Export As…: PNG, JPEG or PDF, sized and previewed over the checkerboard (`9287cf1`, `450af5f`, `b1db93d`).
+- [ ] 14.19 Filter › Scanlines, its own filter: Displace, Threshold, Thickness, Color Split, smoothed displacement, Dots by tone, Black Level (`06c3a22`, `1187736`, `cdde327`).
+- [ ] 14.20 The Navigator: a minimap in the canvas's corner from 300% (`6490bb3`, `3e09948`; `3c6cf5e` resolves a conflict in `ContentView` between the Navigator's column and Canvas Only, which the minimap supersedes).
+- [ ] 14.21 The slider snap test draws its slider before pressing it (`07eee7e`).
+
+Compositor 1.4.9:
+
+- [ ] 14.22 Canvas Size, Crop and Trim keep effects, live text and live shapes; Image Size scales effects by the root of its two factors and turns text and shapes into pixels (a size that only changes resolution keeps all three); Hue/Saturation, Levels, Invert and a floating merge keep effects (`94e90bd`), with `docs/project-format.md`.
+- [ ] 14.23 WebP import (`5724099`).
+- [ ] 14.24 Ctrl or Meta with a middle drag zooms (`e03923f`).
+- [ ] 14.25 Camera Raw's Light and Color sliders match Photoshop's, with `CameraRawTables` (`57ab3bb`).
+- [ ] 14.26 Camera Raw's adaptive Contrast, Highlights and Shadows; Dehaze, Texture, Clarity and Sharpening (`75147a2`).
+- [ ] 14.27 Camera Raw's Color Mixer, Calibration, curve, vignettes and Color Grading (`bdfb9c2`, `9dac4f1`, `7b5a592`).
+- [ ] 14.28 Camera Raw's preview 5 to 20 times faster (`a8630e4`).
+- [ ] 14.29 Tabs: the blank start tab stays put; Untitled numbers stay low (`d0ec2f3`).
+
+Release:
+
+- [ ] 14.30 Version 1.4.9: CMake, PKGBUILD, flake, `versionupdate.md`, README (`75f3556`, `cea9083`, `e1a5210` and every row new since 1.4.5), AGENTS.md.
+- [ ] 14.31 The acceptance run for the rows new in 1.4.6 to 1.4.9; the full suite; distro checks (arch, fedora, fedora44, nixos, resolute).
+- [ ] 14.32 Tag `v1.4.9`, `scripts/release.sh v1.4.9`, live installs from Gitea in fresh containers, the acceptance checklist.
 
 ## Skills by phase
 
