@@ -220,6 +220,25 @@ void LayersPanelTests::footerButtonsTakeThePrimaryInkAndDimAsTheMenus()
     }
     for (const char *name : {"layerEffects", "addAdjustment"})
         QVERIFY2(brightest(find<QToolButton>(panel, name).icon(), QIcon::Normal).rgb() == secondary.rgb(), name);
+    // Made enabled, they still dim as the menus when busy.
+    EditorSession working;
+    working.createDocument(20, 20);
+    QImage pixels(4, 4, QImage::Format_RGBA8888_Premultiplied);
+    pixels.fill(Qt::white);
+    working.insert(ImportedImage(pixels, pixels, QStringLiteral("White")), QPointF(10, 10));
+    LayersPanel live(working);
+    live.setPalette(inks);
+    QTRY_COMPARE(brightest(find<QToolButton>(live, "addBlankLayer").icon(), QIcon::Normal).rgb(), primary.rgb());
+    QVERIFY(find<QToolButton>(live, "addBlankLayer").isEnabled() && find<QToolButton>(live, "addLayerMask").isEnabled());
+    working.setIsProjectBusy(true);
+    for (const auto &[name, shape] : buttons) {
+        QToolButton &button = find<QToolButton>(live, name);
+        QVERIFY2(!button.isEnabled(), name);
+        QStyleOption option;
+        option.initFrom(&button);
+        const QPixmap menuInk = LayerIcons::pixmap(shape, 16, secondary, button.devicePixelRatio());
+        QVERIFY2(button.icon().pixmap(menuInk.size(), QIcon::Disabled).toImage() == button.style()->generatedIconPixmap(QIcon::Disabled, menuInk, &option).toImage(), name);
+    }
     // A theme's new ink reaches both.
     QPalette next = panel.palette();
     next.setColor(QPalette::WindowText, QColor(250, 200, 40));
