@@ -552,7 +552,8 @@ Compositor 1.4.8:
 - 14.15 work: `revealActiveLayer` after both selections, a second signal when a folder opens; the list scrolls a newly active row in once it exists. 14 mutants, all caught but one equivalent. Review: round 1 FAIL (a child of a shut folder never scrolled in), round 2 PASS.
 - [x] 14.16 Camera Raw's Shadows and Highlights keep tones in order (`0b4c56c`).
 - 14.16 work: `kernels/AdjustPixels.c` copied from 0b4c56c unchanged; `CameraRawToneOrderTests`. 10 mutants, all caught. Review: round 1 FAIL (partial amounts each way), round 2 PASS.
-- [ ] 14.17 The Layers panel grays only for what lasts (`06313a9`).
+- [x] 14.17 The Layers panel grays only for what lasts (`06313a9`).
+- 14.17 work: `layersLookEditable`; the list, footer, effects menu and mask button follow it, effect eyes keep `canEditLayers`. 30 mutants, all caught but one dead term removed. Review: round 1 FAIL (effect eyes; the adjustment menu untested), round 2 PASS.
 - [ ] 14.18 File › Export As…: PNG, JPEG or PDF, sized and previewed over the checkerboard (`9287cf1`, `450af5f`, `b1db93d`).
 - [ ] 14.19 Filter › Scanlines, its own filter: Displace, Threshold, Thickness, Color Split, smoothed displacement, Dots by tone, Black Level (`06c3a22`, `1187736`, `cdde327`).
 - [ ] 14.20 The Navigator: a minimap in the canvas's corner from 300% (`6490bb3`, `3e09948`; `3c6cf5e` resolves a conflict in `ContentView` between the Navigator's column and Canvas Only, which the minimap supersedes).
