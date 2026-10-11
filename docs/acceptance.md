@@ -1,6 +1,6 @@
 # OmaPhoto 1.4.9 acceptance
 
-The acceptance table for OmaPhoto 1.4.9, the Linux port of Compositor 1.4.9. Each row is a feature from the README. The rows under "New in 1.4.5" cover what changed since 1.3.3, those under "New in 1.4.6 to 1.4.9" what changed since 1.4.5. A "pending" result waits for the release.
+The acceptance table for OmaPhoto 1.4.9, the Linux port of Compositor 1.4.9. Each row is a feature from the README. The rows under "New in 1.4.5" cover what changed since 1.3.3, those under "New in 1.4.6 to 1.4.9" what changed since 1.4.5.
 
 The acceptance run drives the app's own window, the way a person uses it. It chooses menu entries, drags on the canvas, types into sheets and answers the real file panels. Then it checks concrete results: pixels, layers, sizes and files on disk. The run is seven test programs: `AcceptanceTests`, `AcceptanceColorTests` and `AcceptanceProjectTests` for the table, `AcceptanceNewTests`, `AcceptanceEditTests` and `AcceptanceFinishTests` for the rows new in 1.4.5, and `AcceptanceLatestTests` for those new in 1.4.6 to 1.4.9. They take the screenshots below when `ACCEPTANCE_SHOTS` names a folder.
 
