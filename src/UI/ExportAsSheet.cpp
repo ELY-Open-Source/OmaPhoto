@@ -64,6 +64,24 @@ QString inches(double value)
     return shown;
 }
 
+// Swift's Int field: a whole Int64, else a number truncated.
+std::optional<qint64> typedInteger(const QLineEdit &field)
+{
+    QLocale locale = field.locale();
+    locale.setNumberOptions(locale.numberOptions() | QLocale::RejectGroupSeparator);
+    // QLocale's readers skip spaces at either end.
+    const QString text = field.text();
+    bool number = false;
+    const qint64 whole = locale.toLongLong(text, &number);
+    if (number)
+        return whole;
+    const double value = locale.toDouble(text, &number);
+    // Int64 holds whatever lies strictly inside ±2^63.
+    if (!number || !(std::abs(value) < 0x1p63))
+        return std::nullopt;
+    return qint64(std::trunc(value));
+}
+
 struct Made {
     std::optional<QByteArray> data;
     QImage preview;
@@ -76,19 +94,15 @@ ExportAsSheet::ExportAsSheet(ExportRaster raster, EditorSession &session, Export
       m_settings{format, JPEGOptions(), m_raster.image.width(), m_raster.image.height()}, m_wait(new QTimer(this)),
       m_preview(new JPEGPreview([this] { synchronize(); }, this)), m_spinner(new QProgressBar(m_preview)), m_formats(new QButtonGroup(this)),
       m_width(new PickerField([this] {
-          bool number = false;
-          const int value = m_width->text().toInt(&number);
-          if (number)
-              setScale(double(value) / m_raster.image.width());
+          if (const std::optional<qint64> value = typedInteger(*m_width))
+              setScale(double(*value) / m_raster.image.width());
           // A number applies; other text goes back.
           showSize();
           synchronize();
       }, [](int) {}, this)),
       m_height(new PickerField([this] {
-          bool number = false;
-          const int value = m_height->text().toInt(&number);
-          if (number)
-              setScale(double(value) / m_raster.image.height());
+          if (const std::optional<qint64> value = typedInteger(*m_height))
+              setScale(double(*value) / m_raster.image.height());
           // A number applies; other text goes back.
           showSize();
           synchronize();

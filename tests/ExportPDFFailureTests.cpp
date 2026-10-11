@@ -1,6 +1,5 @@
 #include "AddressSpaceLimit.h"
 #include "IO/ImageExporter.h"
-#include <QThreadPool>
 #include <QtEndian>
 #include <QtTest>
 #include <malloc.h>
@@ -30,7 +29,7 @@ QList<QByteArray> inflated(const QByteArray &pdf)
 void ExportPDFFailureTests::aStarvedPDFThrowsOrIsWhole()
 {
     // Noise, so the compressed streams stay near their size.
-    QImage noise(1000, 1000, QImage::Format_RGBA8888_Premultiplied);
+    QImage noise(360, 360, QImage::Format_RGBA8888_Premultiplied);
     quint32 seed = 7;
     for (int y = 0; y < noise.height(); ++y) {
         auto *row = reinterpret_cast<quint32 *>(noise.scanLine(y));
@@ -38,14 +37,13 @@ void ExportPDFFailureTests::aStarvedPDFThrowsOrIsWhole()
             row[x] = (seed = seed * 1664525u + 1013904223u) | 0xff000000u;
     }
     const ExportRaster raster{noise, 72};
-    // Qt converts on pool threads: start them before any limit.
-    QThreadPool::globalInstance()->setExpiryTimeout(-1);
+    // Under 2^17 pixels Qt converts on this thread alone.
     ImageExporter::pdfData(raster);
     int refused = 0, whole = 0;
-    for (qint64 megabytes = 2; megabytes <= 48; ++megabytes) {
+    for (qint64 kilobytes = 64; kilobytes <= 4096; kilobytes += 32) {
         QByteArray pdf;
         try {
-            const AddressSpaceLimit limit(megabytes << 20);
+            const AddressSpaceLimit limit(kilobytes << 10);
             pdf = ImageExporter::pdfData(raster);
         } catch (const ExportError &error) {
             QCOMPARE(error.kind, ExportError::Kind::render);
@@ -54,7 +52,7 @@ void ExportPDFFailureTests::aStarvedPDFThrowsOrIsWhole()
         }
         const QList<QByteArray> streams = inflated(pdf);
         QCOMPARE(streams.size(), qsizetype(2));
-        QVERIFY2(streams[0].size() == 1000 * 1000 * 3 && streams[1].size() == 1000 * 1000, qPrintable(QString::number(megabytes)));
+        QVERIFY2(streams[0].size() == 360 * 360 * 3 && streams[1].size() == 360 * 360, qPrintable(QString::number(kilobytes)));
         ++whole;
     }
     // The sweep reaches both sides of the limit.

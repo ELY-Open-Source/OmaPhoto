@@ -345,6 +345,23 @@ void ExportAsSheetTests::theSizeKeepsTheProportionsWithinTheLimits()
     // The surface's limit caps a growth: 312.5 times here.
     type(width, "100000");
     QVERIFY(width.text() == "20000" && height.text() == "10000");
+    // Swift's Int field: past Int32, exponents, fractions truncated.
+    const auto both = [&](QLineEdit &field, const char *typed) {
+        type(field, QString::fromLatin1(typed));
+        return width.text() + QLatin1Char('x') + height.text();
+    };
+    QCOMPARE(both(width, "1e3"), QString("1000x500"));
+    QCOMPARE(both(height, "2147483648"), QString("20000x10000"));
+    QCOMPARE(both(width, " 12.7 "), QString("12x6"));
+    QCOMPARE(both(width, "1E2"), QString("100x50"));
+    QCOMPARE(both(height, "-12.7"), QString("1x1"));
+    QCOMPARE(both(width, "9223372036854775807"), QString("20000x10000"));
+    QCOMPARE(both(width, "64"), QString("64x32"));
+    // Past Int64, or grouped, Swift reads nothing here.
+    QCOMPARE(both(width, "9223372036854775808"), QString("64x32"));
+    QCOMPARE(both(width, "1e19"), QString("64x32"));
+    QCOMPARE(both(width, "-1e19"), QString("64x32"));
+    QCOMPARE(both(width, "1,000"), QString("64x32"));
     // The menu's steps.
     QStringList steps;
     for (QAction *each : scale.menu()->actions())

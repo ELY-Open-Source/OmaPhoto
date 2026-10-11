@@ -87,6 +87,16 @@ void ExportPDFTests::pdfIsOnePageAtThePrintedSizeWithLosslessPixels()
     const QByteArray rows = ImageExporter::pdfData(ExportRaster{grid, 72});
     QCOMPARE(streamOf(object(rows, 5)), QByteArray("\x0a\x64\xc8\x1e\x5a\xcd\x32\x82\x96\x46\x78\x9b\x5a\xa0\x64\x6e\x96\x69", 18));
     QVERIFY(object(rows, 5).contains("/Width 2 /Height 3"));
+    // A tall page draws its image tall: 2 by 3.
+    QVERIFY(object(rows, 3).contains("/MediaBox [0 0 2.0000 3.0000]"));
+    QCOMPARE(streamOf(object(rows, 4)), QByteArray("q\n2.0000 0 0 3.0000 0 0 cm /Im0 Do\nQ"));
+    // The mask's rows and columns where the pixels are.
+    QImage clear = BrushRaster::context(2, 3, false);
+    clear.setPixel(1, 0, qRgba(0, 0, 255, 255));
+    clear.setPixel(0, 2, qRgba(0, 64, 0, 64));
+    const QByteArray masked = ImageExporter::pdfData(ExportRaster{clear, 72});
+    QCOMPARE(streamOf(object(masked, 6)), QByteArray("\x00\xff\x00\x00\x40\x00", 6));
+    QCOMPARE(streamOf(object(masked, 5)), QByteArray("\x00\x00\x00\x00\x00\xff\x00\x00\x00\x00\x00\x00\x00\xff\x00\x00\x00\x00", 18));
     // A soft edge goes straight: colour whole, alpha apart.
     QImage soft = BrushRaster::context(1, 1, false);
     soft.setPixelColor(0, 0, QColor(255, 0, 0, 128));
