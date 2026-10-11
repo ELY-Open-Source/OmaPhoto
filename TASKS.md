@@ -512,7 +512,7 @@ Reviews for this section ran on codex `gpt-6.1-sol` at `max` (agent `codex-sol`)
 
 Compositor 1.4.6:
 
-- [ ] 14.0 Survey v1.4.5..v1.4.9 (76 commits) and split them into the items below; `Compositor-Ref` at `v1.4.9`; 13.19 closed.
+- [x] 14.0 Survey v1.4.5..v1.4.9 (76 commits) and split them into the items below; `Compositor-Ref` at `v1.4.9`; 13.19 closed.
 - [ ] 14.1 Color Overlay, Inner Glow and Inner Shadow recolour translucent pixels fully (`e7e295e`, `9cb57db`); the effects button says "Add layer effect" (`f25effa`).
 - [ ] 14.2 RAW import rounds to 8 bits with fine noise, in C (`6345432`, `196342c`, `6e6ca38`'s test); the develop sheet says Importing… until the layer lands (`0907f51`).
 - [ ] 14.3 New Canvas: inches, cm or mm at 72 or 300 DPI, transparent, white or black, every setting a pill; it opens transparent, in pixels, at 72 DPI (`b0b4f01`, `ab9779a`, `a00d8b6`).
@@ -521,6 +521,7 @@ Compositor 1.4.6:
 - [ ] 14.6 The command palette: menu commands, tools and their modes, masks, toggles shown on, on Ctrl+F (`cb139a1`, `384632d`, `231b7d3`, `07b8b1e`, `94b57f7`, `bba92dc`'s palette half, the palette lines of `088a5c1` and `720c121`).
 - [ ] 14.7 Canvas Only and Toggle Fullscreen on F and Esc (`ad4bddf`, `088a5c1`, `720c121`).
 - [ ] 14.8 Camera Raw's colour noise reduction: clear pixels unsaturated, brightness kept (`a2718d9`, `42a559b`).
+- 14.0 review (codex `gpt-6.1-sol`, xhigh): round 1 FAIL (kernels at v1.4.9 broke the items' builds; 14.1 claimed live text survives Image Size; `3c6cf5e` had a conflict; items not in release order); round 2 PASS.
 
 Compositor 1.4.7:
 
