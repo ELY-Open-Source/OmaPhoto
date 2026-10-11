@@ -51,7 +51,7 @@ void CompositorMenusTests::everyEntryHasSwiftsShortcutWithCtrlForCommand()
     QCOMPARE(titles, (QStringList{"&File", "&Edit", "&View", "&Select", "&Image", "Fil&ter", "&Layer"}));
     QCOMPARE(menus[0]->actions().size(), 12);
     QCOMPARE(menus[1]->actions().size(), 13);
-    QCOMPARE(menus[2]->actions().size(), 16);
+    QCOMPARE(menus[2]->actions().size(), 18);
     QCOMPARE(menus[3]->actions().size(), 11);
     // Swift 1.3.4's Color Range… follows Subject.
     const QList<QAction *> select = menus[3]->actions();

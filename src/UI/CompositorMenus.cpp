@@ -124,6 +124,9 @@ CompositorMenus::CompositorMenus(ProjectWorkspace &workspace, QMenuBar &bar, QWi
         [this] { session().beginFilter(FilterKind::contentAwareFill); });
 
     QMenu *view = bar.addMenu(QStringLiteral("&View"));
+    add(view, QStringLiteral("searchCommands"), QStringLiteral("Search Commands…"), QKeySequence(Qt::CTRL | Qt::Key_F),
+        [this, &bar] { m_palette.toggle(session(), bar, action(QStringLiteral("searchCommands"))); });
+    view->addSeparator();
     add(view, QStringLiteral("fit"), QStringLiteral("Fit Canvas"), QKeySequence(Qt::CTRL | Qt::Key_0), [this] { session().fit(); });
     add(view, QStringLiteral("actualPixels"), QStringLiteral("Actual Pixels"), QKeySequence(Qt::CTRL | Qt::Key_1), [this] { session().zoom(1); });
     // Swift's stops; open text keeps the keys, as NSText does.

@@ -1,6 +1,7 @@
 #pragma once
 #include "Document/ProjectWorkspace.h"
 #include "Rendering/EditorCanvas.h"
+#include "UI/CommandPaletteView.h"
 #include "UI/FloatingPanel.h"
 #include <QAction>
 #include <QApplication>
@@ -35,6 +36,7 @@ private:
     ProjectWorkspace &m_workspace;
     QWidget &m_window;
     FloatingPanel m_shortcutsPanel{QStringLiteral("keyboardShortcuts"), m_window};
+    CommandPaletteController m_palette{m_window};
     QMetaObject::Connection m_sessionWatch;
     std::optional<QUuid> m_watchedTab;
     // The field whose undo the Edit entries drive.

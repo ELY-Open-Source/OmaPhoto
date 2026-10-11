@@ -115,6 +115,8 @@ add_library(compositor_core STATIC
     src/UI/ColorPaletteControls.cpp
     src/UI/ColorPickerSheet.cpp
     src/UI/ColorPickerSheet+Dialog.cpp
+    src/UI/CommandPalette.cpp
+    src/UI/CommandPaletteView.cpp
     src/UI/CompositorMenus.cpp
     src/UI/LayerAppearanceControls.cpp
     src/UI/LayerIcons.cpp

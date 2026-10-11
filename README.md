@@ -17,6 +17,7 @@ It is a Linux port of [Compositor](https://github.com/robbietilton/Compositor) b
 - Crop, trim, canvas size, image size; PNG and JPEG export with a zoomable preview; New Canvas presets for screens and social formats
 - Imports JPEG, PNG, TIFF, HEIC, SVG, Photoshop files (PSD and PSB) and camera RAW
 - Open Recent, and a Keyboard Shortcuts window
+- Search Commands (Ctrl+F): find every menu command and tool by name and run it with Return
 - Drag a number's label to scrub its value
 - Keep working while a project saves
 - Project tabs that drag to reorder; those that do not fit gather in a menu
