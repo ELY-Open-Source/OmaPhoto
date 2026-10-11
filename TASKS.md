@@ -567,7 +567,8 @@ Compositor 1.4.9:
 
 - [x] 14.22 Canvas Size, Crop and Trim keep effects, live text and live shapes; Image Size scales effects by the root of its two factors and turns text and shapes into pixels (a size that only changes resolution keeps all three); Hue/Saturation, Levels, Invert and a floating merge keep effects (`94e90bd`), with `docs/project-format.md`.
 - 14.22 Effects, live text and shapes outlast Canvas Size, Crop, Trim and resolution-only Image Size; Image Size scales effects; passed review round 2.
-- [ ] 14.23 WebP import (`5724099`).
+- [x] 14.23 WebP import (`5724099`).
+- 14.23 WebP import through Qt's plugin; passed review round 3.
 - [ ] 14.24 Ctrl or Meta with a middle drag zooms (`e03923f`).
 - [ ] 14.25 Camera Raw's Light and Color sliders match Photoshop's, with `CameraRawTables` (`57ab3bb`).
 - [ ] 14.26 Camera Raw's adaptive Contrast, Highlights and Shadows; Dehaze, Texture, Clarity and Sharpening (`75147a2`).
