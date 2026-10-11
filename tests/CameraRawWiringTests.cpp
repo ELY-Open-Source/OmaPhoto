@@ -128,6 +128,11 @@ void CameraRawWiringTests::autoAveragesLinearLight()
     const CameraRawSettings::Balance automatic = CameraRawSettings::autoBalance(picture).value();
     QVERIFY(std::abs(automatic.temperature - linear.temperature) < 1e-9 && std::abs(automatic.tint - linear.tint) < 1e-9);
     QVERIFY(std::abs(automatic.temperature - encoded.temperature) > 1);
+    // A dark pixel takes sRGB's straight segment.
+    QImage dark = BrushRaster::context(1, 1, false);
+    dark.setPixelColor(0, 0, QColor(3, 5, 8));
+    const CameraRawSettings::Balance shade = CameraRawSettings::autoBalance(dark).value();
+    QVERIFY(shade.temperature == 50.5 && shade.tint == 20);
 }
 
 void CameraRawWiringTests::eachEyeClearsEveryFieldOfItsGroup()

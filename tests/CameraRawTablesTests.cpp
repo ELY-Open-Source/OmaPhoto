@@ -101,6 +101,12 @@ void CameraRawTablesTests::neutralizeFindsTheGridsGrayest()
     // White stays white anywhere: the first of the ties wins.
     const CameraRawSettings::Balance white = CameraRawTables::neutralize(1, 1, 1).value();
     QVERIFY(white.temperature == 0 && white.tint == 0);
+    // A refinement past −100 keeps to the range.
+    const CameraRawSettings::Balance edge = CameraRawTables::neutralize(84 / 255.0, 1 / 255.0, 97 / 255.0).value();
+    QVERIFY(edge.temperature == -14.5 && edge.tint == -100);
+    // Ties among searched points: tint rising within each temperature.
+    const CameraRawSettings::Balance tie = CameraRawTables::neutralize(144 / 255.0, 216 / 255.0, 47 / 255.0).value();
+    QVERIFY(tie.temperature == -100 && tie.tint == 60);
     QVERIFY(!CameraRawTables::neutralize(0.5, 0.0001, 0.5));
     QVERIFY(CameraRawTables::neutralize(0.5, 0.00011, 0.5));
 }
@@ -115,6 +121,21 @@ void CameraRawTablesTests::identitySlidersComposeNothing()
     QCOMPARE(composed.size(), size_t(33) * 33 * 33 * 3);
     // The corners are its table's own black and white.
     QVERIFY(composed[0] == entry(92, 0)[0] / 255.0f && composed.back() == entry(92, 4912)[2] / 255.0f);
+    // Three stages in their order, against Python's own run.
+    CameraRawSettings three;
+    three.exposure = 1;
+    three.temperature = 40;
+    three.contrast = 50;
+    const std::vector<float> run = CameraRawTables::compose(CameraRawTables::stages(three).before);
+    const auto at = [&](int r, int g, int b) {
+        const size_t index = ((size_t(r) * 33 + g) * 33 + b) * 3;
+        return std::array<float, 3>{run[index], run[index + 1], run[index + 2]};
+    };
+    const auto near = [](std::array<float, 3> got, std::array<float, 3> expected) {
+        return std::abs(got[0] - expected[0]) < 1e-6f && std::abs(got[1] - expected[1]) < 1e-6f && std::abs(got[2] - expected[2]) < 1e-6f;
+    };
+    QVERIFY(near(at(16, 16, 16), {0.94074458f, 0.85085034f, 0.72421813f}));
+    QVERIFY(near(at(16, 4, 28), {0.85322261f, 0.50834316f, 0.98791242f}));
 }
 
 QTEST_GUILESS_MAIN(CameraRawTablesTests)
