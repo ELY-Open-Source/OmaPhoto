@@ -586,7 +586,8 @@ Release:
 
 - [x] 14.30 Version 1.4.9: CMake, PKGBUILD, flake, `versionupdate.md`, README (`75f3556`, `cea9083`, `e1a5210` and every row new since 1.4.5), AGENTS.md.
 - 14.30 Version 1.4.9, README, change log; passed review round 2.
-- [ ] 14.31 The acceptance run for the rows new in 1.4.6 to 1.4.9; the full suite; distro checks (arch, fedora, fedora44, nixos, resolute).
+- [x] 14.31 The acceptance run for the rows new in 1.4.6 to 1.4.9; the full suite; distro checks (arch, fedora, fedora44, nixos, resolute).
+- 14.31 Acceptance for 1.4.6–1.4.9, full suite, five distro checks; passed review round 3.
 - [ ] 14.32 Tag `v1.4.9`, `scripts/release.sh v1.4.9`, live installs from Gitea in fresh containers, the acceptance checklist.
 
 ## Skills by phase
