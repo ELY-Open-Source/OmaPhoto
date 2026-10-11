@@ -192,6 +192,8 @@ void CameraRawColorNoiseTests::blueAloneMakesAnEdgeAndTheReachFollowsAmountAndSc
     // An edge mostly in the blue difference: Detail keeps it.
     const QImage blue = halves(QColor(102, 115, 26), QColor(102, 100, 179));
     QCOMPARE(pixels(colorNoise(100, 100).apply(blue))[size_t(10 * 60 + 29)], (Pixel{102, 115, 26, 255}));
+    // Half the Detail keeps half the edge.
+    QCOMPARE(pixels(colorNoise(100, 50).apply(blue))[size_t(10 * 60 + 29)], (Pixel{102, 111, 61, 255}));
     const QImage blueAcross = blue.transformed(QTransform().rotate(90));
     QCOMPARE(pixels(colorNoise(100, 100).apply(blueAcross))[size_t(29 * 20 + 10)], (Pixel{102, 115, 26, 255}));
     // One in the red difference alone, blue kept equal.
