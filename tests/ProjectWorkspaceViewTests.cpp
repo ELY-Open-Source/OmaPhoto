@@ -296,7 +296,7 @@ void ProjectWorkspaceViewTests::theToolbarFollowsTheFrontSession()
     workspace.newCanvas();
     QVERIFY(!fit.isEnabled() && !window.isWindowModified());
     QCOMPARE(window.windowFilePath(), QString());
-    QCOMPARE(window.windowTitle(), QString("Untitled 2[*]"));
+    QCOMPARE(window.windowTitle(), QString("Untitled[*]"));
     // At its smallest the window still shows the whole editor.
     window.resize(800, 520);
     QTRY_COMPARE(window.size(), QSize(800, 520));

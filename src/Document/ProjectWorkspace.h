@@ -34,6 +34,8 @@ public:
     ProjectTab &current() const;
     std::shared_ptr<ProjectTab> tab(QUuid id) const;
     bool canSwitch() const;
+    // The only tab, still blank, has nothing to close.
+    bool canClose(const ProjectTab &tab) const;
     ProjectTab &addTab(bool reuseEmpty = true);
     void select(QUuid id);
     // A dragged tab lands at `index`, clamped; chrome, never undone.
@@ -74,6 +76,7 @@ signals:
     void changed();
 
 private:
+    QString freeUntitledName() const;
     bool finishTextEditing();
     struct Baked {
         EditorSession::BakedImages images;
@@ -102,5 +105,4 @@ private:
     std::vector<std::shared_ptr<ProjectTab>> m_tabs;
     QUuid m_selectedID;
     bool m_isManaging = false;
-    int m_nextNumber = 2;
 };

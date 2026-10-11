@@ -25,6 +25,7 @@ class ProjectTabStripTests : public QObject {
 private slots:
     void eachTabIsAsWideAsItsTitle();
     void aTitleMovesOnlyTheTabsAfterIt();
+    void theBlankStartTabHasNoCloseButton();
 };
 
 void ProjectTabStripTests::eachTabIsAsWideAsItsTitle()
@@ -41,18 +42,18 @@ void ProjectTabStripTests::eachTabIsAsWideAsItsTitle()
     QCOMPARE(select(*buttons[0]).width(), 35 + 8);
     QCOMPARE(select(*buttons[1]).width(), 155 + 8);
     QVERIFY(select(*buttons[1]).text().endsWith(QChar(0x2026)));
-    QCOMPARE(select(*buttons[2]).width(), label(QStringLiteral("Untitled 3"), true) + 8);
-    QCOMPARE(select(*buttons[2]).text(), QString("Untitled 3"));
+    QCOMPARE(select(*buttons[2]).width(), label(QStringLiteral("Untitled"), true) + 8);
+    QCOMPARE(select(*buttons[2]).text(), QString("Untitled"));
     // Swift's pill: label, 11 before, 8 after, 16, 5.
     buttons[2]->adjustSize();
-    QCOMPARE(buttons[2]->width(), label(QStringLiteral("Untitled 3"), true) + 40);
+    QCOMPARE(buttons[2]->width(), label(QStringLiteral("Untitled"), true) + 40);
     // The dot: 10 for the title, its character's own width.
     workspace.current().session.createDocument(8, 8);
     workspace.current().session.addBlankLayer();
     QVERIFY(workspace.current().session.isModified());
     const QFontMetrics metrics(select(*buttons[2]).font());
-    QCOMPARE(select(*buttons[2]).text(), QString("● Untitled 3"));
-    QCOMPARE(select(*buttons[2]).width(), label(QStringLiteral("Untitled 3"), true) + 10 + 8 + metrics.horizontalAdvance(QStringLiteral("● ")) - 10);
+    QCOMPARE(select(*buttons[2]).text(), QString("● Untitled"));
+    QCOMPARE(select(*buttons[2]).width(), label(QStringLiteral("Untitled"), true) + 10 + 8 + metrics.horizontalAdvance(QStringLiteral("● ")) - 10);
     // An unsaved long title elides within Swift's width less 10.
     workspace.select(workspace.tabs()[1]->id);
     workspace.current().session.createDocument(8, 8);
@@ -62,7 +63,7 @@ void ProjectTabStripTests::eachTabIsAsWideAsItsTitle()
     QCOMPARE(select(*buttons[1]).text(), QStringLiteral("● ") + bold.elidedText(long_, Qt::ElideRight, 145));
     // Chosen, a tab's weight changes its width.
     workspace.select(workspace.tabs()[0]->id);
-    QCOMPARE(select(*buttons[2]).width(), label(QStringLiteral("Untitled 3"), false) + 10 + 8 + QFontMetrics(select(*buttons[2]).font()).horizontalAdvance(QStringLiteral("● ")) - 10);
+    QCOMPARE(select(*buttons[2]).width(), label(QStringLiteral("Untitled"), false) + 10 + 8 + QFontMetrics(select(*buttons[2]).font()).horizontalAdvance(QStringLiteral("● ")) - 10);
 }
 
 void ProjectTabStripTests::aTitleMovesOnlyTheTabsAfterIt()
@@ -99,6 +100,32 @@ void ProjectTabStripTests::aTitleMovesOnlyTheTabsAfterIt()
     QCOMPARE(buttons[1]->x(), second);
     // Tabs sit six apart.
     QCOMPARE(buttons[1]->x() - (buttons[0]->x() + buttons[0]->width()), 6);
+}
+
+// Swift 1.4.9: the pill closes up round its name.
+void ProjectTabStripTests::theBlankStartTabHasNoCloseButton()
+{
+    ProjectWorkspace workspace;
+    ProjectTabStrip strip(workspace);
+    strip.resize(1000, 34);
+    strip.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&strip));
+    ProjectTabButton &only = *strip.buttons()[0];
+    QToolButton &close = *only.findChild<QToolButton *>(QStringLiteral("closeTab"));
+    const int width = label(QStringLiteral("Untitled"), true);
+    QVERIFY(close.isHidden());
+    QTRY_COMPARE(only.width(), width + 22);
+    QCOMPARE(select(only).width(), width + 11);
+    // A document gives it something to close.
+    workspace.current().session.createDocument(8, 8);
+    QVERIFY(!close.isHidden());
+    // Round the title: 11 before; 16 and 5 after.
+    QTRY_COMPARE(only.width() - select(only).width(), 11 + 16 + 5);
+    // A second tab makes either closable.
+    workspace.current().session.clearProject();
+    QVERIFY(close.isHidden());
+    workspace.addTab(false);
+    QVERIFY(!close.isHidden() && !strip.buttons()[1]->findChild<QToolButton *>(QStringLiteral("closeTab"))->isHidden());
 }
 
 QTEST_MAIN(ProjectTabStripTests)

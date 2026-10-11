@@ -43,6 +43,7 @@ private slots:
     void aDropThatIsNoLayerIdIsIgnored();
     void anOpenFilterHoldsTheSwitch();
     void moveTabReordersWithoutTouchingSelectionOrDocuments();
+    void untitledNumbersStayLowAndTheBlankTabStays();
 };
 
 void ProjectWorkspaceTests::newCanvasOpensAnEmptyTabWithoutAModal()
@@ -275,7 +276,7 @@ void ProjectWorkspaceTests::removingATabSelectsItsNeighbour()
     workspace.removeTab(c);
     QCOMPARE(int(workspace.tabs().size()), 1);
     QVERIFY(workspace.current().id != c);
-    QCOMPARE(workspace.current().title(), QString("Untitled 5"));
+    QCOMPARE(workspace.current().title(), QString("Untitled"));
 }
 
 void ProjectWorkspaceTests::everyChangeIsAnnouncedAndRefusalsAreSilent()
@@ -388,6 +389,39 @@ void ProjectWorkspaceTests::moveTabReordersWithoutTouchingSelectionOrDocuments()
     QCOMPARE(changed.size(), 4);
     // Chrome: the selection stays.
     QCOMPARE(workspace.selectedID(), c);
+}
+
+// The blank start tab stays; numbers stay low (#231).
+void ProjectWorkspaceTests::untitledNumbersStayLowAndTheBlankTabStays()
+{
+    ProjectWorkspace workspace;
+    ProjectTab &first = workspace.current();
+    QVERIFY(first.title() == "Untitled" && !workspace.canClose(first));
+    bool done = false;
+    workspace.close(first.id, [&] { done = true; });
+    QTRY_VERIFY(done);
+    QVERIFY(workspace.tabs().size() == 1 && &workspace.current() == &first && first.title() == "Untitled");
+    // A saved but empty session can close.
+    first.session.setProjectPath(QStringLiteral("/x/Trip.comp"));
+    QVERIFY(workspace.canClose(first));
+    first.session.setProjectPath(std::nullopt);
+    first.session.createDocument(10, 10);
+    QVERIFY(workspace.canClose(first));
+    const QUuid second = workspace.addTab().id;
+    const QString third = workspace.addTab().title();
+    QVERIFY(workspace.tab(second)->title() == "Untitled 2" && third == "Untitled 3");
+    // With another tab, a blank one closes.
+    QVERIFY(workspace.canClose(*workspace.tab(second)));
+    workspace.removeTab(second);
+    QCOMPARE(workspace.addTab().title(), QString("Untitled 2"));
+    // Untitled is free again; a project's Untitled 4 is taken.
+    first.session.setProjectPath(QStringLiteral("/x/Untitled 4.comp"));
+    QCOMPARE(workspace.addTab().title(), QString("Untitled"));
+    QCOMPARE(workspace.addTab().title(), QString("Untitled 5"));
+    const std::vector<std::shared_ptr<ProjectTab>> all = workspace.tabs();
+    for (const std::shared_ptr<ProjectTab> &tab : all)
+        workspace.removeTab(tab->id);
+    QVERIFY(workspace.tabs().size() == 1 && workspace.current().title() == "Untitled");
 }
 
 QTEST_MAIN(ProjectWorkspaceTests)

@@ -72,5 +72,13 @@ void WebPImportTests::aDroppedPictureTakesWebPAfterTIFF()
     QCOMPARE(ImageFileDrop::providers(data).front()->formats(), QStringList{"image/tiff"});
 }
 
-QTEST_MAIN(WebPImportTests)
+int main(int argc, char **argv)
+{
+    // Its drops copy into its own folder: others count theirs.
+    QTemporaryDir own;
+    qputenv("TMPDIR", own.path().toUtf8());
+    QApplication app(argc, argv);
+    WebPImportTests tests;
+    return QTest::qExec(&tests, argc, argv);
+}
 #include "WebPImportTests.moc"

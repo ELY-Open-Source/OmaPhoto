@@ -101,11 +101,11 @@ void ProjectWorkspaceFlowTests::aProjectOpensInATabOfItsOwn()
     workspace.newCanvas();
     store(folder.filePath("Third.comp"), 1);
     QCOMPARE(answered([&](auto done) { workspace.open(folder.filePath("Third.comp"), done); }), std::optional(true));
-    QCOMPARE(titles(workspace), (QStringList{"Trip", "Second", "Untitled 2", "Third*"}));
+    QCOMPARE(titles(workspace), (QStringList{"Trip", "Second", "Untitled", "Third*"}));
     // While it manages, nothing else begins.
     workspace.current().session.setIsProjectBusy(true);
     QCOMPARE(answered([&](auto done) { workspace.open(folder.filePath("Trip.comp"), done); }), std::optional(false));
-    QCOMPARE(titles(workspace), (QStringList{"Trip", "Second", "Untitled 2", "Third*"}));
+    QCOMPARE(titles(workspace), (QStringList{"Trip", "Second", "Untitled", "Third*"}));
 }
 
 void ProjectWorkspaceFlowTests::aProjectThatIsOpenIsBroughtToTheFront()
@@ -116,10 +116,10 @@ void ProjectWorkspaceFlowTests::aProjectThatIsOpenIsBroughtToTheFront()
     ProjectWorkspace workspace;
     QCOMPARE(answered([&](auto done) { workspace.open(folder.filePath("Trip.comp"), done); }), std::optional(true));
     workspace.newCanvas();
-    QCOMPARE(titles(workspace), (QStringList{"Trip", "Untitled 2*"}));
+    QCOMPARE(titles(workspace), (QStringList{"Trip", "Untitled*"}));
     // By a link, with a slash: still the open project.
     QCOMPARE(answered([&](auto done) { workspace.open(folder.filePath("Link.comp") + "/", done); }), std::optional(true));
-    QCOMPARE(titles(workspace), (QStringList{"Trip*", "Untitled 2"}));
+    QCOMPARE(titles(workspace), (QStringList{"Trip*", "Untitled"}));
     QVERIFY(!workspace.isManaging());
 }
 
@@ -173,8 +173,11 @@ void ProjectWorkspaceFlowTests::closingATabAsksAboutItsWork()
     workspace.current().session.setIsProjectBusy(false);
     workspace.close(extra);
     QTRY_COMPARE(int(workspace.tabs().size()), 1);
-    workspace.close(blank);
-    QTRY_COMPARE(titles(workspace), (QStringList{"Untitled 4*"}));
+    // The only tab, still blank, stays put (Swift 1.4.9).
+    done = false;
+    workspace.close(blank, [&] { done = true; });
+    QTRY_VERIFY(done);
+    QCOMPARE(titles(workspace), (QStringList{"Untitled 2*"}));
     QCOMPARE(desk.seen.size(), 2);
     QVERIFY(!workspace.isManaging());
 }
@@ -231,7 +234,7 @@ void ProjectWorkspaceFlowTests::closingTheWindowLeavesOneFreshTab()
     QCOMPARE(int(workspace.tabs().size()), 2);
     workspace.closeWindow(&window);
     QTRY_VERIFY(!window.isVisible());
-    QCOMPARE(titles(workspace), (QStringList{"Untitled 3*"}));
+    QCOMPARE(titles(workspace), (QStringList{"Untitled*"}));
     QVERIFY(!workspace.current().session.document().has_value());
 }
 
@@ -406,15 +409,15 @@ void ProjectWorkspaceFlowTests::aProjectThatMovedAwayIsNoMatchForAnotherMissingO
     QTest::ignoreMessage(QtWarningMsg, QRegularExpression("^Couldn’t open the project: .+"));
     QCOMPARE(answered([&](auto done) { workspace.open(folder.filePath("Elsewhere.comp"), done); }), std::optional(false));
     QCOMPARE(desk.seen.size(), 1);
-    QCOMPARE(titles(workspace), (QStringList{"Here", "Untitled 2*"}));
+    QCOMPARE(titles(workspace), (QStringList{"Here", "Untitled*"}));
     // The same missing place is still the same place,
     QCOMPARE(answered([&](auto done) { workspace.open(folder.filePath("sub/../Here.comp"), done); }), std::optional(true));
-    QCOMPARE(titles(workspace), (QStringList{"Here*", "Untitled 2"}));
+    QCOMPARE(titles(workspace), (QStringList{"Here*", "Untitled"}));
     // also when named from the folder the process stands in.
     workspace.select(workspace.tabs()[1]->id);
     QDir::setCurrent(folder.path());
     QCOMPARE(answered([&](auto done) { workspace.open(QString("Here.comp"), done); }), std::optional(true));
-    QCOMPARE(titles(workspace), (QStringList{"Here*", "Untitled 2"}));
+    QCOMPARE(titles(workspace), (QStringList{"Here*", "Untitled"}));
 }
 
 void ProjectWorkspaceFlowTests::everyCallIsWholeWithoutACompletion()

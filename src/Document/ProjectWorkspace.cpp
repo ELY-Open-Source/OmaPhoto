@@ -3,6 +3,7 @@
 #include "Logging.h"
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QSet>
 #include <QTimer>
 #include <algorithm>
 
@@ -72,12 +73,30 @@ void ProjectWorkspace::finish(const std::function<void(bool)> &done, bool value)
         QMetaObject::invokeMethod(this, [done, value] { done(value); }, Qt::QueuedConnection);
 }
 
+// "Untitled", else the lowest "Untitled N" no tab shows.
+QString ProjectWorkspace::freeUntitledName() const
+{
+    QSet<QString> taken;
+    for (const std::shared_ptr<ProjectTab> &each : m_tabs)
+        taken.insert(each->title());
+    if (!taken.contains(QStringLiteral("Untitled")))
+        return QStringLiteral("Untitled");
+    int number = 2;
+    while (taken.contains(QStringLiteral("Untitled %1").arg(number)))
+        number += 1;
+    return QStringLiteral("Untitled %1").arg(number);
+}
+
+bool ProjectWorkspace::canClose(const ProjectTab &tab) const
+{
+    return !(m_tabs.size() == 1 && !tab.session.document() && !tab.session.projectPath());
+}
+
 ProjectTab &ProjectWorkspace::addTab(bool reuseEmpty)
 {
     if (reuseEmpty && m_tabs.size() == 1 && !current().session.document())
         return current();
-    const auto added = std::make_shared<ProjectTab>(QStringLiteral("Untitled %1").arg(m_nextNumber));
-    m_nextNumber += 1;
+    const auto added = std::make_shared<ProjectTab>(freeUntitledName());
     added->controller.workspace = this;
     added->controller.window = window;
     m_tabs.push_back(added);
@@ -182,7 +201,7 @@ void ProjectWorkspace::loadProject(const QString &path, std::function<void(bool)
 void ProjectWorkspace::close(QUuid id, std::function<void()> done)
 {
     const std::shared_ptr<ProjectTab> closing = tab(id);
-    if (!canSwitch() || !closing) {
+    if (!canSwitch() || !closing || !canClose(*closing)) {
         finish(done);
         return;
     }

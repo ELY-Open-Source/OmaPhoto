@@ -86,8 +86,11 @@ void ProjectTabButton::synchronize()
     const QFontMetrics metrics(tabFont(active));
     m_select->setText(dot + metrics.elidedText(tab->title(), Qt::ElideRight, label - (modified ? 10 : 0)));
     m_select->setFont(tabFont(active));
-    // Swift's trailing 8 inside; a character dot outgrows Swift's 10.
-    m_select->setFixedWidth(label + 8 + (modified ? metrics.horizontalAdvance(dot) - 10 : 0));
+    // Trailing 8, or 11 closed up; a dot outgrows 10.
+    const bool closable = m_workspace.canClose(*tab);
+    m_select->setFixedWidth(label + (closable ? 8 : 11) + (modified ? metrics.horizontalAdvance(dot) - 10 : 0));
+    layout()->setContentsMargins(11, 0, closable ? 5 : 0, 0);
+    m_close->setVisible(closable);
     m_select->setToolTip(tab->title());
     m_select->setEnabled(m_workspace.canSwitch() || active);
     m_close->setToolTip(QStringLiteral("Close %1").arg(tab->title()));
