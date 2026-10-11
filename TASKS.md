@@ -541,7 +541,8 @@ Compositor 1.4.7:
 - 14.11 work: `footerIcon` gives the four buttons the primary ink and the menus' dimmed ink when disabled; the panel redraws its icons from the event loop. 12 mutants, all caught. Review: round 1 FAIL (a button disabled after being made), round 2 PASS.
 - [x] 14.12 The unsaved-changes alert: Don't Save destructive, as plain as Cancel (`283d360`, `4e035bf`).
 - 14.12 held: Swift's net change is none; the twin's Save is the default, Don't Save as plain as Cancel; tested. 3 mutants, all caught. Review: round 1 FAIL (colours unchecked), round 2 PASS.
-- [ ] 14.13 A layer's name field keeps its size while renaming (`8f7d344`).
+- [x] 14.13 A layer's name field keeps its size while renaming (`8f7d344`).
+- 14.13 work: a frameless field of the name's size, a tenth of the ink beneath, the label hidden meanwhile. 6 mutants, all caught. Review: round 1 FAIL (the old name drawn beneath), round 2 PASS.
 - [ ] 14.14 Tool headers scroll when the window is too narrow (`68396ff`).
 
 Compositor 1.4.8:
