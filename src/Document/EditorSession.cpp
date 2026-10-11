@@ -126,6 +126,9 @@ void EditorSession::selectLayer(std::optional<QUuid> id)
         resolveGradient();
     }
     setActiveLayerID(id);
+    // A layer chosen on the canvas shows in the panel.
+    if (revealActiveLayer())
+        notify();
 }
 
 void EditorSession::selectTool(NavigationTool value)

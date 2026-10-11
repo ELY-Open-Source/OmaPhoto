@@ -154,9 +154,9 @@ void ProjectSessionTests::installingStartsAFreshSession()
     session.addGroup();
     const QUuid old = session.activeLayerID().value();
     session.insert(pixels(8, 8, "Old"));
-    session.selectLayer(old);
-    session.toggleGroupExpansion(old);
+    // Collapsed after the choice: choosing a layer opens its folders.
     session.selectLayer(session.document().value().layers.back().id);
+    session.toggleGroupExpansion(old);
     session.beginTransform();
     session.setRenamingLayerID(old);
     session.zoom(3);

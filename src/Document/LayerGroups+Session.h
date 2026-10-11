@@ -6,6 +6,8 @@ public:
     // The primary layer becomes active when the document holds it.
     void selectLayers(const QSet<QUuid> &ids, std::optional<QUuid> primary);
     void extendSelection(QUuid id);
+    // Opens the active layer's folders; true when one opened.
+    bool revealActiveLayer();
     void groupSelectedLayers();
     // The active layer is a folder: something to unwrap.
     bool canUngroupLayers() const;

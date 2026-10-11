@@ -170,7 +170,24 @@ void EditorSession::selectLayers(const QSet<QUuid> &ids, std::optional<QUuid> pr
                                                                             : std::optional(*valid.begin());
     setActiveLayerID(active);
     m_selectedLayerIDs = valid;
+    revealActiveLayer();
     notify();
+}
+
+bool EditorSession::revealActiveLayer()
+{
+    if (m_collapsedGroupIDs.isEmpty() || !m_activeLayerID || !m_document)
+        return false;
+    // Validated parents end at the root: no cycle to guard.
+    const std::vector<ImageLayer> &layers = m_document->layers;
+    const int found = indexOf(layers, *m_activeLayerID);
+    std::optional<QUuid> parent = found >= 0 ? layers[found].parentID : std::nullopt;
+    bool opened = false;
+    while (parent) {
+        opened = m_collapsedGroupIDs.remove(*parent) || opened;
+        parent = layers[indexOf(layers, *parent)].parentID;
+    }
+    return opened;
 }
 
 void EditorSession::extendSelection(QUuid id)
