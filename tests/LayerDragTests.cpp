@@ -187,7 +187,7 @@ void LayerDragTests::theIndicatorShowsWhereTheDropLands()
     QVERIFY(column != nullptr);
     const auto enter = [&](QMimeData *data, QPoint listPoint) {
         const QPoint inViewport = shown.list.viewport()->mapFromParent(listPoint);
-        QDragEnterEvent event(inViewport, Qt::MoveAction, data, Qt::LeftButton, Qt::NoModifier);
+        QDragEnterEvent event(DragAt(inViewport), Qt::MoveAction, data, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(shown.list.viewport(), &event);
         delete data;
         return event.isAccepted();
@@ -237,17 +237,17 @@ void LayerDragTests::aDragNearTheEdgeScrollsTheList()
     QTRY_VERIFY(shown.list.verticalScrollBar()->maximum() > 0);
     QMimeData *data = shown.rows({0});
     const QPoint edge(100, shown.list.viewport()->height() - 2);
-    QDragEnterEvent enter(edge, Qt::MoveAction, data, Qt::LeftButton, Qt::NoModifier);
+    QDragEnterEvent enter(DragAt(edge), Qt::MoveAction, data, Qt::LeftButton, Qt::NoModifier);
     QApplication::sendEvent(shown.list.viewport(), &enter);
     // Held at the bottom edge, each move scrolls further.
     for (int each = 0; each < 3; ++each) {
-        QDragMoveEvent move(edge, Qt::MoveAction, data, Qt::LeftButton, Qt::NoModifier);
+        QDragMoveEvent move(DragAt(edge), Qt::MoveAction, data, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(shown.list.viewport(), &move);
     }
     QCOMPARE(shown.list.verticalScrollBar()->value(), 42);
     auto *column = shown.list.findChild<LayerColumn *>();
     QVERIFY(column->indicator.has_value());
-    QDragMoveEvent top(QPoint(100, 1), Qt::MoveAction, data, Qt::LeftButton, Qt::NoModifier);
+    QDragMoveEvent top(DragAt(QPoint(100, 1)), Qt::MoveAction, data, Qt::LeftButton, Qt::NoModifier);
     QApplication::sendEvent(shown.list.viewport(), &top);
     QCOMPARE(shown.list.verticalScrollBar()->value(), 27);
     QDragLeaveEvent leave;
@@ -263,9 +263,9 @@ void LayerDragTests::aDragHeldAtTheEdgeScrollsOnAndAClipRefreshesTheCursor()
     QTRY_VERIFY(shown.list.verticalScrollBar()->maximum() > 0);
     QMimeData *data = shown.rows({0});
     const QPoint edge(100, shown.list.viewport()->height() - 2);
-    QDragEnterEvent enter(edge, Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::NoModifier);
+    QDragEnterEvent enter(DragAt(edge), Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::NoModifier);
     QApplication::sendEvent(shown.list.viewport(), &enter);
-    QDragMoveEvent move(edge, Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::NoModifier);
+    QDragMoveEvent move(DragAt(edge), Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::NoModifier);
     QApplication::sendEvent(shown.list.viewport(), &move);
     // One move, then a still pointer: the list scrolls on.
     QCOMPARE(shown.list.verticalScrollBar()->value(), 14);
@@ -274,7 +274,7 @@ void LayerDragTests::aDragHeldAtTheEdgeScrollsOnAndAClipRefreshesTheCursor()
     auto *column = shown.list.findChild<LayerColumn *>();
     QVERIFY(column->indicator.has_value());
     // Back inside the scrolling rests; left, it stops.
-    QDragMoveEvent inside(QPoint(100, 100), Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::NoModifier);
+    QDragMoveEvent inside(DragAt(QPoint(100, 100)), Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::NoModifier);
     QApplication::sendEvent(shown.list.viewport(), &inside);
     QVERIFY(!shown.list.autoscrolling());
     const int resting = shown.list.verticalScrollBar()->value();
@@ -306,9 +306,9 @@ void LayerDragTests::leavingOrDroppingAtTheEdgeStopsTheScrolling()
     QTRY_VERIFY(shown.list.verticalScrollBar()->maximum() > 0);
     const QPoint edge(100, shown.list.viewport()->height() - 2);
     const auto scrollAtTheEdge = [&](QMimeData *data) {
-        QDragEnterEvent enter(edge, Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::NoModifier);
+        QDragEnterEvent enter(DragAt(edge), Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(shown.list.viewport(), &enter);
-        QDragMoveEvent move(edge, Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::NoModifier);
+        QDragMoveEvent move(DragAt(edge), Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(shown.list.viewport(), &move);
         QVERIFY(shown.list.autoscrolling());
     };

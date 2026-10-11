@@ -1,3 +1,4 @@
+#include "DragAt.h"
 #include "IO/ProjectStore.h"
 #include "SessionFixtures.h"
 #include "UI/ProjectWorkspaceView.h"
@@ -23,7 +24,7 @@ QMimeData *rowsOf(EditorSession &session)
 bool enter(QWidget &target, QMimeData *data, QPoint at = QPoint(5, 5))
 {
     // Shift makes Qt propose the move, as plain drags do.
-    QDragEnterEvent event(at, Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::ShiftModifier);
+    QDragEnterEvent event(DragAt(at), Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::ShiftModifier);
     QApplication::sendEvent(&target, &event);
     return event.proposedAction() == Qt::MoveAction && event.isAccepted() && event.dropAction() == Qt::CopyAction;
 }
@@ -41,7 +42,7 @@ bool drop(QWidget &target, QMimeData *data, QPoint at = QPoint(5, 5))
 // A move after entering; only a valid one stays accepted.
 bool move(QWidget &target, QMimeData *data, QPoint at = QPoint(5, 5))
 {
-    QDragMoveEvent event(at, Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::ShiftModifier);
+    QDragMoveEvent event(DragAt(at), Qt::MoveAction | Qt::CopyAction, data, Qt::LeftButton, Qt::ShiftModifier);
     QApplication::sendEvent(&target, &event);
     return event.isAccepted() && event.dropAction() == Qt::CopyAction;
 }

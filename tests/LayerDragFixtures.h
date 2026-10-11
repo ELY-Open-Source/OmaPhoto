@@ -12,6 +12,7 @@
 #include <QMimeData>
 #include <QScrollBar>
 #include <QtTest>
+#include "DragAt.h"
 
 // Shared by the drag tests: a shown list, its drops.
 struct Shown {
@@ -43,7 +44,7 @@ struct Shown {
     bool drop(QMimeData *data, Qt::DropActions offered, QPoint listPoint, Qt::KeyboardModifiers modifiers = Qt::NoModifier)
     {
         const QPointF inViewport = list.viewport()->mapFromParent(listPoint);
-        QDragEnterEvent enter(inViewport.toPoint(), offered, data, Qt::LeftButton, modifiers);
+        QDragEnterEvent enter(DragAt(inViewport.toPoint()), offered, data, Qt::LeftButton, modifiers);
         QApplication::sendEvent(list.viewport(), &enter);
         QDropEvent drop(inViewport, offered, data, Qt::LeftButton, modifiers);
         QApplication::sendEvent(list.viewport(), &drop);
