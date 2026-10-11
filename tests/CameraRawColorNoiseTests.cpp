@@ -59,6 +59,7 @@ private slots:
     void aSpeckTakesTheColorAroundItAndKeepsItsBrightness();
     void translucentPixelsKeepTheirColor();
     void coverageWeighsNeighboursAndSmoothnessReaches();
+    void blueAloneMakesAnEdgeAndTheReachFollowsAmountAndScale();
 };
 
 void CameraRawColorNoiseTests::colorNoiseReductionRemovesColorGrainNotBrightness()
@@ -123,6 +124,10 @@ void CameraRawColorNoiseTests::clearPixelsPullNoColorTowardGray()
     QVERIFY2(std::abs(beside[0] - 230) <= 1 && std::abs(beside[1] - 51) <= 1 && std::abs(beside[2] - 51) <= 1,
              qPrintable(QStringLiteral("%1 %2 %3").arg(beside[0]).arg(beside[1]).arg(beside[2])));
     QCOMPARE(smoothed[size_t(10 * 40 + 5)][3], 0);
+    // A lone pixel among clear ones keeps its colour too.
+    QImage lone = BrushRaster::context(31, 31, false);
+    lone.setPixelColor(15, 15, QColor(230, 51, 51));
+    QCOMPARE(pixels(colorNoise(100).apply(lone))[size_t(15 * 31 + 15)], (std::array<int, 4>{230, 51, 51, 255}));
 }
 
 void CameraRawColorNoiseTests::colorDetailKeepsARealColorEdge()
@@ -171,6 +176,34 @@ void CameraRawColorNoiseTests::coverageWeighsNeighboursAndSmoothnessReaches()
     // Smoothness widens the reach: none at 0, some at 100.
     QCOMPARE(pixels(colorNoise(100, 0, 0).apply(split(255)))[size_t(10 * 31 + 9)], (Pixel{230, 51, 51, 255}));
     QCOMPARE(pixels(colorNoise(100, 0, 100).apply(split(255)))[size_t(10 * 31 + 9)], (Pixel{203, 55, 87, 255}));
+}
+
+void CameraRawColorNoiseTests::blueAloneMakesAnEdgeAndTheReachFollowsAmountAndScale()
+{
+    using Pixel = std::array<int, 4>;
+    // Two opaque halves, 60 by 20, meeting at x 30.
+    const auto halves = [](QColor left, QColor right) {
+        QImage picture = BrushRaster::context(60, 20, false);
+        QPainter painter(&picture);
+        painter.fillRect(QRect(0, 0, 30, 20), left);
+        painter.fillRect(QRect(30, 0, 30, 20), right);
+        return picture;
+    };
+    // An edge mostly in the blue difference: Detail keeps it.
+    const QImage blue = halves(QColor(102, 115, 26), QColor(102, 100, 179));
+    QCOMPARE(pixels(colorNoise(100, 100).apply(blue))[size_t(10 * 60 + 29)], (Pixel{102, 115, 26, 255}));
+    const QImage blueAcross = blue.transformed(QTransform().rotate(90));
+    QCOMPARE(pixels(colorNoise(100, 100).apply(blueAcross))[size_t(29 * 20 + 10)], (Pixel{102, 115, 26, 255}));
+    // One in the red difference alone, blue kept equal.
+    const QImage red = halves(QColor(26, 115, 100), QColor(179, 100, 124));
+    QCOMPARE(pixels(colorNoise(100, 100).apply(red))[size_t(10 * 60 + 29)], (Pixel{26, 115, 100, 255}));
+    QVERIFY(pixels(colorNoise(100, 0).apply(red))[size_t(10 * 60 + 29)] != (Pixel{26, 115, 100, 255}));
+    const QImage redAcross = red.transformed(QTransform().rotate(90));
+    QCOMPARE(pixels(colorNoise(100, 100).apply(redAcross))[size_t(29 * 20 + 10)], (Pixel{26, 115, 100, 255}));
+    // The reach shrinks with the amount and the scale.
+    const QImage redBlue = halves(QColor(230, 51, 51), QColor(51, 51, 230));
+    QCOMPARE(pixels(colorNoise(50, 0).apply(redBlue))[size_t(10 * 60 + 24)], (Pixel{230, 51, 51, 255}));
+    QCOMPARE(pixels(colorNoise(100, 0).apply(redBlue, std::nullopt, 0.25))[size_t(10 * 60 + 27)], (Pixel{230, 51, 51, 255}));
 }
 
 QTEST_MAIN(CameraRawColorNoiseTests)
