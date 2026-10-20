@@ -39,13 +39,13 @@ Each script installs the newest release. The Arch, Ubuntu and Fedora scripts dow
 Arch and Omarchy:
 
 ```sh
-curl -fsSLO https://git.zacharyzhang.com/ZacharyZhang-NY/OmaPhoto/raw/branch/main/scripts/install/arch.sh && bash arch.sh
+curl -fsSLO https://raw.githubusercontent.com/ELY-Open-Source/OmaPhoto/main/scripts/install/arch.sh && bash arch.sh
 ```
 
 Ubuntu 24.04 or 26.04 LTS and systems built on them (Linux Mint 22, Pop!_OS 24.04):
 
 ```sh
-curl -fsSLO https://git.zacharyzhang.com/ZacharyZhang-NY/OmaPhoto/raw/branch/main/scripts/install/ubuntu.sh && bash ubuntu.sh
+curl -fsSLO https://raw.githubusercontent.com/ELY-Open-Source/OmaPhoto/main/scripts/install/ubuntu.sh && bash ubuntu.sh
 ```
 
 Each DEB names its Ubuntu release's libraries, so other Ubuntu releases and Debian build from source (below).
@@ -53,7 +53,7 @@ Each DEB names its Ubuntu release's libraries, so other Ubuntu releases and Debi
 Fedora 43 or 44:
 
 ```sh
-curl -fsSLO https://git.zacharyzhang.com/ZacharyZhang-NY/OmaPhoto/raw/branch/main/scripts/install/fedora.sh && bash fedora.sh
+curl -fsSLO https://raw.githubusercontent.com/ELY-Open-Source/OmaPhoto/main/scripts/install/fedora.sh && bash fedora.sh
 ```
 
 Fedora's own libheif decodes no HEVC. For HEIC import, add [RPM Fusion](https://rpmfusion.org/Configuration) and install `libheif-freeworld`; the script reminds you.
@@ -61,12 +61,12 @@ Fedora's own libheif decodes no HEVC. For HEIC import, add [RPM Fusion](https://
 NixOS installs the release's flake into your profile:
 
 ```sh
-curl -fsSLO https://git.zacharyzhang.com/ZacharyZhang-NY/OmaPhoto/raw/branch/main/scripts/install/nixos.sh && bash nixos.sh
+curl -fsSLO https://raw.githubusercontent.com/ELY-Open-Source/OmaPhoto/main/scripts/install/nixos.sh && bash nixos.sh
 ```
 
-Or add `git+https://git.zacharyzhang.com/ZacharyZhang-NY/OmaPhoto?ref=refs/tags/<tag>`, a release tag, as a flake input and put its `packages.x86_64-linux.default` in your configuration.
+Or add `git+https://github.com/ELY-Open-Source/OmaPhoto?ref=refs/tags/<tag>`, a release tag, as a flake input and put its `packages.x86_64-linux.default` in your configuration.
 
-The packages themselves sit on the [releases page](https://git.zacharyzhang.com/ZacharyZhang-NY/OmaPhoto/releases). Any other x86_64 system can run the AppImage there, `omaphoto-x86_64.AppImage`: download it, `chmod +x` it and start it.
+The packages themselves sit on the [releases page](https://github.com/ELY-Open-Source/OmaPhoto/releases). Any other x86_64 system can run the AppImage there, `omaphoto-x86_64.AppImage`: download it, `chmod +x` it and start it.
 
 ### Garbled cursors on NVIDIA with Hyprland
 

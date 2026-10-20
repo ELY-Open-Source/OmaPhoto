@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Builds a tag's packages and publishes a Gitea release.
+# Builds a tag's packages and publishes a GitHub release.
 set -euo pipefail
-tag=${1:?"usage: GITEA_TOKEN=... scripts/release.sh vX.Y.Z"}
-token=${GITEA_TOKEN:?"GITEA_TOKEN must hold a Gitea access token"}
-api=https://git.zacharyzhang.com/api/v1/repos/ZacharyZhang-NY/OmaPhoto
+tag=${1:?"usage: scripts/release.sh vX.Y.Z"}
+gh_repo=ELY-Open-Source/OmaPhoto
+# gh must be logged in with write access to the repository.
+gh auth status >/dev/null
 repo=$(cd "$(dirname "$0")/.." && pwd)
 cd "$repo"
 version=${tag#v}
@@ -64,13 +65,7 @@ build omaphoto-appimage scripts/appimage.sh
 mv "$work/src/omaphoto-x86_64.AppImage" "$out/"
 names="omaphoto-noble_amd64.deb omaphoto-resolute_amd64.deb omaphoto-fc43.x86_64.rpm omaphoto-fc44.x86_64.rpm omaphoto-x86_64.pkg.tar.zst omaphoto-x86_64.AppImage"
 (cd "$out" && sha256sum $names > SHA256SUMS)
-# The tag must already be on Gitea.
+# The tag must already be on GitHub.
 notes="Install with the script for your system, or run the AppImage: see the README's Install section."
-body=$(printf '{"tag_name":"%s","name":"OmaPhoto %s","body":"%s"}' "$tag" "$version" "$notes")
-release=$(curl -fsS -X POST -H "Authorization: token $token" -H "Content-Type: application/json" -d "$body" "$api/releases")
-id=$(echo "$release" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
-for name in $names SHA256SUMS; do
-    echo "Uploading $name"
-    curl -fsS -o /dev/null -X POST -H "Authorization: token $token" -F "attachment=@$out/$name" "$api/releases/$id/assets?name=$name"
-done
-echo "Published https://git.zacharyzhang.com/ZacharyZhang-NY/OmaPhoto/releases/tag/$tag"
+(cd "$out" && gh release create "$tag" --repo "$gh_repo" --verify-tag --title "OmaPhoto $version" --notes "$notes" $names SHA256SUMS)
+echo "Published https://github.com/$gh_repo/releases/tag/$tag"
