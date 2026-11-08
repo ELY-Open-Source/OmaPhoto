@@ -619,7 +619,8 @@ Compositor 1.4.10:
 - 15.6 work: `PatchPixels.c` and `HealPixels.c` at `39d1257` (unchanged to v1.6.6), Swift's blocks as band functions on `patch_bands` (`PoolMap`); the fill takes the edit's seed. `SpotHealingTests`: Swift's two ridge tests, the seed, the kernel's bytes against Swift's own build (two seeds, and holes in the first and last bands), a fill starved of its levels; `TypeStoreTests`' fill case selects inside an opaque glyph, since PatchMatch copies opaque pixels alone. 5 mutants of the glue, all caught (the band two after the band test, the render error after the starvation test). Review: round 1 FAIL (an 11-word comment), round 2 PASS. Full suite: 363 passed.
 - [x] 15.7 HEIF from cameras: `.hif`, `.heif` (`70b3e14`).
 - 15.7 work: libheif's `image/heif` taken beside `image/heic`; `*.heif` and `*.hif` in the importer's filter; `image/heif` after HEIC in drops and the desktop entry (shared-mime-info's canonical name, `image/heic` its alias); the messages name HEIF. Swift's `cameraHEIFFilesImport` for both suffixes, one rebranded `mif1`. 4 mutants, all caught. Review: round 1 PASS.
-- [ ] 15.8 The new app icon, at its v1.5.3 art (`ce5ea67`).
+- [x] 15.8 The new app icon, at its v1.5.3 art (`ce5ea67`).
+- 15.8 work: `packaging/icons` takes the six sizes from `Compositor-Ref` at `v1.6.6`, whose art `d9cdb81` last changed after `ce5ea67` (so the v1.5.3 art and v1.6.6's are one). `DesktopIntegrationTests` installs them. Review: round 1 PASS.
 
 Compositor 1.5:
 
