@@ -38,6 +38,8 @@ compositor_test(BrushRasterTests)
 compositor_test(BrushTests)
 compositor_test(BrushCoverageTests)
 compositor_test(SpotHealingTests)
+# It checks the kernel against Swift's own bytes.
+target_include_directories(SpotHealingTests PRIVATE ${OMAPHOTO_KERNELS})
 compositor_test(CloneStampTests)
 compositor_test(CloneStampCanvasTests)
 compositor_test(SmudgeLiquifyTests)

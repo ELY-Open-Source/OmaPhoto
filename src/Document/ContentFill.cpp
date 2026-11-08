@@ -2,10 +2,18 @@
 #include "Document/BrushStroke.h"
 #include "Document/PixelAdjust.h"
 #include "IO/ImageExporter.h"
-
-// The kernel shares this file's name: angle brackets skip here.
+#include "Rendering/PoolMap.h"
+#include <numeric>
 extern "C" {
-#include <ContentFill.h>
+#include "PatchPixels.h"
+}
+
+// The kernel's bands, where Swift's kernel calls dispatch_apply.
+extern "C" void patch_bands(size_t bands, void (*band)(void *context, size_t index), void *context)
+{
+    std::vector<size_t> indices(bands);
+    std::iota(indices.begin(), indices.end(), size_t(0));
+    PoolMap::blocking(indices, [band, context](size_t index) { band(context, index); });
 }
 
 ContentFillError::ContentFillError(Kind kind)
@@ -24,7 +32,8 @@ QImage ContentFill::run(const FilterJob &job)
     painter.end();
     // White through the selection: the pixels to make.
     const QImage mask = PixelAdjust::coverage(*job.selection, width, height, job.mapping);
-    const int result = content_fill(pixels.bits(), size_t(pixels.bytesPerLine()), mask.constBits(), size_t(mask.bytesPerLine()), width, height);
+    // Multi-scale PatchMatch, as Spot Healing's Content-Aware mode.
+    const int result = patch_fill(pixels.bits(), size_t(pixels.bytesPerLine()), mask.constBits(), size_t(mask.bytesPerLine()), width, height, job.seed);
     if (result == 0)
         throw ContentFillError(ContentFillError::Kind::noSource);
     if (result != 1)

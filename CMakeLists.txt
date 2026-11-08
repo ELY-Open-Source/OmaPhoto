@@ -247,10 +247,10 @@ add_library(compositor_core STATIC
 )
 # Shared macOS pixel kernels, always optimized.
 set(OMAPHOTO_KERNELS ${CMAKE_CURRENT_SOURCE_DIR}/kernels)
-target_sources(compositor_core PRIVATE ${OMAPHOTO_KERNELS}/AdjustPixels.c ${OMAPHOTO_KERNELS}/BrushPixels.c ${OMAPHOTO_KERNELS}/WandPixels.c ${OMAPHOTO_KERNELS}/ContentFill.c
+target_sources(compositor_core PRIVATE ${OMAPHOTO_KERNELS}/AdjustPixels.c ${OMAPHOTO_KERNELS}/BrushPixels.c ${OMAPHOTO_KERNELS}/WandPixels.c ${OMAPHOTO_KERNELS}/PatchPixels.c
     ${OMAPHOTO_KERNELS}/HealPixels.c ${OMAPHOTO_KERNELS}/LevelsPixels.c ${OMAPHOTO_KERNELS}/NoisePixels.c ${OMAPHOTO_KERNELS}/LensPixels.c
     ${OMAPHOTO_KERNELS}/DitherPixels.c)
-set_source_files_properties(${OMAPHOTO_KERNELS}/AdjustPixels.c ${OMAPHOTO_KERNELS}/BrushPixels.c ${OMAPHOTO_KERNELS}/WandPixels.c ${OMAPHOTO_KERNELS}/ContentFill.c
+set_source_files_properties(${OMAPHOTO_KERNELS}/AdjustPixels.c ${OMAPHOTO_KERNELS}/BrushPixels.c ${OMAPHOTO_KERNELS}/WandPixels.c ${OMAPHOTO_KERNELS}/PatchPixels.c
     ${OMAPHOTO_KERNELS}/HealPixels.c ${OMAPHOTO_KERNELS}/LevelsPixels.c ${OMAPHOTO_KERNELS}/NoisePixels.c ${OMAPHOTO_KERNELS}/LensPixels.c ${OMAPHOTO_KERNELS}/DitherPixels.c
     PROPERTIES COMPILE_OPTIONS -O2)
 # Swift's kernel warns so through 1.3.3, unchanged.

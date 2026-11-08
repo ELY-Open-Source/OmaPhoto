@@ -40,6 +40,21 @@ QByteArray withText(const ProjectSnapshot &snapshot, const QJsonValue &text)
     return QJsonDocument(object).toJson();
 }
 
+// The first square of opaque pixels, `side` across.
+std::optional<QPoint> opaqueSquare(const QImage &pixels, int side)
+{
+    for (int y = 0; y + side <= pixels.height(); ++y)
+        for (int x = 0; x + side <= pixels.width(); ++x) {
+            bool opaque = true;
+            for (int dy = 0; dy < side && opaque; ++dy)
+                for (int dx = 0; dx < side && opaque; ++dx)
+                    opaque = qAlpha(pixels.pixel(x + dx, y + dy)) == 255;
+            if (opaque)
+                return QPoint(x, y);
+        }
+    return std::nullopt;
+}
+
 bool landed(const std::function<void(std::function<void()>)> &start)
 {
     bool done = false;
@@ -190,7 +205,19 @@ void TypeStoreTests::rebuildsDropTheText()
          }},
         {"Invert", [](EditorSession &session) { return landed([&](std::function<void()> done) { session.invertPixels(done); }); }},
         {"Content-Aware Fill", [](EditorSession &session) {
-             session.applySelection(rectPath(QRectF(30, 40, 20, 20)), SelectionMode::replace, "Select");
+             // PatchMatch copies opaque pixels alone: a thick glyph holds them.
+             session.editActiveText();
+             TextDraft draft = session.textDraft().value();
+             draft.style.content = QStringLiteral("I");
+             draft.style.fontSize = 400;
+             session.applyText(draft);
+             const ImageLayer layer = session.activeLayer().value();
+             const QImage pixels = layer.asset.value().image();
+             const std::optional<QPoint> inside = opaqueSquare(pixels, 30);
+             if (!inside)
+                 return false;
+             const QPointF corner = BrushRaster::pixelToDocument(layer.transform, pixels.width(), pixels.height()).map(QPointF(inside.value() + QPoint(12, 12)));
+             session.applySelection(rectPath(QRectF(corner, QSizeF(6, 6))), SelectionMode::replace, "Select");
              session.beginFilter(FilterKind::contentAwareFill);
              return landed([&](std::function<void()> done) { session.commitFilter(done); });
          }},
