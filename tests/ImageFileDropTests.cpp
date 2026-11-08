@@ -141,6 +141,12 @@ void ImageFileDropTests::aPictureIsCopiedToAFileFirst()
     QCOMPARE(ImageFileDrop::providers(photoshop).front()->formats(), QStringList{"image/vnd.adobe.photoshop"});
     photoshop.setData("image/tiff", "tiff first");
     QCOMPARE(ImageFileDrop::providers(photoshop).front()->formats(), QStringList{"image/tiff"});
+    photoshop.setData("image/heif", "heif before tiff");
+    QCOMPARE(ImageFileDrop::providers(photoshop).front()->formats(), QStringList{"image/heif"});
+    photoshop.setData("image/heic", "heic before heif");
+    QCOMPARE(ImageFileDrop::providers(photoshop).front()->formats(), QStringList{"image/heic"});
+    photoshop.removeFormat("image/heic");
+    photoshop.removeFormat("image/heif");
     photoshop.removeFormat("image/tiff");
     EditorSession opened;
     done = false;
@@ -174,7 +180,7 @@ void ImageFileDropTests::aPictureIsCopiedToAFileFirst()
 
 void ImageFileDropTests::whatCannotBeReadIsSaid()
 {
-    const QString said = "Some dropped items couldn’t be read. Drag JPEG, PNG, HEIC, TIFF, WebP, or Photoshop (PSD) files from the file manager.";
+    const QString said = "Some dropped items couldn’t be read. Drag JPEG, PNG, HEIC, HEIF, TIFF, WebP, or Photoshop (PSD) files from the file manager.";
     EditorSession session;
     bool done = false;
     std::unique_ptr<QMimeData> link(files({}, {QUrl("https://example.com/page")}));
@@ -355,7 +361,7 @@ void ImageFileDropTests::aPictureThatCannotBeKeptIsUnreadable()
     ImageFileDrop::importProviders(data, session, std::nullopt, nullptr, std::nullopt, [&done] { done = true; });
     QCOMPARE(setrlimit(RLIMIT_FSIZE, &room), 0);
     QTRY_VERIFY(done);
-    QCOMPARE(session.importError(), std::optional<QString>("Some dropped items couldn’t be read. Drag JPEG, PNG, HEIC, TIFF, WebP, or Photoshop (PSD) files from the file manager."));
+    QCOMPARE(session.importError(), std::optional<QString>("Some dropped items couldn’t be read. Drag JPEG, PNG, HEIC, HEIF, TIFF, WebP, or Photoshop (PSD) files from the file manager."));
     QVERIFY(!session.document());
     QCOMPARE(dropped(), before);
 }

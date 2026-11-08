@@ -1,5 +1,6 @@
 #include "BudgetFixtures.h"
 #include "Document/EditorSession.h"
+#include "IO/ImageImporter.h"
 #include "Rendering/RasterSnapshot.h"
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -8,7 +9,7 @@
 // The session cases of Swift's ImageImportTests, and the queue.
 namespace {
 const QString unreadable = QStringLiteral("The image could not be read. It may be damaged or unavailable.");
-const QString unsupported = QStringLiteral("Choose a JPEG, PNG, HEIC, TIFF, WebP, or Photoshop (PSD) file.");
+const QString unsupported = QStringLiteral("Choose a JPEG, PNG, HEIC, HEIF, TIFF, WebP, or Photoshop (PSD) file.");
 const QString tooLarge = QStringLiteral("This import exceeds the current %1-megapixel document budget or 30,000-pixel side limit.").arg(DocumentLimits::documentBudgetMegapixels());
 
 // A 64 by 32 PNG, as Swift's fixture is.
@@ -70,6 +71,7 @@ private slots:
     void aSessionMayEndWhileItsImportRuns();
     void aUrlThatIsNoFileIsUnsupported();
     void thePixelBudgetCountsWhatTheCanvasHolds();
+    void cameraHEIFFilesImport();
 };
 
 void ImageImportSessionTests::importPlacementAndPartialFailure()
@@ -324,6 +326,31 @@ void ImageImportSessionTests::thePixelBudgetCountsWhatTheCanvasHolds()
     QCOMPARE(int(session.document().value().layers.size()), count);
     QCOMPARE(session.importError(), std::optional("fixture.png: " + tooLarge));
     QVERIFY(!session.document().value().layers[0].asset.value().raster->hasMaterializedPixels());
+}
+
+void ImageImportSessionTests::cameraHEIFFilesImport()
+{
+    // Swift's: cameras save .hif or .heif, offered and taken.
+    QVERIFY(ImageImporter::importableGlobs().contains("*.hif") && ImageImporter::importableGlobs().contains("*.heif"));
+    QFile file(QFINDTESTDATA("fixtures/red.heic"));
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const QByteArray heic = file.readAll();
+    // A camera's own brand: mif1, which libheif calls image/heif.
+    QByteArray heif = heic;
+    QCOMPARE(heif.mid(8, 4), QByteArray("heic"));
+    heif.replace(8, 4, "mif1");
+    heif.replace(20, 4, "mif1");
+    QTemporaryDir folder;
+    for (const auto &[name, bytes] : {std::pair{QStringLiteral("Canon.hif"), heic}, std::pair{QStringLiteral("Fuji.heif"), heif}}) {
+        QFile out(folder.filePath(name));
+        QVERIFY(out.open(QIODevice::WriteOnly) && out.write(bytes) == bytes.size());
+        out.close();
+        EditorSession session;
+        QVERIFY(imported(session, {QUrl::fromLocalFile(out.fileName())}));
+        QVERIFY2(!session.importError(), qPrintable(session.importError().value_or(QString())));
+        QCOMPARE(session.document().value().layers.size(), 1);
+        QCOMPARE(session.document().value().size(), QSizeF(64, 32));
+    }
 }
 
 QTEST_GUILESS_MAIN(ImageImportSessionTests)

@@ -27,7 +27,7 @@ QString description(ImageImportError::Kind kind)
     case ImageImportError::Kind::unreadable:
         return QStringLiteral("The image could not be read. It may be damaged or unavailable.");
     case ImageImportError::Kind::unsupported:
-        return QStringLiteral("Choose a JPEG, PNG, HEIC, TIFF, WebP, or Photoshop (PSD) file.");
+        return QStringLiteral("Choose a JPEG, PNG, HEIC, HEIF, TIFF, WebP, or Photoshop (PSD) file.");
     case ImageImportError::Kind::tooLarge:
         return QStringLiteral("This import exceeds the current %1-megapixel document budget or %2-pixel side limit.").arg(DocumentLimits::documentBudgetMegapixels()).arg(DocumentLimits::maxSideText());
     case ImageImportError::Kind::whiteBalance:
@@ -50,11 +50,11 @@ void checkSize(const QSize &size, qint64 remainingPixels, const QString &path)
         refuse(ImageImportError::Kind::tooLarge, path, QStringLiteral("%1 x %2 pixels").arg(size.width()).arg(size.height()));
 }
 
-// HEVC in HEIF, by libheif's own reading of the brand.
+// HEIC or a camera's HEIF, by libheif's brand.
 bool isHEIC(const QByteArray &head)
 {
     const char *type = heif_get_file_mime_type(reinterpret_cast<const uint8_t *>(head.constData()), int(head.size()));
-    return qstrcmp(type, "image/heic") == 0;
+    return qstrcmp(type, "image/heic") == 0 || qstrcmp(type, "image/heif") == 0;
 }
 
 // BT.709's curve, shared by BT.601 and BT.2020, as a table.
@@ -243,9 +243,9 @@ ImportedImage ImageImporter::decode(const QString &path, qint64 remainingPixels,
     QImageReader reader(&file);
     const QByteArray format = reader.format();
     const bool heic = isHEIC(head);
-    // Other ISO media is unwanted: AVIF, plain HEIF, video.
+    // Other ISO media is unwanted: AVIF, video.
     if (!heic && head.mid(4, 4) == "ftyp")
-        refuse(ImageImportError::Kind::unsupported, path, QStringLiteral("ISO media that is not HEIC"));
+        refuse(ImageImportError::Kind::unsupported, path, QStringLiteral("ISO media that is not HEIC or HEIF"));
     if (!heic && format.isEmpty())
         refuse(ImageImportError::Kind::unreadable, path, QStringLiteral("no image format is recognised"));
     if (!heic && format != "jpeg" && format != "png" && format != "tiff" && format != "webp")
@@ -303,7 +303,7 @@ ImportedImage ImageImporter::decodeSVG(const QString &path, std::optional<QSizeF
 
 QStringList ImageImporter::importableGlobs()
 {
-    return QStringList{QStringLiteral("*.jpg"), QStringLiteral("*.jpeg"), QStringLiteral("*.jpe"), QStringLiteral("*.png"), QStringLiteral("*.heic"),
+    return QStringList{QStringLiteral("*.jpg"), QStringLiteral("*.jpeg"), QStringLiteral("*.jpe"), QStringLiteral("*.png"), QStringLiteral("*.heic"), QStringLiteral("*.heif"), QStringLiteral("*.hif"),
                        QStringLiteral("*.tif"), QStringLiteral("*.tiff"), QStringLiteral("*.webp"), QStringLiteral("*.psd"), QStringLiteral("*.psb"),
                        QStringLiteral("*.svg"), QStringLiteral("*.svgz")}
         + RawImporter::globs();

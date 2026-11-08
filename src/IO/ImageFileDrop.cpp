@@ -8,11 +8,11 @@
 #include <algorithm>
 
 namespace {
-// Swift's order: PNG, JPEG, HEIC, TIFF, WebP, Photoshop, RAW, any.
+// Swift's order: PNG, JPEG, HEIC, HEIF, TIFF, WebP, PSD, RAW.
 QStringList pictureFormats(const QMimeData &data)
 {
     QStringList formats;
-    for (const QString &format : {QStringLiteral("image/png"), QStringLiteral("image/jpeg"), QStringLiteral("image/heic"), QStringLiteral("image/tiff"),
+    for (const QString &format : {QStringLiteral("image/png"), QStringLiteral("image/jpeg"), QStringLiteral("image/heic"), QStringLiteral("image/heif"), QStringLiteral("image/tiff"),
                                    QStringLiteral("image/webp"), QStringLiteral("image/vnd.adobe.photoshop"), QStringLiteral("image/x-photoshop-large-image")})
         if (data.hasFormat(format))
             formats << format;
@@ -102,7 +102,7 @@ void ImageFileDrop::importProviders(const QMimeData &data, EditorSession &sessio
     }
     const auto finished = [&session, unreadable, done] {
         if (unreadable) {
-            const QString message = QStringLiteral("Some dropped items couldn’t be read. Drag JPEG, PNG, HEIC, TIFF, WebP, or Photoshop (PSD) files from the file manager.");
+            const QString message = QStringLiteral("Some dropped items couldn’t be read. Drag JPEG, PNG, HEIC, HEIF, TIFF, WebP, or Photoshop (PSD) files from the file manager.");
             session.setImportError(session.importError() ? *session.importError() + QStringLiteral("\n\n") + message : message);
         }
         if (done)
