@@ -353,7 +353,7 @@ void FilterModelTests::paintedLayersKeepTheirTiles()
     const FilterEdit adjusted(FilterKind::exposure, ImageLayer(asset, QPointF()), std::nullopt, FilterSettings(), std::nullopt);
     QVERIFY(adjusted.previewSource.size() == QSize(2048, 6) && !asset.raster->hasMaterializedPixels());
     const FilterEdit blurred(FilterKind::gaussianBlur, ImageLayer(asset, QPointF()), std::nullopt, FilterSettings(), std::nullopt);
-    QVERIFY(blurred.grownImage.value().size() == QSize(3010, 20) && !asset.raster->hasMaterializedPixels());
+    QVERIFY(blurred.grownImage.value().size() == QSize(3034, 44) && !asset.raster->hasMaterializedPixels());
 }
 
 QTEST_GUILESS_MAIN(FilterModelTests)

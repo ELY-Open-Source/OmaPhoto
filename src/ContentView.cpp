@@ -377,11 +377,11 @@ void ContentView::dropEvent(QDropEvent *event)
 double ContentView::layersPanelWidth()
 {
     const double stored = QSettings().value(QStringLiteral("layersPanelWidth"), LayersPanel::defaultWidth).toDouble();
-    // A stored width outside the range is the default, logged.
-    if (stored >= LayersPanel::minimumWidth && stored <= LayersPanel::maximumWidth)
-        return stored;
-    qCWarning(lcApp) << "layersPanelWidth" << stored << "is out of range, using" << LayersPanel::defaultWidth;
-    return LayersPanel::defaultWidth;
+    // A stored width out of range is clamped, logged.
+    const double width = std::min(LayersPanel::maximumWidth, std::max(LayersPanel::minimumWidth, stored));
+    if (width != stored)
+        qCWarning(lcApp) << "layersPanelWidth" << stored << "is out of range, using" << width;
+    return width;
 }
 
 void ContentView::setLayersPanelWidth(double width)

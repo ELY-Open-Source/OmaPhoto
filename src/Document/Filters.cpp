@@ -11,6 +11,8 @@
 #include "Rendering/RasterSnapshot.h"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <functional>
 #include <numbers>
 
 extern "C" {
@@ -70,7 +72,7 @@ FilterSettings FilterSettings::normalized() const
 {
     using ImageAdjustmentPixels::clamp;
     FilterSettings result = *this;
-    result.radius = clamp(radius, 0.1, 250, 1);
+    result.radius = clamp(radius, 0.1, 250, 5);
     result.angle = clamp(angle, -90, 90, 0);
     result.distance = clamp(distance, 1, 2000, 10);
     result.amount = clamp(amount, 0.1, 400, 10);
@@ -126,7 +128,35 @@ PixelFilter::Trimmed PixelFilter::trimmed(const QImage &image, const LayerTransf
     return {cropped, result};
 }
 
+PixelFilter::Extended PixelFilter::extending(const QImage &image, LayerSides sides, int reach)
+{
+    const int width = image.width(), height = image.height(), left = sides.left ? reach : 0, top = sides.top ? reach : 0;
+    QImage padded = BrushRaster::context(width + left + (sides.right ? reach : 0), height + top + (sides.bottom ? reach : 0), false);
+    for (int y = 0; y < height; ++y) {
+        const uchar *from = image.constScanLine(y);
+        uchar *to = padded.scanLine(top + y);
+        for (int x = 0; x < padded.width(); ++x)
+            std::memcpy(to + x * 4, from + std::clamp(x - left, 0, width - 1) * 4, 4);
+    }
+    for (int y = 0; y < padded.height(); ++y)
+        if (y < top || y >= top + height)
+            std::memcpy(padded.scanLine(y), padded.constScanLine(std::clamp(y, top, top + height - 1)), size_t(padded.width()) * 4);
+    return {padded, QRect(left, top, width, height)};
+}
+
 namespace {
+// A blur over the image, its canvas sides carried on.
+QImage carriedOn(const QImage &image, LayerSides sides, int reach, const std::function<QImage(const QImage &)> &blur)
+{
+    if (sides == LayerSides{})
+        return blur(image);
+    const PixelFilter::Extended source = PixelFilter::extending(image, sides, reach);
+    const QImage cut = blur(source.image).copy(source.inside);
+    if (cut.isNull())
+        throw ExportError(ExportError::Kind::render);
+    return cut;
+}
+
 // The image drawn into a fresh premultiplied context.
 QImage drawn(const QImage &image)
 {
@@ -171,11 +201,24 @@ QImage PixelFilter::run(const FilterJob &job)
     case FilterKind::scanlines: image = settings.scanlines.apply(job.image); break;
     case FilterKind::removeBackground: image = SubjectRemoval::run(job.image, settings); break;
     case FilterKind::contentAwareFill: image = ContentFill::run(job); break;
-    // Unclamped: a blur spreads into the room made for it.
-    case FilterKind::gaussianBlur: image = PixelAdjust::gaussianBlur(drawn(job.image), settings.radius * job.scale, false); break;
-    case FilterKind::motionBlur:
-        image = PixelAdjust::motionBlur(drawn(job.image), settings.distance * job.scale * motionRadiusPerPixel, settings.angle * std::numbers::pi / 180);
+    // Unclamped, but for the canvas's edges: blurs spread into room.
+    case FilterKind::gaussianBlur: {
+        const double sigma = settings.radius * job.scale;
+        if (settings.preserveTransparency) {
+            image = PixelAdjust::colorBlur(drawn(job.image), sigma);
+            break;
+        }
+        // Taps reach three sigmas.
+        image = carriedOn(drawn(job.image), job.canvasSides, int(std::ceil(3 * sigma)),
+                          [sigma](const QImage &source) { return PixelAdjust::gaussianBlur(source, sigma, false); });
         break;
+    }
+    case FilterKind::motionBlur: {
+        const double radius = settings.distance * job.scale * motionRadiusPerPixel, angle = settings.angle * std::numbers::pi / 180;
+        image = carriedOn(drawn(job.image), job.canvasSides, int(std::ceil(3 * radius)),
+                          [radius, angle](const QImage &source) { return PixelAdjust::motionBlur(source, radius, angle); });
+        break;
+    }
     case FilterKind::addNoise:
         image = drawn(job.image);
         noise_add_at(image.bits(), size_t(width), size_t(height), size_t(image.bytesPerLine()), float(settings.amount), settings.gaussian ? 1 : 0,
@@ -221,11 +264,17 @@ QRectF integral(const QRectF &rect)
 }
 
 FilterEdit::FilterEdit(FilterKind kind, const ImageLayer &layer, std::optional<SelectionClip> selection, const FilterSettings &settings,
-                       std::optional<QRectF> area)
+                       std::optional<QRectF> area, std::optional<QSizeF> canvas)
     : kind(kind), layerID(layer.id), original(layer.asset ? *layer.asset : throw ProjectError(ProjectError::Kind::invalid)),
       transform(layer.transform), selection(std::move(selection)), settings(settings.normalized())
 {
     prepare(original, transform);
+    // A turned layer's sides don't run along the canvas's.
+    if (canvas && (kind == FilterKind::gaussianBlur || kind == FilterKind::motionBlur) && transform.rotation == 0) {
+        const QRectF inPixels = mapping.inverted().mapRect(QRectF(QPointF(0, 0), *canvas));
+        const QSize size = original.size();
+        canvasSides = {inPixels.left() >= -0.5, inPixels.right() <= size.width() + 0.5, inPixels.top() >= -0.5, inPixels.bottom() <= size.height() + 0.5};
+    }
     if (area)
         grow(integral(mapping.inverted().mapRect(*area)));
     growForBlur();
@@ -234,7 +283,7 @@ FilterEdit::FilterEdit(FilterKind kind, const ImageLayer &layer, std::optional<S
 double FilterEdit::blurMargin(FilterKind kind, const FilterSettings &settings)
 {
     switch (kind) {
-    case FilterKind::gaussianBlur: return settings.radius * 3 + 2;
+    case FilterKind::gaussianBlur: return settings.preserveTransparency ? 0 : settings.radius * 3 + 2;
     case FilterKind::motionBlur: return settings.distance / 2 + 2;
     case FilterKind::bloomGlow: return settings.bloomRadius * 3 + 2;
     default: return 0;
@@ -247,7 +296,11 @@ void FilterEdit::growForBlur()
     if (!(margin > grownMargin))
         return;
     const QSize size = original.size();
-    grow(QRectF(-margin, -margin, size.width() + 2 * margin, size.height() + 2 * margin));
+    const double room = std::ceil(margin);
+    const double left = canvasSides.left ? 0 : room, top = canvasSides.top ? 0 : room;
+    grow(QRectF(-left, -top, size.width() + left + (canvasSides.right ? 0 : room), size.height() + top + (canvasSides.bottom ? 0 : room)));
+    // Over padded sides; else an unpadded side pads again.
+    grownMargin = room;
 }
 
 // The layer's pixels in a grid covering `extent` (layer pixels).
@@ -328,7 +381,8 @@ FilterJob FilterEdit::previewJob() const
                      rawPanel.sharpenMask,
                      {},
                      canvas,
-                     kind == FilterKind::cameraRaw ? std::optional(previewBrightness()) : std::nullopt};
+                     kind == FilterKind::cameraRaw ? std::optional(previewBrightness()) : std::nullopt,
+                     canvasSides};
 }
 
 CameraRawTables::Brightness FilterEdit::previewBrightness() const

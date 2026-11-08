@@ -196,6 +196,7 @@ void FilterControlsTests::arrowKeysStepTheSlidersOn()
 {
     // A step rounding to the same value leaves the thumb.
     Sheet blur(FilterKind::gaussianBlur);
+    blur.session.updateFilter(FilterSettings{.radius = 1}, true);
     QSlider &radius = blur.child<QSlider>("radiusSlider");
     for (int press = 0; press < 100; ++press)
         QTest::keyClick(&radius, Qt::Key_Right);

@@ -14,6 +14,8 @@ QImage blend(const QImage &adjusted, const QImage &original, const SelectionClip
              const QTransform &pixelToDocument, bool isMask);
 // Core Image's Gaussian on stored values; `clamped` repeats the edge.
 QImage gaussianBlur(const QImage &image, double sigma, bool clamped);
+// Gaussian Blur's Preserve Transparency: colours blur, alphas stay.
+QImage colorBlur(const QImage &image, double sigma);
 // Core Image's motion blur: a Gaussian taper along the angle.
 QImage motionBlur(const QImage &image, double radius, double angle);
 }

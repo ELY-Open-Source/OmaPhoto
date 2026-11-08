@@ -7,13 +7,14 @@
 #include <optional>
 #include <vector>
 
+class QCheckBox;
 class QLabel;
 class QProgressBar;
 class QPushButton;
 class QSlider;
 class QTimer;
 
-// Swift's RawDevelopSheet: a screen-sized preview under four sliders.
+// Swift's RawDevelopSheet: a screen-sized preview under its controls.
 class RawDevelopSheet : public QWidget {
     Q_OBJECT
 public:
@@ -53,4 +54,6 @@ private:
     QPushButton *const m_cancel;
     QPushButton *const m_import;
     QWidget *const m_importing;
+    QCheckBox *const m_lens;
+    QCheckBox *const m_highlights;
 };

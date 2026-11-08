@@ -21,6 +21,23 @@ QImage run(FilterKind kind, const QImage &image, const FilterSettings &settings,
     return PixelFilter::run(FilterJob{kind, image, settings, 1, std::nullopt, QTransform(), seed});
 }
 
+// Red, then green, across the left half; the rest clear.
+QImage halves(int greenEnd)
+{
+    QImage image = BrushRaster::context(40, 20, false);
+    QPainter painter(&image);
+    painter.fillRect(0, 0, 10, 20, Qt::red);
+    painter.fillRect(10, 0, greenEnd - 10, 20, Qt::green);
+    return image;
+}
+
+bool committed(EditorSession &session)
+{
+    bool done = false;
+    session.commitFilter([&done] { done = true; });
+    return QTest::qWaitFor([&done] { return done; }, 20000);
+}
+
 // An opaque white dot amid a clear 41 by 41.
 QImage dot()
 {
@@ -34,6 +51,10 @@ class FilterTests : public QObject {
     Q_OBJECT
 private slots:
     void gaussianBlurSoftensTheEdgesIntoRoomMadeForItAsOneUndoStep();
+    void gaussianBlurCanPreserveTransparency();
+    void preservedBlurStaysInsideTheSelection();
+    void blurKeepsAPictureFillingTheCanvasSolidAtItsEdges();
+    void blurSpreadsOnlyWhereTheLayerIsInsideTheCanvas();
     void growingABlurKeepsThePreviewUpUntilTheNextOne();
     void aMaskKeepsItsPlaceUnderAPreview();
     void motionBlurStreaksAlongItsAngleCounterclockwiseFromHorizontal();
@@ -44,11 +65,13 @@ private slots:
 void FilterTests::gaussianBlurSoftensTheEdgesIntoRoomMadeForItAsOneUndoStep()
 {
     EditorSession session;
-    session.createDocument(40, 20);
+    // Room on every side, where a blur may grow.
+    session.createDocument(80, 60);
     // Left half opaque white, right half clear.
     QImage image = BrushRaster::context(40, 20, false);
     QPainter(&image).fillRect(0, 0, 20, 20, Qt::white);
     session.insert(ImportedImage(image, image, QStringLiteral("Half")));
+    const QPointF before = session.activeLayer().value().transform.origin;
     session.beginFilter(FilterKind::gaussianBlur);
     QVERIFY(session.filterEdit() && !session.canEditLayers());
     session.updateFilter(FilterSettings{.radius = 3}, true);
@@ -61,7 +84,7 @@ void FilterTests::gaussianBlurSoftensTheEdgesIntoRoomMadeForItAsOneUndoStep()
     // Unclamped: the layer grew by the blur's reach, then trimmed.
     const ImageLayer layer = session.activeLayer().value();
     const QImage result = layer.asset.value().image();
-    QCOMPARE(layer.transform.origin, QPointF(-8, -8));
+    QCOMPARE(layer.transform.origin, before - QPointF(8, 8));
     QCOMPARE(result.size(), QSize(36, 36));
     const auto alpha = [&result](int x) { return int(bytes(result)[size_t((18 * result.width() + x + 8) * 4 + 3)]); };
     // Its own border softens, as the hard edge does.
@@ -72,11 +95,95 @@ void FilterTests::gaussianBlurSoftensTheEdgesIntoRoomMadeForItAsOneUndoStep()
     QCOMPARE(alpha(27), 1);
 }
 
+// Preserved: colours blur, every alpha stays, nothing darkens.
+void FilterTests::gaussianBlurCanPreserveTransparency()
+{
+    EditorSession session;
+    session.createDocument(40, 20);
+    session.insert(ImportedImage(halves(20), halves(20), QStringLiteral("Halves")));
+    const LayerTransform transform = session.activeLayer().value().transform;
+    session.beginFilter(FilterKind::gaussianBlur);
+    session.updateFilter(FilterSettings{.radius = 3, .preserveTransparency = true}, true);
+    QVERIFY(committed(session));
+    QCOMPARE(session.activeLayer().value().transform, transform);
+    const QImage result = session.activeLayer().value().asset.value().image();
+    QCOMPARE(result.size(), QSize(40, 20));
+    const std::vector<uchar> pixels = bytes(result);
+    const auto pixel = [&pixels](int x, int y) { return std::vector<int>(pixels.begin() + (y * 40 + x) * 4, pixels.begin() + (y * 40 + x) * 4 + 4); };
+    for (int y = 0; y < 20; ++y)
+        for (int x = 0; x < 40; ++x)
+            QCOMPARE(pixel(x, y)[3], x < 20 ? 255 : 0);
+    // Green to the very edge, not darkened.
+    QVERIFY(pixel(19, 10)[1] >= 250 && pixel(19, 10)[0] <= 5);
+    QVERIFY(pixel(9, 10)[0] > 60 && pixel(9, 10)[1] > 60);
+}
+
+// Through a selection it lands where the selection is.
+void FilterTests::preservedBlurStaysInsideTheSelection()
+{
+    EditorSession session;
+    session.createDocument(40, 20);
+    session.insert(ImportedImage(halves(20), halves(20), QStringLiteral("Halves")));
+    QPainterPath green;
+    green.addRect(10, 0, 10, 20);
+    session.setSelection(DocumentSelection{green, false}, QStringLiteral("Green"));
+    session.beginFilter(FilterKind::gaussianBlur);
+    session.updateFilter(FilterSettings{.radius = 3, .preserveTransparency = true}, true);
+    QVERIFY(committed(session));
+    const std::vector<uchar> pixels = bytes(session.activeLayer().value().asset.value().image());
+    const auto at = [&pixels](int x, int channel) { return int(pixels[size_t((10 * 40 + x) * 4 + channel)]); };
+    QVERIFY(at(9, 0) >= 250 && at(9, 1) <= 5);
+    QVERIFY(at(10, 0) > 30);
+}
+
+// At the canvas's edge both blurs carry edge pixels on.
+void FilterTests::blurKeepsAPictureFillingTheCanvasSolidAtItsEdges()
+{
+    EditorSession session;
+    session.createDocument(40, 20);
+    QImage picture = BrushRaster::context(40, 20, false);
+    QPainter painter(&picture);
+    painter.fillRect(0, 0, 20, 20, Qt::red);
+    painter.fillRect(20, 0, 20, 20, Qt::green);
+    painter.end();
+    session.insert(ImportedImage(picture, picture, QStringLiteral("Picture")));
+    const LayerTransform transform = session.activeLayer().value().transform;
+    for (const FilterKind kind : {FilterKind::gaussianBlur, FilterKind::motionBlur}) {
+        session.beginFilter(kind);
+        session.updateFilter(FilterSettings{.radius = 4, .distance = 30}, true);
+        QVERIFY(committed(session));
+        QCOMPARE(session.activeLayer().value().transform, transform);
+        const std::vector<uchar> pixels = bytes(session.activeLayer().value().asset.value().image());
+        QCOMPARE(int(pixels.size()), 40 * 20 * 4);
+        for (size_t index = 3; index < pixels.size(); index += 4)
+            QVERIFY2(pixels[index] == 255, qPrintable(rawValue(kind)));
+        const size_t seam = (10 * 40 + 20) * 4;
+        QVERIFY2(pixels[seam] > 40 && pixels[seam + 1] > 40, qPrintable(rawValue(kind)));
+    }
+}
+
+// Carried on at the canvas's edge, spread past the rest.
+void FilterTests::blurSpreadsOnlyWhereTheLayerIsInsideTheCanvas()
+{
+    EditorSession session;
+    session.createDocument(80, 20);
+    QImage block = BrushRaster::context(40, 20, false);
+    block.fill(Qt::white);
+    session.insert(ImportedImage(block, block, QStringLiteral("Block")), QPointF(20, 10));
+    QCOMPARE(session.activeLayer().value().transform.origin, QPointF(0, 0));
+    session.beginFilter(FilterKind::gaussianBlur);
+    session.updateFilter(FilterSettings{.radius = 3}, true);
+    QVERIFY(committed(session));
+    const LayerTransform transform = session.activeLayer().value().transform;
+    QCOMPARE(transform.origin, QPointF(0, 0));
+    QVERIFY(transform.size.height() == 20 && transform.size.width() > 40);
+}
+
 // The last preview stays where made until replaced.
 void FilterTests::growingABlurKeepsThePreviewUpUntilTheNextOne()
 {
     EditorSession session;
-    session.createDocument(40, 20);
+    session.createDocument(80, 60);
     QImage image = BrushRaster::context(40, 20, false);
     QPainter(&image).fillRect(0, 0, 20, 20, Qt::white);
     session.insert(ImportedImage(image, image, QStringLiteral("Half")));
@@ -102,7 +209,7 @@ void FilterTests::growingABlurKeepsThePreviewUpUntilTheNextOne()
 void FilterTests::aMaskKeepsItsPlaceUnderAPreview()
 {
     EditorSession session;
-    session.createDocument(40, 20);
+    session.createDocument(80, 60);
     QImage image = BrushRaster::context(40, 20, false);
     image.fill(Qt::white);
     session.insert(ImportedImage(image, image, QStringLiteral("White")));

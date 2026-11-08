@@ -6,6 +6,8 @@ BlendModePicker::BlendModePicker(EditorSession &session, QWidget *parent) : QCom
 {
     setAccessibleName(QStringLiteral("Blend mode"));
     setObjectName(QStringLiteral("blendMode"));
+    // As wide as it is offered, not its longest mode.
+    setMinimumWidth(60);
     // Grouped as Photoshop groups them, a line between.
     for (const LayerBlendMode mode : allLayerBlendModes) {
         if (count() && blendGroup(mode) != blendGroup(*layerBlendMode(itemText(count() - 1))))

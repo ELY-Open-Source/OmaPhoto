@@ -4,6 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         g++ cmake ninja-build qt6-base-dev qt6-svg-dev libgl1-mesa-dev qt6-wayland fonts-dejavu-core \
         qt6-image-formats-plugins libheif-dev libheif-plugin-libde265 libfontconfig-dev libraw-dev liblzma-dev \
+        liblensfun-dev liblensfun-data-v1 libglib2.0-dev \
         ca-certificates curl dpkg-dev file fakeroot \
     && rm -rf /var/lib/apt/lists/*
 # The ONNX Runtime the packages carry: Microsoft's own build.

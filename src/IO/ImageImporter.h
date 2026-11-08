@@ -56,4 +56,14 @@ std::map<QUuid, ImportedImage> photoshopAssets(const PSDDocument &document);
 bool isSVG(const QString &path);
 // Drawn once: fitted to the canvas, else its declared size.
 ImportedImage decodeSVG(const QString &path, std::optional<QSizeF> fitting, qint64 remainingPixels = DocumentLimits::documentPixelBudget());
+// Swift's `UTType.importableImages`, as name filters.
+QStringList importableGlobs();
+}
+
+// A folder brought in as the images directly inside it.
+namespace ImageFolder {
+// A plain folder: no link, no project.
+bool matches(const QString &path);
+// In the file manager's name order: "2" before "10".
+QStringList images(const QString &folder);
 }

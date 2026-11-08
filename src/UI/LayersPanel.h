@@ -19,7 +19,7 @@ class LayersPanel : public QWidget {
 public:
     explicit LayersPanel(EditorSession &session, QWidget *parent = nullptr);
     // Dragging the panel's left edge sets it, within these.
-    static constexpr double minimumWidth = 202;
+    static constexpr double minimumWidth = 222;
     static constexpr double maximumWidth = 352;
     static constexpr double defaultWidth = 252;
 

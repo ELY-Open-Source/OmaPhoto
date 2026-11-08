@@ -57,7 +57,7 @@ void EditorSession::beginFilter(FilterKind kind, bool repeating)
             if (!box.isEmpty())
                 area = box;
         }
-        m_filterEdit.emplace(kind, layer, current ? std::optional(current->clip(size)) : std::nullopt, settings, area);
+        m_filterEdit.emplace(kind, layer, current ? std::optional(current->clip(size)) : std::nullopt, settings, area, size);
         if (fillsCanvas)
             m_filterEdit->canvas = canvas;
         m_filterEdit->startedEmpty = startedEmpty;
@@ -299,13 +299,19 @@ void EditorSession::commitFilter(std::function<void()> done)
     }
     const std::optional<QImage> cached = isAutomatic(edit.kind) && edit.preparedSettings == edit.settings ? edit.preparedPreview : std::nullopt;
     const bool spreads = edit.kind == FilterKind::gaussianBlur || edit.kind == FilterKind::motionBlur || edit.kind == FilterKind::bloomGlow;
+    // Preserved, a blur takes the layer as it was.
+    const bool keepsOutline = edit.kind == FilterKind::gaussianBlur && edit.settings.preserveTransparency;
+    const QSize size = edit.original.size();
+    const QTransform mapping = keepsOutline ? BrushRaster::pixelToDocument(edit.transform, size.width(), size.height()) : edit.mapping;
     // A painted layer flattens in the worker, which catches failures.
-    m_filterCommit.setFuture(QtConcurrent::run([kind = edit.kind, original = edit.original, grownImage = edit.grownImage, settings = rendered,
-                                                selection = edit.selection, mapping = edit.mapping, seed = edit.seed, cached,
-                                                grown = edit.grownTransform, spreads, canvas = edit.canvas]() -> FilterMade {
+    m_filterCommit.setFuture(QtConcurrent::run([kind = edit.kind, original = edit.original, grownImage = keepsOutline ? std::nullopt : edit.grownImage,
+                                                settings = rendered, selection = edit.selection, mapping, seed = edit.seed, cached,
+                                                grown = keepsOutline ? std::nullopt : edit.grownTransform, spreads, canvas = edit.canvas,
+                                                sides = edit.canvasSides]() -> FilterMade {
         try {
             FilterJob job{kind, grownImage ? *grownImage : original.image(), settings, 1, selection, mapping, seed};
             job.canvas = canvas;
+            job.canvasSides = sides;
             QImage image = cached ? *cached : PixelFilter::run(job);
             std::optional<LayerTransform> placed = grown;
             // A blur is cut back to the pixels it left.
@@ -402,7 +408,7 @@ void EditorSession::finishFilterCommit()
     try {
         // The mask moves onto the new box, edge tone beyond.
         std::optional<LayerMask> mask = current.mask;
-        if (edit.grownTransform && current.mask && !current.mask->placement
+        if (made.transform && current.mask && !current.mask->placement
             && (current.mask->asset.size().width() > 1 || current.mask->asset.size().height() > 1)) {
             LayerMask enabled = *current.mask;
             enabled.isEnabled = true;

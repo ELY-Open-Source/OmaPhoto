@@ -18,9 +18,22 @@ struct RawDevelopSettings {
     float tint = 0;
     // The tone curve: 1 LibRaw's full curve, 0 flat.
     float boost = 1;
+    // LibRaw's wavelet denoise, 0–1.
+    float noiseReduction = 0;
+    // Lensfun's profile: distortion and vignetting out.
+    bool lensCorrection = false;
+    // Partly clipped highlights rebuilt from the channels left.
+    bool highlightRecovery = false;
     // The camera's own choice, where Reset returns.
     float asShotTemperature = 5000;
     float asShotTint = 0;
+    float asShotNoiseReduction = 0;
+    bool asShotLensCorrection = false;
+    bool asShotHighlightRecovery = false;
+    // What this file allows; the rest stays as it is.
+    bool supportsNoiseReduction = false;
+    bool supportsLensCorrection = false;
+    bool supportsHighlightRecovery = false;
 
     bool isAsShot() const;
     void reset();

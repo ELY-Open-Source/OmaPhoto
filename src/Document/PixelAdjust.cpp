@@ -66,7 +66,8 @@ std::vector<int> rowNumbers(int height)
 // Columns a block at a time keep the taps cached.
 constexpr int block = 64;
 
-template <typename Pixel> void blur(const QImage &image, const std::vector<float> &weights, bool clamped, Pixel *across, QImage &result)
+template <typename Pixel, typename Put>
+void blur(const QImage &image, const std::vector<float> &weights, bool clamped, Pixel *across, QImage &result, Put put)
 {
     const int width = image.width(), height = image.height(), reach = int(weights.size()) - 1, size = int(sizeof(Pixel) / sizeof(float));
     const uchar *const in = image.constBits();
@@ -113,7 +114,7 @@ template <typename Pixel> void blur(const QImage &image, const std::vector<float
                     sums[x] += weight * taps[x];
             }
             for (int x = 0; x < count; ++x)
-                store(sums[x], line + (start + x) * size);
+                put(sums[x], start + x, y, line + (start + x) * size);
         }
     });
 }
@@ -175,18 +176,40 @@ QImage PixelAdjust::gaussianBlur(const QImage &image, double sigma, bool clamped
     const std::vector<float> weights = gaussian(sigma);
     const size_t pixels = size_t(image.width()) * size_t(image.height());
     QImage result = BrushRaster::context(image.width(), image.height(), gray);
+    const auto put = [](auto sum, int, int, uchar *at) { store(sum, at); };
     // Allocated here, where a failure throws, before the workers run.
     if (gray) {
         const std::unique_ptr<float[]> across(new (std::nothrow) float[pixels]);
         if (!across)
             throw ExportError(ExportError::Kind::render);
-        blur<float>(image, weights, clamped, across.get(), result);
+        blur<float>(image, weights, clamped, across.get(), result, put);
     } else {
         const std::unique_ptr<Float4[]> across(new (std::nothrow) Float4[pixels]);
         if (!across)
             throw ExportError(ExportError::Kind::render);
-        blur<Float4>(image, weights, clamped, across.get(), result);
+        blur<Float4>(image, weights, clamped, across.get(), result, put);
     }
+    return result;
+}
+
+QImage PixelAdjust::colorBlur(const QImage &image, double sigma)
+{
+    if (image.format() != QImage::Format_RGBA8888_Premultiplied)
+        throw std::logic_error("a colour blur takes premultiplied RGBA");
+    if (!(sigma > 0) || !std::isfinite(sigma))
+        throw std::logic_error("a blur needs a positive sigma");
+    const std::vector<float> weights = gaussian(sigma);
+    QImage result = BrushRaster::context(image.width(), image.height(), false);
+    const std::unique_ptr<Float4[]> across(new (std::nothrow) Float4[size_t(image.width()) * size_t(image.height())]);
+    if (!across)
+        throw ExportError(ExportError::Kind::render);
+    const uchar *const alphas = image.constBits();
+    const qsizetype stride = image.bytesPerLine();
+    blur<Float4>(image, weights, false, across.get(), result, [alphas, stride](Float4 sum, int x, int y, uchar *at) {
+        // Over the blurred alpha, so clear pixels pull nothing in.
+        const float alpha = alphas[y * stride + x * 4 + 3], scale = sum[3] > 0 ? alpha / sum[3] : 0;
+        store(Float4{sum[0] * scale, sum[1] * scale, sum[2] * scale, alpha}, at);
+    });
     return result;
 }
 

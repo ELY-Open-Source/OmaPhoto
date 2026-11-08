@@ -45,7 +45,9 @@ inline constexpr std::array allBackgroundQualities{BackgroundQuality::basic, Bac
 // Every filter's settings; each filter reads only its own.
 struct FilterSettings {
     // Gaussian Blur's radius in layer pixels: the blur's sigma.
-    double radius = 1;
+    double radius = 5;
+    // Gaussian Blur keeps every alpha: only the colours blur.
+    bool preserveTransparency = false;
     // Motion Blur's angle, counterclockwise from horizontal, as Photoshop's.
     double angle = 0;
     double distance = 10;
@@ -92,6 +94,12 @@ struct FilterSettings {
     friend bool operator==(const FilterSettings &, const FilterSettings &) = default;
 };
 
+// A layer's sides, in its pixels; top is row 0.
+struct LayerSides {
+    bool left = false, right = false, top = false, bottom = false;
+    friend bool operator==(const LayerSides &, const LayerSides &) = default;
+};
+
 // What a filter runs on: grid, settings, selection, placement.
 struct FilterJob {
     FilterKind kind;
@@ -116,6 +124,8 @@ struct FilterJob {
     std::optional<QRectF> canvas = std::nullopt;
     // Camera Raw's adaptive sliders' reading of `image`, once known.
     std::optional<CameraRawTables::Brightness> cameraRawBrightness = std::nullopt;
+    // Sides at the canvas's edge, which blurs carry on.
+    LayerSides canvasSides{};
 };
 
 // Swift's PixelFilter.
@@ -131,6 +141,12 @@ inline const double motionRadiusPerPixel = 1 / std::sqrt(12.0);
 inline constexpr double lensStrength = 0.35;
 // The pixels that are there, placed where they were.
 Trimmed trimmed(const QImage &image, const LayerTransform &placed);
+struct Extended {
+    QImage image;
+    QRect inside;
+};
+// Swift's extending: edge pixels repeated `reach` deep past `sides`.
+Extended extending(const QImage &image, LayerSides sides, int reach);
 // The filter over the job's image, through its selection.
 QImage run(const FilterJob &job);
 }
@@ -142,7 +158,7 @@ public:
     static constexpr double previewLimit = 2048;
     // `area`: a document area the grid must cover (Content-Aware Fill).
     FilterEdit(FilterKind kind, const ImageLayer &layer, std::optional<SelectionClip> selection, const FilterSettings &settings,
-               std::optional<QRectF> area);
+               std::optional<QRectF> area, std::optional<QSizeF> canvas = std::nullopt);
     // The room a blur needs round the layer, in pixels.
     static double blurMargin(FilterKind kind, const FilterSettings &settings);
     // Pads the grid for the blur; it only ever grows.
@@ -168,8 +184,10 @@ public:
     // The layer padded out, and the transform placing it.
     std::optional<QImage> grownImage;
     std::optional<LayerTransform> grownTransform;
-    // How far the padding reaches past every side.
+    // How far the padding reaches past the padded sides.
     double grownMargin = 0;
+    // Sides at the canvas's edge: blurs carry them on, unpadded.
+    LayerSides canvasSides;
     FilterSettings settings;
     bool preview = true;
     bool committing = false;

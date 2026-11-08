@@ -176,6 +176,8 @@ FilterSheet::FilterSheet(EditorSession &session, QWidget *parent)
         break;
     case FilterKind::gaussianBlur:
         control(QStringLiteral("Radius"), key(&FilterSettings::radius), 0.1, 250, QStringLiteral("px"), 1, true);
+        flag(QStringLiteral("Preserve Transparency"), QStringLiteral("Blur only the colors, keeping the layer's outline and transparency as they are"),
+             [](FilterSettings &settings) -> bool & { return settings.preserveTransparency; });
         break;
     case FilterKind::motionBlur:
         control(QStringLiteral("Angle"), key(&FilterSettings::angle), -90, 90, QStringLiteral("°"), 0, false);

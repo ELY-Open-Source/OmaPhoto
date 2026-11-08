@@ -1,6 +1,7 @@
 #include "IO/RawImporter.h"
 #include "IO/ImageExporter.h"
 #include "IO/ImageImporter.h"
+#include "IO/LensCorrection.h"
 #include "Logging.h"
 #include "Rendering/PoolMap.h"
 #include <QColorSpace>
@@ -122,7 +123,7 @@ void requireThreeColours(const LibRaw &raw, const QString &path)
     throw ImageImportError(ImageImportError::Kind::unsupported);
 }
 
-// Green-anchored multipliers; the smallest, which LibRaw divides out.
+// Green-anchored multipliers; the one LibRaw divides out.
 double setWhite(LibRaw &raw, const QString &path, const RawDevelopSettings &settings)
 {
     // A process overwrites `color`; unpack's copy stays the camera's.
@@ -134,7 +135,8 @@ double setWhite(LibRaw &raw, const QString &path, const RawDevelopSettings &sett
     float *const multipliers = raw.imgdata.params.user_mul;
     for (size_t channel = 0; channel < 3; ++channel)
         multipliers[channel] = float(camera[1] / camera[channel]);
-    return *std::min_element(multipliers, multipliers + 3);
+    // dcraw's scale_colors: the largest when highlights are kept.
+    return raw.imgdata.params.highlight ? *std::max_element(multipliers, multipliers + 3) : *std::min_element(multipliers, multipliers + 3);
 }
 
 double srgb(double linear)
@@ -160,8 +162,11 @@ QImage render(LibRaw &raw, const QString &path, const RawDevelopSettings &settin
     params.adjust_maximum_thr = 0;
     params.use_camera_wb = 0;
     params.use_auto_wb = 0;
-    // LibRaw clips at white in camera space: highlights stay neutral.
-    const double smallest = setWhite(raw, path, settings);
+    // Clipped at white in camera space, highlights stay neutral.
+    params.highlight = settings.supportsHighlightRecovery && settings.highlightRecovery ? 5 : 0;
+    // dcraw's useful thresholds run to 1000.
+    params.threshold = settings.supportsNoiseReduction ? settings.noiseReduction * 1000 : 0;
+    const double divided = setWhite(raw, path, settings);
     // A half-size process leaves `sizes` halved; unpack's copy stays.
     const int longest = std::max(raw.imgdata.rawdata.sizes.width, raw.imgdata.rawdata.sizes.height);
     params.half_size = limit && longest > *limit ? 1 : 0;
@@ -175,8 +180,13 @@ QImage render(LibRaw &raw, const QString &path, const RawDevelopSettings &settin
     if (image.isNull())
         throw ExportError(ExportError::Kind::render);
     image.setColorSpace(QColorSpace::SRgb);
-    const double gain = std::pow(2.0, double(settings.exposure)) * smallest;
+    const double gain = std::pow(2.0, double(settings.exposure)) * divided;
     const auto *samples = reinterpret_cast<const quint16 *>(made->data);
+    // Lens correction in linear light, before exposure and the look.
+    const std::unique_ptr<float[]> corrected = settings.supportsLensCorrection && settings.lensCorrection
+        ? LensCorrection::apply(raw, samples, image.width(), image.height())
+        : nullptr;
+    const auto sample = [&](qsizetype index) { return corrected ? double(corrected[index]) : double(samples[index]); };
     // The look at 16 bits, as Core Image renders it.
     const std::unique_ptr<quint16[]> wide(new (std::nothrow) quint16[size_t(image.width()) * size_t(image.height()) * 4]);
     if (!wide)
@@ -187,7 +197,7 @@ QImage render(LibRaw &raw, const QString &path, const RawDevelopSettings &settin
         for (int x = 0; x < image.width(); ++x) {
             quint16 *out = wide.get() + (qsizetype(y) * image.width() + x) * 4;
             for (int channel = 0; channel < 3; ++channel) {
-                const double linear = std::min(samples[(qsizetype(y) * image.width() + x) * 3 + channel] / 65535.0 * gain, 1.0);
+                const double linear = std::min(sample((qsizetype(y) * image.width() + x) * 3 + channel) / 65535.0 * gain, 1.0);
                 const double flat = srgb(linear);
                 out[channel] = quint16(std::lround(65535 * (flat + settings.boost * (bt709(linear) - flat))));
             }
@@ -207,7 +217,8 @@ QImage render(LibRaw &raw, const QString &path, const RawDevelopSettings &settin
 
 bool RawDevelopSettings::isAsShot() const
 {
-    return exposure == 0 && boost == 1 && temperature == asShotTemperature && tint == asShotTint;
+    return exposure == 0 && boost == 1 && temperature == asShotTemperature && tint == asShotTint && noiseReduction == asShotNoiseReduction
+        && lensCorrection == asShotLensCorrection && highlightRecovery == asShotHighlightRecovery;
 }
 
 void RawDevelopSettings::reset()
@@ -216,6 +227,9 @@ void RawDevelopSettings::reset()
     boost = 1;
     temperature = asShotTemperature;
     tint = asShotTint;
+    noiseReduction = asShotNoiseReduction;
+    lensCorrection = asShotLensCorrection;
+    highlightRecovery = asShotHighlightRecovery;
 }
 
 bool RawImporter::matches(const QString &path)
@@ -294,6 +308,9 @@ std::optional<RawDevelopSettings> RawImporter::asShot(const QString &path)
         RawDevelopSettings settings;
         settings.temperature = settings.asShotTemperature = float(kelvin);
         settings.tint = settings.asShotTint = float(tint);
+        // LibRaw denoises and rebuilds any camera; lensfun needs a profile.
+        settings.supportsNoiseReduction = settings.supportsHighlightRecovery = true;
+        settings.supportsLensCorrection = settings.lensCorrection = settings.asShotLensCorrection = LensCorrection::supports(*raw);
         return settings;
     } catch (const ImageImportError &) {
         return std::nullopt;

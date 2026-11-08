@@ -591,6 +591,76 @@ Release:
 - [x] 14.32 Tag `v1.4.9`, `scripts/release.sh v1.4.9`, live installs from Gitea in fresh containers, the acceptance checklist.
 - 14.32 v1.4.9 tagged and released on Gitea; live installs pass on Ubuntu 24.04 and 26.04, Fedora 43 and 44, Arch and NixOS, Debian 13 refused; passed review round 1.
 
+## 15 Compositor 1.5.3 (the user's order, 2026-10-15: port through v1.5.3)
+
+`Compositor-Ref` moves to `v1.5.3`. One item at a time, top to bottom, main agent only. Each is reviewed by codex (`gpt-6-astra`, effort `max`, service tier `fast`) in a herdr pane split to the right, three rounds at most. Items follow the first release that holds each feature; a later fix travels with it. A C kernel is copied whole at the state of the item's last upstream commit; later items move it on (`DeepPixels` from 15.10 to 15.15, `PatchPixels` and `HealPixels` in 15.6, `AdjustPixels` in 15.29 and 15.36). Nothing to port: feeds, versions and CI (`b4bfdea`, `a1bd74c`, `3beab33`, `5a18e8b`, `f2747c4`, `43d691b`, `518d0bf`, `3081719`, `216be97`; the version commits `eb1fda7`, `1071f4f`, `539a78d`, `f2d5754` and `554104c` go to 15.37), Sparkle's update alert (`5e9033f`: no updater on Linux), a pasteboard per test process (`a65313a`: offscreen Qt's clipboard is the process's own), and the merge `8d3f2fe` (no conflict under `git show --remerge-diff`). Keys: Cmd is Ctrl, Option is Alt, Control is Meta.
+
+The user's decisions (2026-10-15): port through v1.5.3; HDR through OpenEXR, with Radiance `.hdr` read by a hand-written decoder; CMYK through Little CMS 2 and the profiles in the XDG `color/icc` folders plus Load Profile, the CMYK entries resting while none is found; RAW Lens Correction through lensfun.
+
+Compositor 1.4.10:
+
+- [x] 15.0 Survey v1.4.9..v1.5.3 (61 commits) and split them into the items below; `Compositor-Ref` at `v1.5.3`.
+- 15.0 review (codex `gpt-6-astra`, max, fast): round 1 FAIL (two items under 1.5.1 that first ship in 1.5.2; `93f8e8d` needs 15.12's blend; the clipboard and the tab bar overstated; `d9cdb81` placed twice), round 2 PASS.
+- [x] 15.1 Tool option bars never show a scroll bar (`7311d69`).
+- 15.1 held: every bar's scroll area keeps both policies `ScrollBarAlwaysOff`; `noBarEverShowsAScrollBar` pins the five bars. 6 mutants, all caught. Review: round 1 PASS.
+- [x] 15.2 The Layers panel at its narrowest keeps everything inside it (`0a5c8d9`).
+- 15.2 work: the floor 222, a stored width clamped and logged, the Blend picker 60 wide at least and as wide as it is given; `atItsNarrowestEverythingStaysInside`, `aStoredWidthIsBroughtIntoRange`. 7 mutants, all caught. Review: round 1 FAIL (three comments over ten words), round 2 PASS.
+- [x] 15.3 Import a folder of images as layers (`b2a0c45`).
+- 15.3 work: `ImageFolder`, `ImageImporter::importableGlobs`, folders expanded by `importImages`; the dialog stays files alone (the user's decision). `ImageFolderTests`. 32 mutants, all caught but two dead terms removed (`setCaseSensitivity`, `isLocalFile`). Review: round 1 FAIL (zero-padded numbers tied; a trailing slash hid the name and read through a link), round 2 FAIL (a digit tie before a case difference), round 3 PASS (CF's forced ordering, Swift 6.0.3 oracle on 520,000 pairs).
+- [x] 15.4 Gaussian Blur: Preserve Transparency, solid edges at the canvas, 5 px to start (`9a0ad3e`).
+- 15.4 work: `preserveTransparency` through `PixelAdjust::colorBlur` (floats, one rounding), `LayerSides` and `PixelFilter::extending` for both blurs, growth on inner sides only, the 5 px default; `BlurEdgeTests` and Swift's four. 41 mutants, all caught but one equivalent; two dead pieces removed (the pads' `+1`, the colour clamps). Review: round 1 PASS.
+- [x] 15.5 RAW develop: Noise Reduction and Highlight Recovery through LibRaw, Lens Correction through lensfun (`248d4d4`).
+- 15.5 work: `IO/LensCorrection` on lensfun 0.3.4 (its SSE distortion fault avoided through its plain code), LibRaw's `threshold` and `highlight` 5, the multiplier LibRaw divides by followed, the sheet's row and toggles, lensfun in every build, the AppImage's bundled profiles (every XDG data folder read, an earlier one on the path winning). `RawLensTests`. 55 mutants, 52 caught; equivalent: the three terms of `found` (log only). Review: round 1 FAIL (the vignette clipped at 16 bits before Exposure, its oracle with it: floats now; lensfun's searches raced `asShot` against a worker: one lock; the AppImage carried no profiles: `version_1` bundled, every XDG folder read), round 2 FAIL (lensfun's `Load` ran last, so its compiled folder overrode the bundle: it runs first now, the user's folder again last; `theDataFoldersAreRead` overrides a real Canon lens), round 3 PASS.
+- [ ] 15.6 Spot Healing and Content-Aware Fill through multi-scale PatchMatch (`23913d3`, `39d1257`).
+- [ ] 15.7 HEIF from cameras: `.hif`, `.heif` (`70b3e14`).
+- [ ] 15.8 The new app icon, at its v1.5.3 art (`ce5ea67`).
+
+Compositor 1.5:
+
+- [ ] 15.9 16-bit images dither to 8 bits on import (`bdcedf2`).
+- [ ] 15.10 16-bit layers keep their precision: import, store (format 12), history, transforms, Distort, painting, merges, floating selections, export (`d9cdb81`; its icon art is the art 15.8 copies).
+- [ ] 15.11 16-bit layers through adjustments, Liquify, Smudge and Blur (`6aea90a`).
+- [ ] 15.12 16-bit layers through Hue/Saturation, the colour adjustments, the Blur tool's painting, Camera Raw and the 8-bit tools; 16-bit blurs in one pass (`2b9603f`, `f01e298`, `93f8e8d`, `3d2ada4`).
+- [ ] 15.13 Convert layers between 8 and 16 bits; 16-bit gradients and fills (`2fe3524`).
+- [ ] 15.14 HDR layers: EXR and Radiance import, EXR in projects (format 13), through OpenEXR (`7f239dc`).
+- [ ] 15.15 HDR layers keep their highlights through edits (`a10fcb7`).
+- [ ] 15.16 EXR export; the canvas draws 16-bit and HDR layers from their own pixels, adjustments revealing highlights (`b9186f7`, `905efc5`).
+- [ ] 15.17 HDR layers convert to 16-bit; the depth tag reads "16-Bit" (`5a2e57f`).
+- [ ] 15.18 Paste an image on the New canvas screen to make the canvas (`2522e3b`).
+- [ ] 15.19 Layers footer: the adjustment button before the effects button (`067fca4`).
+- [ ] 15.20 A drop on the tab bar outside the tabs opens a new project (`d3d0ce7`).
+- [ ] 15.21 A layer dragged into a new project sizes the canvas to it (`e580107`).
+- [ ] 15.22 Export As: JPEG and PNG first, PDF and EXR under More (`f5ae5ba`).
+- [ ] 15.23 CMYK for print through Little CMS: proof on the canvas, CMYK export (`59025aa`).
+- [ ] 15.24 CMYK Photoshop files open; a CMYK file's profile is remembered (`896d5c8`).
+- [ ] 15.25 Export As: a quieter Color choice, always starting on RGB (`dac3bc6`).
+
+Compositor 1.5.1:
+
+- [ ] 15.26 Filter › Progressive Blur (`3ae11cd`).
+
+Compositor 1.5.2:
+
+- [ ] 15.27 Camera Raw: reset each section from its header, beside its eye; the scroll bar clear of the controls (`f745d65`, `b8ff682`, `e8c9e29`).
+- [ ] 15.28 Keyboard Shortcuts: clear a shortcut, keys for CMYK proofing, two fixes (`87e2283`).
+- [ ] 15.29 Camera Raw's Shadows adapt to the picture as Photoshop's (`735c2cc`).
+- [ ] 15.30 RAW import: Camera Raw… imports, then opens the Camera Raw Filter (`a3a0e29`).
+
+Compositor 1.5.3:
+
+- [ ] 15.31 Smooth rectangle corners; simpler shape controls (`9f1d158`, `9b3f48e`).
+- [ ] 15.32 A middle drag scrolls the layer list (`92eba05`).
+- [ ] 15.33 Zoom cursors follow a change of drag direction at once (`fc4c273`).
+- [ ] 15.34 Camera Raw previews stay at native resolution while adjusting (`f4b7009`).
+- [ ] 15.35 Camera Raw's scope samples less (`cf0ffa1`).
+- [ ] 15.36 Camera Raw's large previews: Swift's Metal lookup has no twin; its C verifier judged (`9329ab8`).
+
+Release:
+
+- [ ] 15.37 Version 1.5.3: CMake, PKGBUILD, flake, `versionupdate.md`, README (every row new since 1.4.9), AGENTS.md.
+- [ ] 15.38 The acceptance run for the rows new in 1.4.10 to 1.5.3; the full suite; distro checks (arch, fedora, fedora44, nixos, resolute).
+- [ ] 15.39 The acceptance checklist.
+
 ## Skills by phase
 
 Planning (done): geju, goudi, hai-razor, hai-architecture, senior-architect, clean-architecture, ai-coding-discipline, karpathy-guidelines, be-serious, herdr. Coding (from 0.1): clean-code, code-simplification. IO (3.1, loaded): ddia-principles, applied as encoding and evolution (new code reads versions 1 to 7, unknown keys are ignored, a newer version is refused by name), reliability (a save is whole or absent, synced before the swap) and limits checked before bytes are read. UI (4.3): steve-jobs-perspective. Tests (4.3): e2e-testing-patterns, systematic-debugging. Research (9.7): deep-research. Packaging (11.2): devops-engineer. auth-implementation-patterns: loaded at 3.1; the app has no accounts, sessions or network auth, so only its one general rule applies: a project file is untrusted input, validated before use.

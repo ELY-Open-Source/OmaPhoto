@@ -1,4 +1,5 @@
 #include "ContentView.h"
+#include "UI/BlendModePicker.h"
 #include "UI/LayerAppearanceControls.h"
 #include "UI/LayersPanel.h"
 #include "UI/NativeLayerList.h"
@@ -52,7 +53,8 @@ private slots:
     void theHeadingCountsAndTheEmptyWordsFollowTheDocument();
     void theFooterAddsGroupsAndDeletesWithSwiftsWords();
     void theEdgeResizesThePanelWithinRangeAndRemembersIt();
-    void aStoredWidthOutOfRangeIsTheDefault();
+    void aStoredWidthIsBroughtIntoRange();
+    void atItsNarrowestEverythingStaysInside();
     void theMaskButtonUsesTheSelection();
     void footerButtonsTakeThePrimaryInkAndDimAsTheMenus();
 };
@@ -183,14 +185,52 @@ void LayersPanelTests::theEdgeResizesThePanelWithinRangeAndRemembersIt()
     QCOMPARE(next.layersPanel().width(), int(LayersPanel::minimumWidth));
 }
 
-void LayersPanelTests::aStoredWidthOutOfRangeIsTheDefault()
+void LayersPanelTests::aStoredWidthIsBroughtIntoRange()
 {
+    // Swift 1.4.10 clamps a width saved below the range.
+    QSettings().setValue(QStringLiteral("layersPanelWidth"), 202);
+    QTest::ignoreMessage(QtWarningMsg, QRegularExpression("layersPanelWidth 202 is out of range, using 222"));
+    QCOMPARE(ContentView::layersPanelWidth(), 222.0);
     QSettings().setValue(QStringLiteral("layersPanelWidth"), 9000);
-    QTest::ignoreMessage(QtWarningMsg, QRegularExpression("layersPanelWidth 9000 is out of range, using 252"));
-    QCOMPARE(ContentView::layersPanelWidth(), 252.0);
+    QTest::ignoreMessage(QtWarningMsg, QRegularExpression("layersPanelWidth 9000 is out of range, using 352"));
+    QCOMPARE(ContentView::layersPanelWidth(), 352.0);
     QSettings().setValue(QStringLiteral("layersPanelWidth"), QStringLiteral("wide"));
-    QTest::ignoreMessage(QtWarningMsg, QRegularExpression("layersPanelWidth 0 is out of range, using 252"));
-    QCOMPARE(ContentView::layersPanelWidth(), 252.0);
+    QTest::ignoreMessage(QtWarningMsg, QRegularExpression("layersPanelWidth 0 is out of range, using 222"));
+    QCOMPARE(ContentView::layersPanelWidth(), 222.0);
+    QSettings().setValue(QStringLiteral("layersPanelWidth"), 222.5);
+    QCOMPARE(ContentView::layersPanelWidth(), 222.5);
+}
+
+void LayersPanelTests::atItsNarrowestEverythingStaysInside()
+{
+    QCOMPARE(LayersPanel::minimumWidth, 222.0);
+    QSettings().setValue(QStringLiteral("layersPanelWidth"), 222);
+    EditorSession session;
+    session.createDocument(200, 100);
+    session.addBlankLayer();
+    ContentView view(session);
+    view.resize(1100, 600);
+    view.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&view));
+    LayersPanel &panel = view.layersPanel();
+    QCOMPARE(panel.width(), 222);
+    // No control reaches past either edge.
+    for (QWidget *child : panel.findChildren<QWidget *>()) {
+        if (!child->isVisibleTo(&panel))
+            continue;
+        const QRect placed(child->mapTo(&panel, QPoint(0, 0)), child->size());
+        QVERIFY2(placed.left() >= 0 && placed.right() < panel.width(), qPrintable(child->objectName() + " " + QString::number(placed.right())));
+    }
+    // The Blend pop-up takes its given width, 60 at least.
+    LayerAppearanceControls controls(session);
+    controls.resize(150, controls.height());
+    controls.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&controls));
+    QCOMPARE(controls.width(), 150);
+    auto &picker = find<BlendModePicker>(controls, "blendMode");
+    QCOMPARE(picker.minimumWidth(), 60);
+    QVERIFY(picker.width() >= 60 && picker.width() < picker.sizeHint().width());
+    QCOMPARE(picker.mapTo(&controls, QPoint(picker.width(), 0)).x(), 150 - 12);
 }
 
 void LayersPanelTests::footerButtonsTakeThePrimaryInkAndDimAsTheMenus()

@@ -18,6 +18,7 @@ find_package(onnxruntime REQUIRED)
 find_package(PkgConfig REQUIRED)
 # The thread-safe build: previews develop on workers.
 pkg_check_modules(LIBRAW REQUIRED IMPORTED_TARGET libraw_r)
+pkg_check_modules(LENSFUN REQUIRED IMPORTED_TARGET lensfun)
 
 add_library(compositor_core STATIC
     src/Logging.cpp
@@ -177,6 +178,7 @@ add_library(compositor_core STATIC
     src/IO/ImageExporter.cpp
     src/IO/ImageImporter.cpp
     src/IO/RawImporter.cpp
+    src/IO/LensCorrection.cpp
     src/IO/ImageResizer.cpp
     src/IO/ProjectController.cpp
     src/IO/ProjectController+Resize.cpp
@@ -259,7 +261,7 @@ target_include_directories(compositor_core PUBLIC src PRIVATE ${OMAPHOTO_KERNELS
 find_package(LibLZMA REQUIRED)
 # Swift's bundled resource, inside the binary.
 qt_add_resources(compositor_core camera_raw_tables PREFIX "/" BASE src/Resources FILES src/Resources/CameraRawTables.bin)
-target_link_libraries(compositor_core PUBLIC Qt6::Widgets Qt6::Concurrent PRIVATE LibLZMA::LibLZMA Qt6::Svg heif Fontconfig::Fontconfig onnxruntime::onnxruntime PkgConfig::LIBRAW)
+target_link_libraries(compositor_core PUBLIC Qt6::Widgets Qt6::Concurrent PRIVATE LibLZMA::LibLZMA Qt6::Svg heif Fontconfig::Fontconfig onnxruntime::onnxruntime PkgConfig::LIBRAW PkgConfig::LENSFUN)
 target_compile_options(compositor_core PUBLIC -Wall -Wextra
     $<$<BOOL:${OMAPHOTO_WERROR}>:-Werror>)
 # Empty optionals and bad indexes abort, not pass by luck.

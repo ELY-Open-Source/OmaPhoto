@@ -9,7 +9,8 @@ namespace {
 std::unique_ptr<EditorSession> halfWhite()
 {
     auto session = std::make_unique<EditorSession>();
-    session->createDocument(40, 20);
+    // Room round the layer: a blur grows into it.
+    session->createDocument(80, 60);
     QImage image = BrushRaster::context(40, 20, false);
     QPainter(&image).fillRect(QRect(0, 0, 20, 20), Qt::white);
     session->insert(ImportedImage(image, image, QStringLiteral("Half")));
@@ -200,7 +201,8 @@ void LastFilterTests::aRepeatThatCannotBeginOrLandLeavesNothingOpen()
     QVERIFY(!session->filterEdit() && session->history.undoCount() == count && !session->isProjectBusy());
     // A blur that cannot grow begins nothing: an error.
     EditorSession wide;
-    wide.createDocument(100, 10);
+    // Two pixels of room each side: no canvas side.
+    wide.createDocument(DocumentLimits::maxSide, 10);
     QImage line = BrushRaster::context(DocumentLimits::maxSide - 4, 1, false);
     line.fill(Qt::white);
     wide.insert(ImportedImage(line, QImage(), QStringLiteral("Line")));

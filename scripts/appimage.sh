@@ -11,6 +11,9 @@ DESTDIR="$PWD/AppDir" cmake --install build-appimage
 mkdir -p AppDir/usr/lib/libheif AppDir/apprun-hooks
 cp /usr/lib/x86_64-linux-gnu/libheif/plugins/libheif-libde265.so AppDir/usr/lib/libheif/
 cp packaging/appimage/omaphoto.sh AppDir/apprun-hooks/
+# Lensfun's profiles, found through XDG_DATA_DIRS.
+mkdir -p AppDir/usr/share/lensfun
+cp -r /usr/share/lensfun/version_1 AppDir/usr/share/lensfun/
 # Qt's Wayland client needs its shell and decoration plugins.
 qtplugins=/usr/lib/x86_64-linux-gnu/qt6/plugins
 mkdir -p AppDir/usr/plugins

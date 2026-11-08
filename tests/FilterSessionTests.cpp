@@ -9,10 +9,11 @@
 
 // Filters in the session: every kind's begin, update and commit.
 namespace {
-std::unique_ptr<EditorSession> filled(int width, int height, QColor colour = Qt::red)
+// `room`: clear canvas round the layer for a blur.
+std::unique_ptr<EditorSession> filled(int width, int height, QColor colour = Qt::red, int room = 0)
 {
     auto session = std::make_unique<EditorSession>();
-    session->createDocument(width, height);
+    session->createDocument(width + 2 * room, height + 2 * room);
     QImage image = BrushRaster::context(width, height, false);
     image.fill(colour);
     session->insert(ImportedImage(image, image, QStringLiteral("Filled")));
@@ -111,10 +112,10 @@ void FilterSessionTests::gradientMapStartsFromThePalette()
 
 void FilterSessionTests::updatesNormalizeGrowAndDropWhatPreviewOffHides()
 {
-    const std::unique_ptr<EditorSession> session = filled(20, 20);
+    const std::unique_ptr<EditorSession> session = filled(20, 20, Qt::red, 1);
     session->beginFilter(FilterKind::gaussianBlur);
     QVERIFY(settled(*session));
-    QCOMPARE(session->filterEdit().value().grownMargin, 5.0);
+    QCOMPARE(session->filterEdit().value().grownMargin, 17.0);
     // A radius past range stops at 250; the grid grows.
     session->updateFilter(FilterSettings{.radius = 1000}, true);
     QCOMPARE(settings(*session).radius, 250.0);
@@ -176,13 +177,13 @@ void FilterSessionTests::nothingToChangeClosesWithoutAStep()
 
 void FilterSessionTests::blurCommitsAreTrimmedAndOthersKeepTheirPlace()
 {
-    const std::unique_ptr<EditorSession> session = filled(10, 10);
+    const std::unique_ptr<EditorSession> session = filled(10, 10, Qt::red, 10);
     session->beginFilter(FilterKind::motionBlur);
     session->updateFilter(FilterSettings{.distance = 8}, false);
     QVERIFY(committed(*session));
     // A level streak spreads sideways alone.
     const ImageLayer blurred = session->activeLayer().value();
-    QVERIFY(blurred.transform.origin.x() < 0 && blurred.transform.origin.y() == 0);
+    QVERIFY(blurred.transform.origin.x() < 10 && blurred.transform.origin.y() == 10);
     QCOMPARE(blurred.transform.size.height(), 10.0);
     QCOMPARE(blurred.asset.value().size(), blurred.transform.size.toSize());
     QCOMPARE(blurred.asset.value().name, QString("Motion Blur"));
@@ -218,8 +219,9 @@ void FilterSessionTests::aRunningPreviewDropsAtTheCommit()
 
 void FilterSessionTests::anAutomaticKindRendersOncePerSettings()
 {
-    const std::unique_ptr<EditorSession> session = filled(16, 16);
-    session->applySelection(rectPath(QRectF(6, 6, 4, 4)), SelectionMode::replace, "Select");
+    // Room for 7 by 7 sources clear of the hole.
+    const std::unique_ptr<EditorSession> session = filled(32, 32);
+    session->applySelection(rectPath(QRectF(14, 14, 4, 4)), SelectionMode::replace, "Select");
     session->beginFilter(FilterKind::contentAwareFill);
     QVERIFY(settled(*session));
     const auto made = [&session] { return session->filterEdit().value().preparedPreview.value().cacheKey(); };
@@ -229,7 +231,7 @@ void FilterSessionTests::anAutomaticKindRendersOncePerSettings()
     session->updateFilter(settings(*session), false);
     QVERIFY(!session->filterEdit().value().preparing && made() == first && session->brushRevision() > revision);
     // Other settings make it once more; the commit takes it.
-    const FilterSettings other{.radius = 5};
+    const FilterSettings other{.radius = 7};
     session->updateFilter(other, true);
     QVERIFY(session->filterEdit().value().preparing);
     QVERIFY(settled(*session) && made() != first);
@@ -254,15 +256,17 @@ void FilterSessionTests::aCoveringMaskStaysPutUnderABlur()
 {
     // Paint the left quarter; the mask reveals the half.
     auto session = std::make_unique<EditorSession>();
-    session->createDocument(40, 20);
+    // The layer at (20, 20), with room to grow.
+    session->createDocument(80, 60);
     QImage image = BrushRaster::context(40, 20, false);
     QPainter(&image).fillRect(0, 0, 10, 20, Qt::red);
     session->insert(ImportedImage(image, image, QStringLiteral("Quarter")));
     const QUuid id = session->activeLayerID().value();
-    session->applySelection(rectPath(QRectF(0, 0, 20, 20)), SelectionMode::replace, "Select");
+    session->applySelection(rectPath(QRectF(20, 20, 20, 20)), SelectionMode::replace, "Select");
     session->addMask(true);
     session->selectLayerTarget(id, false);
     session->beginFilter(FilterKind::gaussianBlur);
+    session->updateFilter(FilterSettings{.radius = 1}, false);
     QVERIFY(committed(*session));
     // Trimmed round the quarter, the mask still reveals the half.
     const ImageLayer layer = session->activeLayer().value();
@@ -270,7 +274,7 @@ void FilterSessionTests::aCoveringMaskStaysPutUnderABlur()
     QVERIFY(layer.transform.size.width() < 20 && mask.size() == layer.asset.value().size());
     const QTransform toMask = BrushRaster::pixelToDocument(layer.transform, mask.width(), mask.height()).inverted();
     // Swift's grown box would hide x from 5 to 10.
-    for (const QPointF point : {QPointF(2.5, 10.5), QPointF(7.5, 10.5), QPointF(12.5, 10.5)}) {
+    for (const QPointF point : {QPointF(22.5, 30.5), QPointF(27.5, 30.5), QPointF(32.5, 30.5)}) {
         const QPointF pixel = toMask.map(point);
         QCOMPARE(int(mask.constScanLine(int(pixel.y()))[int(pixel.x())]), 255);
     }
@@ -358,17 +362,18 @@ void FilterSessionTests::aGrowthPastTheLimitsIsAnError()
 {
     // A painted strip: its grid grows from tiles, cheaply.
     auto session = std::make_unique<EditorSession>();
-    session->createDocument(29000, 1);
+    // A pixel of room round the strip: no canvas side.
+    session->createDocument(29002, 3);
     QImage base = BrushRaster::context(2, 1, false);
     base.fill(Qt::red);
     session->insert(ImportedImage(std::make_shared<const RasterSnapshot>(29000, 1, base, QRectF(0, 0, 2, 1), std::vector<BrushPatch>{}), QImage(),
                                   QStringLiteral("Painted")));
     session->beginFilter(FilterKind::gaussianBlur);
-    QCOMPARE(session->filterEdit().value().grownMargin, 5.0);
+    QCOMPARE(session->filterEdit().value().grownMargin, 17.0);
     // Radius 250 needs 30,504 pixels across: refused, the grid kept.
     session->updateFilter(FilterSettings{.radius = 250}, false);
     QCOMPARE(session->brushError().value(), QString::fromUtf8(ProjectError(ProjectError::Kind::tooLarge).what()));
-    QVERIFY(session->filterEdit() && session->filterEdit().value().grownMargin == 5);
+    QVERIFY(session->filterEdit() && session->filterEdit().value().grownMargin == 17);
     QCOMPARE(settings(*session).radius, 250.0);
     session->cancelFilter();
 }

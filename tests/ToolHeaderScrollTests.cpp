@@ -2,6 +2,8 @@
 #include "UI/BrushControls.h"
 #include "UI/GradientControls.h"
 #include "UI/LassoControls.h"
+#include "UI/TransformInspector.h"
+#include "UI/TypeControls.h"
 #include <QPushButton>
 #include <QScrollBar>
 #include <QtTest>
@@ -61,6 +63,7 @@ private slots:
     void theGradientBarScrollsAndKeepsItsButtons();
     void theSelectionBarScrollsAndKeepsDeselect();
     void eachNoteSitsWhereSwiftsDoes();
+    void noBarEverShowsAScrollBar();
 };
 
 void ToolHeaderScrollTests::theBrushBarScrolls()
@@ -128,6 +131,25 @@ void ToolHeaderScrollTests::eachNoteSitsWhereSwiftsDoes()
     selection.show();
     QWidget &note = *selection.findChild<QWidget *>("emptySelection");
     QTRY_VERIFY(note.isVisible() && note.parentWidget() == &selection && note.geometry().right() < 440);
+}
+
+// Swift 1.4.10: `.never`, whatever the system's scroll bar setting.
+void ToolHeaderScrollTests::noBarEverShowsAScrollBar()
+{
+    const auto session = withLayer(NavigationTool::brush);
+    BrushControls brush(*session);
+    GradientControls gradient(*session);
+    LassoControls selection(*session);
+    TransformInspector move(*session);
+    TypeControls type(*session);
+    const std::vector<std::pair<QWidget *, const char *>> bars{{&brush, "brushScroll"}, {&gradient, "gradientScroll"},
+        {&selection, "selectionScroll"}, {&move, "transformScroll"}, {&type, "typeScroll"}};
+    for (const auto &[bar, name] : bars) {
+        const auto *area = bar->findChild<QScrollArea *>(QString::fromLatin1(name));
+        QVERIFY2(area, name);
+        QVERIFY2(area->horizontalScrollBarPolicy() == Qt::ScrollBarAlwaysOff, name);
+        QVERIFY2(area->verticalScrollBarPolicy() == Qt::ScrollBarAlwaysOff, name);
+    }
 }
 
 QTEST_MAIN(ToolHeaderScrollTests)

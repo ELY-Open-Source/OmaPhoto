@@ -5,6 +5,7 @@
 #include "IO/PSD/PSDReader.h"
 #include "IO/RawImporter.h"
 #include "Logging.h"
+#include <QDir>
 #include <QtConcurrent>
 
 bool EditorSession::canStartProjectOperation() const
@@ -50,8 +51,24 @@ void EditorSession::updateBusyIndicator()
     }
 }
 
-void EditorSession::importImages(const QList<QUrl> &urls, std::optional<QPointF> point, std::function<void()> done)
+void EditorSession::importImages(const QList<QUrl> &requested, std::optional<QPointF> point, std::function<void()> done)
 {
+    // A folder brings in the images directly inside it.
+    QList<QUrl> urls;
+    QStringList empty;
+    for (const QUrl &url : requested) {
+        if (!ImageFolder::matches(url.toLocalFile())) {
+            urls << url;
+            continue;
+        }
+        const QStringList images = ImageFolder::images(url.toLocalFile());
+        if (images.isEmpty())
+            empty << QStringLiteral("“%1” has no images to import.").arg(QDir(url.toLocalFile()).dirName());
+        for (const QString &image : images)
+            urls << QUrl::fromLocalFile(image);
+    }
+    if (!empty.isEmpty())
+        setImportError(m_importError ? *m_importError + QStringLiteral("\n\n") + empty.join('\n') : empty.join('\n'));
     if (urls.isEmpty()) {
         if (done)
             done();

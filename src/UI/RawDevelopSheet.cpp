@@ -2,6 +2,7 @@
 #include "IO/ImageExporter.h"
 #include "IO/ImageImporter.h"
 #include "Logging.h"
+#include <QCheckBox>
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QHBoxLayout>
@@ -57,8 +58,11 @@ protected:
 RawDevelopSheet::RawDevelopSheet(RawDevelopRequest request, std::function<void(std::optional<RawDevelopSettings>)> finish, QWidget *parent)
     : QWidget(parent), m_path(std::move(request.path)), m_finish(std::move(finish)), m_settings(request.settings), m_wait(new QTimer(this)),
       m_preview(new Preview(this)), m_spinner(new QProgressBar(m_preview)), m_reset(new QPushButton(QStringLiteral("Reset"), this)),
-      m_cancel(new QPushButton(QStringLiteral("Cancel"), this)), m_import(new QPushButton(QStringLiteral("Import"), this)), m_importing(new QWidget(m_preview))
+      m_cancel(new QPushButton(QStringLiteral("Cancel"), this)), m_import(new QPushButton(QStringLiteral("Import"), this)), m_importing(new QWidget(m_preview)),
+      m_lens(new QCheckBox(QStringLiteral("Lens Correction"), this)), m_highlights(new QCheckBox(QStringLiteral("Highlight Recovery"), this))
 {
+    m_lens->setObjectName(QStringLiteral("rawLensCorrection"));
+    m_highlights->setObjectName(QStringLiteral("rawHighlightRecovery"));
     auto *column = new QVBoxLayout(this);
     column->setContentsMargins(24, 24, 24, 24);
     column->setSpacing(16);
@@ -100,17 +104,31 @@ RawDevelopSheet::RawDevelopSheet(RawDevelopRequest request, std::function<void(s
     addRow(QStringLiteral("Temperature"), &RawDevelopSettings::temperature, 2000, 12000, 1, 0, QStringLiteral(" K"));
     addRow(QStringLiteral("Tint"), &RawDevelopSettings::tint, -150, 150, 1, 0, QString());
     addRow(QStringLiteral("Boost"), &RawDevelopSettings::boost, 0, 1, 1000, 2, QString());
+    addRow(QStringLiteral("Noise Reduction"), &RawDevelopSettings::noiseReduction, 0, 1, 1000, 2, QString());
     for (const Row &row : m_rows) {
         auto *line = new QHBoxLayout;
         line->setSpacing(10);
         auto *label = new QLabel(row.slider->accessibleName(), this);
-        label->setFixedWidth(90);
+        label->setFixedWidth(110);
         label->setBuddy(row.slider);
         line->addWidget(label);
         line->addWidget(row.slider);
         line->addWidget(row.value);
         column->addLayout(line);
     }
+    // Swift's HStack, spaced 20, led in by 120.
+    auto *toggles = new QHBoxLayout;
+    toggles->setContentsMargins(120, 0, 0, 0);
+    toggles->setSpacing(20);
+    for (const auto &[box, field] : {std::pair{m_lens, &RawDevelopSettings::lensCorrection}, std::pair{m_highlights, &RawDevelopSettings::highlightRecovery}}) {
+        connect(box, &QCheckBox::clicked, this, [this, field](bool on) {
+            m_settings.*field = on;
+            changed();
+        });
+        toggles->addWidget(box);
+    }
+    toggles->addStretch(1);
+    column->addLayout(toggles);
 
     auto *buttons = new QHBoxLayout;
     m_reset->setObjectName(QStringLiteral("rawReset"));
@@ -155,8 +173,6 @@ void RawDevelopSheet::setImporting(bool importing)
     m_importing->setVisible(importing);
     if (importing)
         m_spinner->hide();
-    for (const Row &row : m_rows)
-        row.slider->setEnabled(!importing);
     m_cancel->setEnabled(!importing);
     m_import->setEnabled(!importing);
     m_preview->update();
@@ -237,11 +253,25 @@ void RawDevelopSheet::develop()
 
 void RawDevelopSheet::synchronize()
 {
+    const bool importing = !m_importing->isHidden();
     for (const Row &row : m_rows) {
         const QSignalBlocker blocker(row.slider);
         const double value = m_settings.*row.field;
         row.slider->setValue(int(std::lround(value * row.scale)));
         row.value->setText(QString::asprintf("%.*f", row.precision, value) + row.unit);
+        // Noise Reduction rests where the camera allows none.
+        const bool noise = row.field == &RawDevelopSettings::noiseReduction;
+        row.slider->setEnabled(!importing && (!noise || m_settings.supportsNoiseReduction));
+        if (noise)
+            row.slider->setToolTip(m_settings.supportsNoiseReduction ? QStringLiteral("Smooths grain, at the cost of fine detail")
+                                                                     : QStringLiteral("Not available for this camera"));
     }
-    m_reset->setEnabled(!m_settings.isAsShot() && m_importing->isHidden());
+    m_lens->setChecked(m_settings.lensCorrection);
+    m_lens->setEnabled(!importing && m_settings.supportsLensCorrection);
+    m_lens->setToolTip(m_settings.supportsLensCorrection ? QStringLiteral("Removes the lens's distortion and vignetting") : QStringLiteral("This file has no lens profile"));
+    m_highlights->setChecked(m_settings.highlightRecovery);
+    m_highlights->setEnabled(!importing && m_settings.supportsHighlightRecovery);
+    m_highlights->setToolTip(m_settings.supportsHighlightRecovery ? QStringLiteral("Brings back detail in bright areas the camera partly clipped")
+                                                                  : QStringLiteral("Not available for this camera"));
+    m_reset->setEnabled(!m_settings.isAsShot() && !importing);
 }

@@ -26,6 +26,13 @@ struct Options {
     std::array<double, 9> mix{1, 0, 0, 0, 1, 0, 0, 0, 1};
     // A fourth plane, the second green, as CMYG sensors have.
     bool fourColours = false;
+    QByteArray make = "OmaPhoto";
+    QByteArray model = "Fixture";
+    // The lens, focal length and f-number, as EXIF writes them.
+    QByteArray lensMake;
+    QByteArray lensModel;
+    double focal = 0;
+    double aperture = 0;
 };
 
 // XYZ (D65) to linear sRGB: the camera sees sRGB.
@@ -84,8 +91,8 @@ inline QByteArray data(const Options &options)
         {258, 3, 1, le16(16) + le16(0)},
         {259, 3, 1, le16(1) + le16(0)},
         {262, 3, 1, le16(32803) + le16(0)},
-        {271, 2, 9, QByteArray("OmaPhoto", 9)},
-        {272, 2, 8, QByteArray("Fixture", 8)},
+        {271, 2, quint32(options.make.size() + 1), options.make + '\0'},
+        {272, 2, quint32(options.model.size() + 1), options.model + '\0'},
         {273, 4, 1, QByteArray()},
         {274, 3, 1, le16(options.orientation) + le16(0)},
         {277, 3, 1, le16(1) + le16(0)},
@@ -94,6 +101,10 @@ inline QByteArray data(const Options &options)
         {284, 3, 1, le16(1) + le16(0)},
         {33421, 3, 2, le16(2) + le16(2)},
         {33422, 1, 4, options.fourColours ? QByteArray("\0\1\3\2", 4) : QByteArray("\0\1\1\2", 4)},
+        {33437, 5, 1, rational(options.aperture)},
+        {37386, 5, 1, rational(options.focal)},
+        {42035, 2, quint32(options.lensMake.size() + 1), options.lensMake + '\0'},
+        {42036, 2, quint32(options.lensModel.size() + 1), options.lensModel + '\0'},
         {50706, 1, 4, QByteArray("\1\4\0\0", 4)},
         {50707, 1, 4, QByteArray("\1\1\0\0", 4)},
         {50708, 2, quint32(model.size()), model},
@@ -104,6 +115,11 @@ inline QByteArray data(const Options &options)
         {50728, 5, quint32(planes), neutral},
         {50778, 3, 1, le16(21) + le16(0)},
     };
+    // Lens tags only when given, as most cameras write them.
+    std::erase_if(entries, [&options](const Entry &entry) {
+        return (entry.tag == 33437 && options.aperture == 0) || (entry.tag == 37386 && options.focal == 0) || (entry.tag == 42035 && options.lensMake.isEmpty())
+            || (entry.tag == 42036 && options.lensModel.isEmpty());
+    });
     // Header, then the directory, its outside values, then the pixels.
     const quint32 directory = 8, outside = directory + 2 + quint32(entries.size()) * 12 + 4;
     QByteArray values;

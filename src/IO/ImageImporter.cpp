@@ -4,9 +4,13 @@
 #include "Document/PixelAdjust.h"
 #include "IO/PSD/PSDDocumentBuilder.h"
 #include "IO/PSD/PSDReader.h"
+#include "IO/ProjectController.h"
+#include "IO/RawImporter.h"
 #include "Logging.h"
 #include "Rendering/RasterSnapshot.h"
+#include <QCollator>
 #include <QColorSpace>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
@@ -295,4 +299,68 @@ ImportedImage ImageImporter::decodeSVG(const QString &path, std::optional<QSizeF
     const QString name = QFileInfo(path).completeBaseName();
     qCInfo(lcIO).noquote() << "imported" << path << image.width() << "x" << image.height();
     return ImportedImage(image, PixelAdjust::thumbnail(image), name.isEmpty() ? QFileInfo(path).fileName() : name);
+}
+
+QStringList ImageImporter::importableGlobs()
+{
+    return QStringList{QStringLiteral("*.jpg"), QStringLiteral("*.jpeg"), QStringLiteral("*.jpe"), QStringLiteral("*.png"), QStringLiteral("*.heic"),
+                       QStringLiteral("*.tif"), QStringLiteral("*.tiff"), QStringLiteral("*.webp"), QStringLiteral("*.psd"), QStringLiteral("*.psb"),
+                       QStringLiteral("*.svg"), QStringLiteral("*.svgz")}
+        + RawImporter::globs();
+}
+
+namespace {
+// CF's forced ordering: names equal but for case, zeros.
+int forced(const QCollator &cased, const QString &a, const QString &b)
+{
+    const auto digit = [](QChar c) { return c >= u'0' && c <= u'9'; };
+    qsizetype i = 0, j = 0;
+    while (i < a.size() && j < b.size()) {
+        if (digit(a[i]) && digit(b[j])) {
+            const qsizetype first = i, second = j;
+            while (i < a.size() && digit(a[i]))
+                ++i;
+            while (j < b.size() && digit(b[j]))
+                ++j;
+            // Equal numbers: fewer digits first.
+            if (i - first != j - second)
+                return i - first < j - second ? -1 : 1;
+            continue;
+        }
+        if (a[i] != b[j])
+            return cased.compare(a.mid(i), b.mid(j));
+        ++i;
+        ++j;
+    }
+    return 0;
+}
+}
+
+bool ImageFolder::matches(const QString &path)
+{
+    // A trailing slash would read through a link.
+    const QFileInfo info(QUrl::fromLocalFile(path).adjusted(QUrl::StripTrailingSlash).toLocalFile());
+    return info.isDir() && !info.isSymLink() && !ProjectController::isProject(QUrl::fromLocalFile(path));
+}
+
+QStringList ImageFolder::images(const QString &folder)
+{
+    // Hidden files, links and subfolders stay out.
+    const QFileInfoList found = QDir(folder).entryInfoList(ImageImporter::importableGlobs(), QDir::Files | QDir::NoSymLinks);
+    QStringList paths;
+    for (const QFileInfo &file : found)
+        paths << file.absoluteFilePath();
+    // Qt's C locale ignores numeric mode; Finder's order keeps it.
+    const QLocale locale(QLocale().language() == QLocale::C ? QLocale(QLocale::English) : QLocale());
+    QCollator folded(locale), cased(locale);
+    folded.setNumericMode(true);
+    folded.setCaseSensitivity(Qt::CaseInsensitive);
+    cased.setNumericMode(true);
+    std::stable_sort(paths.begin(), paths.end(), [&](const QString &a, const QString &b) {
+        const QString first = QFileInfo(a).fileName(), second = QFileInfo(b).fileName();
+        const int compared = folded.compare(first, second);
+        return (compared ? compared : forced(cased, first, second)) < 0;
+    });
+    qCInfo(lcIO).noquote() << "folder" << folder << "holds" << paths.size() << "images";
+    return paths;
 }
