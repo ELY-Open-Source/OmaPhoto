@@ -3,7 +3,7 @@
 set -euo pipefail
 tag=${1:?"usage: scripts/release.sh vX.Y.Z"}
 gh_repo=ELY-Open-Source/OmaPhoto
-# gh must be logged in with write access to the repository.
+# gh needs write access to the repository.
 gh auth status >/dev/null
 repo=$(cd "$(dirname "$0")/.." && pwd)
 cd "$repo"

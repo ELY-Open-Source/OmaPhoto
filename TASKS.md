@@ -591,16 +591,20 @@ Release:
 - [x] 14.32 Tag `v1.4.9`, `scripts/release.sh v1.4.9`, live installs from Gitea in fresh containers, the acceptance checklist.
 - 14.32 v1.4.9 tagged and released on Gitea; live installs pass on Ubuntu 24.04 and 26.04, Fedora 43 and 44, Arch and NixOS, Debian 13 refused; passed review round 1.
 
-## 15 Compositor 1.5.3 (the user's order, 2026-10-15: port through v1.5.3)
+## 15 Compositor 1.6.6 (the user's order, 2026-10-15: port through v1.5.3; 2026-11-08: through v1.6.6, one release)
 
-`Compositor-Ref` moves to `v1.5.3`. One item at a time, top to bottom, main agent only. Each is reviewed by codex (`gpt-6-astra`, effort `max`, service tier `fast`) in a herdr pane split to the right, three rounds at most. Items follow the first release that holds each feature; a later fix travels with it. A C kernel is copied whole at the state of the item's last upstream commit; later items move it on (`DeepPixels` from 15.10 to 15.15, `PatchPixels` and `HealPixels` in 15.6, `AdjustPixels` in 15.29 and 15.36). Nothing to port: feeds, versions and CI (`b4bfdea`, `a1bd74c`, `3beab33`, `5a18e8b`, `f2747c4`, `43d691b`, `518d0bf`, `3081719`, `216be97`; the version commits `eb1fda7`, `1071f4f`, `539a78d`, `f2d5754` and `554104c` go to 15.37), Sparkle's update alert (`5e9033f`: no updater on Linux), a pasteboard per test process (`a65313a`: offscreen Qt's clipboard is the process's own), and the merge `8d3f2fe` (no conflict under `git show --remerge-diff`). Keys: Cmd is Ctrl, Option is Alt, Control is Meta.
+`Compositor-Ref` moves to `v1.5.3`, then to `v1.6.6` (15.0b). One item at a time, top to bottom, main agent only. Through 15.5 each was reviewed by codex (`gpt-6-astra`, effort `max`, service tier `fast`); from 15.0b by Claude Code on Kimi K3.1 Pro at high effort (`claude --model 'remote-magpie/kimi/k3.1-pro[1m]' --effort high`), in a herdr pane split to the right, three rounds at most. Items follow the first release that holds each feature; a later fix travels with it. A C kernel is copied whole at the state of the item's last upstream commit; later items move it on (`DeepPixels` from 15.10 to 15.15, `PatchPixels` and `HealPixels` in 15.6, `AdjustPixels` in 15.29 and 15.36). Nothing to port: feeds, versions and CI (`b4bfdea`, `a1bd74c`, `3beab33`, `5a18e8b`, `f2747c4`, `43d691b`, `518d0bf`, `3081719`, `216be97`; the version commits `eb1fda7`, `1071f4f`, `539a78d`, `f2d5754` and `554104c` go to 15.92), Sparkle's update alert (`5e9033f`: no updater on Linux), a pasteboard per test process (`a65313a`: offscreen Qt's clipboard is the process's own), and the merge `8d3f2fe` (no conflict under `git show --remerge-diff`). Keys: Cmd is Ctrl, Option is Alt, Control is Meta.
 
 The user's decisions (2026-10-15): port through v1.5.3; HDR through OpenEXR, with Radiance `.hdr` read by a hand-written decoder; CMYK through Little CMS 2 and the profiles in the XDG `color/icc` folders plus Load Profile, the CMYK entries resting while none is found; RAW Lens Correction through lensfun.
+
+The user's decisions (2026-11-08): port through v1.6.6 in one release, published on GitHub (ELY-Open-Source/OmaPhoto); take the recommended choice without asking. Volumetric Light's depth from Depth Anything V2 Small as ONNX on ONNX Runtime, installed with the packages; PDF import through poppler-qt6; GIF export through giflib; Vision's person segmentation and pose (Volumetric and Rim Light) replaced by the U²-Net subject mask, a known difference. Nothing to port in 1.5.4–1.6.6: feeds and versions (`365b574`, `587af6c`, `2f4cb15`, `5eceed5`, `9ff443d`, `68b248a`, `47cb96b`, `9537736`, `574ea8d`, `8adf15e`, `c9c7531`, `efc06ff`, `8cdc2b6`, `99a8fc1`, `2d75d91`, `9959c32`, `d98cd19`, `fe0a146`, `26922f8`, `a31f9c6`, `ef8d61e`, `9b0892b`, `4bacf5a`, `0bc0a8a`, `0b90cc8`, `9b47497`, `7f703b4`, `f2add91`, `3e81af3`, `a3276b1`, `b46c993`, `2f50780`; the versions go to 15.92), README links to other ports (`3b8634d`, `90862c3`), the update checker and its alert (`02da4c4`, `9d70c0d`: no updater on Linux), and the Services menu (`603cbb9`: macOS's own).
 
 Compositor 1.4.10:
 
 - [x] 15.0 Survey v1.4.9..v1.5.3 (61 commits) and split them into the items below; `Compositor-Ref` at `v1.5.3`.
 - 15.0 review (codex `gpt-6-astra`, max, fast): round 1 FAIL (two items under 1.5.1 that first ship in 1.5.2; `93f8e8d` needs 15.12's blend; the clipboard and the tab bar overstated; `d9cdb81` placed twice), round 2 PASS.
+- [x] 15.0b Survey v1.5.3..v1.6.6 (134 commits on the Swift tree, 193 in all) into 15.37–15.95; each line names a feature, and its item ports all its commits change; `Compositor-Ref` at `v1.6.6`.
+- 15.0b review (Claude Code on Kimi K3.1 Pro, high): round 1 FAIL (eleven items under a release before their first; Lens Effects' exact picture and Reduce Noise's cache placed before what they need; Fringe and the feather readout folded into earlier items; formats 15 and 16 unnamed; four judgments wrong or missing: held store conversion, held wand notify, the per-version window size, the font catalogue rebuilt per open; `SliderSnap`'s removal unnamed), round 2 PASS. Declined: full behaviour contracts on each line, which each item's review holds against the source.
 - [x] 15.1 Tool option bars never show a scroll bar (`7311d69`).
 - 15.1 held: every bar's scroll area keeps both policies `ScrollBarAlwaysOff`; `noBarEverShowsAScrollBar` pins the five bars. 6 mutants, all caught. Review: round 1 PASS.
 - [x] 15.2 The Layers panel at its narrowest keeps everything inside it (`0a5c8d9`).
@@ -620,14 +624,14 @@ Compositor 1.5:
 - [ ] 15.9 16-bit images dither to 8 bits on import (`bdcedf2`).
 - [ ] 15.10 16-bit layers keep their precision: import, store (format 12), history, transforms, Distort, painting, merges, floating selections, export (`d9cdb81`; its icon art is the art 15.8 copies).
 - [ ] 15.11 16-bit layers through adjustments, Liquify, Smudge and Blur (`6aea90a`).
-- [ ] 15.12 16-bit layers through Hue/Saturation, the colour adjustments, the Blur tool's painting, Camera Raw and the 8-bit tools; 16-bit blurs in one pass (`2b9603f`, `f01e298`, `93f8e8d`, `3d2ada4`).
+- [ ] 15.12 16-bit layers through Hue/Saturation, the colour adjustments, the Blur tool's painting, Camera Raw and the 8-bit tools; 16-bit blurs in one pass (`2b9603f`, `f01e298`, `93f8e8d`, `3d2ada4`); 16-bit and HDR layers keep their depth through 8-bit edits (`5de396b`).
 - [ ] 15.13 Convert layers between 8 and 16 bits; 16-bit gradients and fills (`2fe3524`).
 - [ ] 15.14 HDR layers: EXR and Radiance import, EXR in projects (format 13), through OpenEXR (`7f239dc`).
 - [ ] 15.15 HDR layers keep their highlights through edits (`a10fcb7`).
 - [ ] 15.16 EXR export; the canvas draws 16-bit and HDR layers from their own pixels, adjustments revealing highlights (`b9186f7`, `905efc5`).
 - [ ] 15.17 HDR layers convert to 16-bit; the depth tag reads "16-Bit" (`5a2e57f`).
 - [ ] 15.18 Paste an image on the New canvas screen to make the canvas (`2522e3b`).
-- [ ] 15.19 Layers footer: the adjustment button before the effects button (`067fca4`).
+- [ ] 15.19 Layers footer: the adjustment button before the effects button (`067fca4`; 15.77 reshapes the footer again).
 - [ ] 15.20 A drop on the tab bar outside the tabs opens a new project (`d3d0ce7`).
 - [ ] 15.21 A layer dragged into a new project sizes the canvas to it (`e580107`).
 - [ ] 15.22 Export As: JPEG and PNG first, PDF and EXR under More (`f5ae5ba`).
@@ -655,11 +659,106 @@ Compositor 1.5.3:
 - [ ] 15.35 Camera Raw's scope samples less (`cf0ffa1`).
 - [ ] 15.36 Camera Raw's large previews: Swift's Metal lookup has no twin; its C verifier judged (`9329ab8`).
 
+Compositor 1.5.4:
+
+- [ ] 15.37 Pen pressure for the Brush's size and opacity: `QTabletEvent`s through the Brush's gestures, a mouse at full pressure; the buttons beside their fields once a pen is seen anywhere, until quit (`3833a60`, `2bc871e`, `03173f8`, `e0a9990`).
+- [ ] 15.38 Type: the font list a panel with its search box above the faces, rebuilt on every open (`66b1bd3`, `a9ca74d`); every face of a family (`5866d04`: judged held, fontconfig lists every face by PostScript name).
+- [ ] 15.39 Line shapes: Style and Cap, Square first, a missing style or cap read as Solid and Round (project format 15); crisp odd widths and one-pixel dots; a scaled line stretching as shown; Width's slider 1–50 (`aa2cbec`, `8dcec58`, `72ba44d`, `c1b7f82`, `7fd4e22`, `ae72fb3`, `d2fa04a`).
+- [ ] 15.40 Import PDF through poppler-qt6: a page a layer, page 1 on top, 300 DPI on a new canvas, fitted to an open one; File › Import…, and the welcome's Import (`3eceef0`, `baf7e99`, `c70a12f`, `2e40965`; the user's decision, 2026-11-08).
+
+Compositor 1.5.5:
+
+- [ ] 15.41 Name fields of the file panels copy, paste and undo (`7986ed7`: judged held, Qt's dialogs and the portal keep their own).
+- [ ] 15.42 Tool keys on non-Latin layouts (`8e4b63b`).
+- [ ] 15.43 Export As › Channel Pack (`9fe0c72`, `a9ad210`, `b31ea02`).
+- [ ] 15.44 Filter › RGB Split, Split to Layers (`d157548`); its blur both ways along the split (`c51a2f2`); two passes (`79f98de`).
+- [ ] 15.45 Progressive Blur, Bloom / Glow and RGB Split as adjustment layers (project format 16); the menus part adjustments from filters; the guide's lines (`b229c6a`, `78de504`).
+- [ ] 15.46 Photoshop artboards open as canvases of their own, a tab each (`fc02107`).
+- [ ] 15.47 Image Size and Canvas Size keep the zoom; a new, opened or imported canvas fits up to 100% (`ee21641`, `551a35f`).
+
+Compositor 1.5.6:
+
+- [ ] 15.48 The tool bar in one column or two, taking two by itself when one does not fit (`8a2c59f`, `53e69a3`).
+- [ ] 15.49 The Layers panel: search by name, filter by type and Selected, folders bringing their contents (`2f2a3be`, `cfe7a32`, `05fff9f`).
+- [ ] 15.50 GIF layers: a composing decoder (partial frames, disposal, one reader a source), frames with stable indices and sparse edited pixels, one shared mask, edits on the shown frame, project format 17, the GIF tag (`c68b5f4`, `62b065b`, `513d3b8`, `e07928e`, `3dc042a`, `abdc081`, `bc14725`, `6078d7e`).
+- [ ] 15.51 The GIF timeline: play and pause, the delay menu with the original's milliseconds, the frame strip, duplicate and delete (`e8717d1`, `f597d43`, `27d4daf`, `f6ce85d`, `66ace73`, `a971eb6`, `a5c900d`).
+- [ ] 15.52 Export As GIF through giflib: visible GIF layers on one clock, each layer's delays in 10 ms ticks, loop, transparency and matte, Swift's limits (`d3b6d59`; the user's decision, 2026-11-08).
+
+Compositor 1.5.7 and 1.5.8:
+
+- [ ] 15.53 Filter › Lens Effects: flare, starburst, mist, prism and bokeh from the picture's light (`6edbaba`, `393bcd7`, `c7ff16d`, `97d28a3`, `71bb6f0`, `7651033`).
+- [ ] 15.54 Projects saved by 1.5.4 and 1.5.5 open again (`b35ac38`).
+
+Compositor 1.5.9:
+
+- [ ] 15.55 Vignette, Lens Effects and Tonal Contrast as adjustment layers (project format 18); the Filter menu splits (`7b5ba97`, `500e133`).
+- [ ] 15.56 The canvas keeps each adjustment layer's result while nothing under it changes; Lens Effects layers show what the export makes, their mask and opacity live over it (`6a28e42`, `338a609`, `31961ba`).
+
+Compositor 1.5.10 and 1.5.11:
+
+- [ ] 15.57 Align and Distribute layers from the Move bar's one Align button and the Layer menu (`4ae432b`, `93a8aeb`).
+- [ ] 15.58 Crop: custom aspect ratios, grouped by shape, 2.39:1, Original named Canvas (`36ced5d`, `a304465`).
+- [ ] 15.59 Tool headers: flip buttons as icons, number fields sized for their digits (`122e585`).
+- [ ] 15.60 Sharpen as a filter and an adjustment layer (project format 19) (`b0f0b2b`).
+- [ ] 15.61 Prism's Fringe (project format 20) (`6d49a23`).
+- [ ] 15.62 One colour picker window; the Hand's open palm; Space's hand over every tool and picking mode, refreshed as Space goes down and up (`096dbe2`, `e8e0594`, `720f210`).
+
+Compositor 1.5.12:
+
+- [ ] 15.63 Filter › Rim Light, the subject from U²-Net; its subject cache keeps its image (`b9a0ed8`, `97c3b3f`, the Rim Light hunk of `039d445`; the user's decision, 2026-11-08).
+
+Compositor 1.6.0 and 1.6.1:
+
+- [ ] 15.64 Number keys set opacity under the selection tools (`1ea5eab`).
+- [ ] 15.65 Export selected layers as PNGs, each as it shows in the document, trimmed and named (`0673a4a`).
+- [ ] 15.66 Hide, Show and Clipping Mask on every selected layer; Convert to 16-Bit or 8-Bit on every eligible selected layer, in the Layer menu (`d693a2a`, `de0a43d`).
+- [ ] 15.67 Space moves a Marquee being drawn (`fc3c81a`).
+- [ ] 15.68 Image Size scrubs within the document limits (`42eb9b2`).
+- [ ] 15.69 Filter › Volumetric Light: depth from Depth Anything V2 Small on ONNX Runtime, the subject from U²-Net; Extract Depth, Depth Contrast, Keep Subject Clear, the photo's lights glowing, beams, the picker sampling (`1405545`, the rest of Rim Light's depth commit, `7e98437`, `de0c568`, `92f5225`, `b902958`, `92da38d`, `0623a67`, `bdc84f4`, `50d632b`, `f1b67ae`, `76b7921`, `9d31d1f`, `e584c8c`, `95d3d63`, `0dbb4e3`, `851edb0`, `5c3489e`; the user's decisions, 2026-11-08).
+- [ ] 15.70 View › Show Extras (Ctrl+H outside Move): the outline and guides hidden together (`bb5c8cc`, `9cd704d`).
+- [ ] 15.71 Selection outlines lose hairlines and edges that divide nothing (`6793557`, `ead9a0e`).
+- [ ] 15.72 The status bar shows the selection's size (`63f1013`).
+- [ ] 15.73 Undo stops where the document began (`4f9ed78`).
+- [ ] 15.74 Edit panels share one place, its top corner kept on the side it moved toward, first at the canvas's right edge; where Wayland places windows itself, a known difference (`a62490d`, `3717575`).
+- [ ] 15.75 Opened layers convert to premultiplied pixels once (`9a9f8da`: judged held, `ProjectStore` converts each asset on load; its regression test ported).
+
+Compositor 1.6.2:
+
+- [ ] 15.76 Reduce Noise: non-local means, a filter and an adjustment layer (project format 21), its canvas picture made off the UI thread at document pixels and kept through pans and zooms, as Lens Effects' layers then are; Camera Raw's Luminance with it (`c1c5356`, `8926ea8`, `4445be9`; the Metal path and its macOS 26 swap, `2c98c1b` and `19081ff`, judged: the C kernel runs).
+- [ ] 15.77 The Layers footer: adjustment and filter layers in two menus, opening above their icons; the panel 261–372 wide (`b611179`, `21fecb7`).
+- [ ] 15.78 Adjustment layer panels drop Preview; Levels' Reset at the top (`2d44b8d`).
+- [ ] 15.79 The window fills the screen on the first launch of each version, reopening at its size within one (`9fa59c3`).
+
+Compositor 1.6.3:
+
+- [ ] 15.80 View › Show › Distances under the Move tool (`8fb163e`).
+- [ ] 15.81 Deselect after a Magic Wand click that selected the same (`3940d3b`: judged held, `setIsProjectBusy` notifies; Swift's test ported).
+- [ ] 15.82 Sizes beside the pointer while dragging out; a shape's size in the status bar (`de6837b`).
+
+Compositor 1.6.4:
+
+- [ ] 15.83 Expand, Contract and Feather as icon buttons sharing one amount, corners kept sharp, Feather adding up; pills for them and the flips (`9986d12`, `70bc6d6`).
+- [ ] 15.84 The status bar shows the selection's feather beside its size (`820b8fa`).
+- [ ] 15.85 Swatches one rounded square; the rail's reset and swap beneath; bars drop "px" for Size and Color labels before their fields; effect panels laid out as the others (`f327645`, `a376ade`).
+
+Compositor 1.6.5:
+
+- [ ] 15.86 A stroke effect's reach round in every direction (`8e6bca6`).
+- [ ] 15.87 Painting far past a scaled-down layer paints at its shown size (`acfc5eb`).
+- [ ] 15.88 One slim slider throughout, its fill ending at the knob; it snaps on a track press itself, so `SliderSnap` goes (`c214ee6`, `d8f020a`).
+- [ ] 15.89 The Color Picker: rounded field, slim hue strip, new over current, footer buttons; Hue/Saturation's Range flush left, its units one column (`9943ed8`, `34ac9f0`, `3761be8`).
+- [ ] 15.90 Tool bar pills fade when disabled (`4585446`).
+
+Compositor 1.6.6:
+
+- [ ] 15.91 An image opened as a document goes back out as it came: its name, folder and format; Export As remembers its format across launches and opens on Ctrl+Alt+Shift+S, Ctrl+Alt+Shift+W kept, Export JPEG gone (`2facf90`).
+
 Release:
 
-- [ ] 15.37 Version 1.5.3: CMake, PKGBUILD, flake, `versionupdate.md`, README (every row new since 1.4.9), AGENTS.md.
-- [ ] 15.38 The acceptance run for the rows new in 1.4.10 to 1.5.3; the full suite; distro checks (arch, fedora, fedora44, nixos, resolute).
-- [ ] 15.39 The acceptance checklist.
+- [ ] 15.92 Version 1.6.6: CMake, PKGBUILD, flake, `versionupdate.md`, README (every row new since 1.4.9), AGENTS.md.
+- [ ] 15.93 The acceptance run for the rows new in 1.4.10 to 1.6.6; the full suite; distro checks (arch, fedora, fedora44, nixos, resolute).
+- [ ] 15.94 Release v1.6.6 on GitHub (ELY-Open-Source/OmaPhoto) through `scripts/release.sh`.
+- [ ] 15.95 The acceptance checklist.
 
 ## Skills by phase
 

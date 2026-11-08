@@ -1,0 +1,320 @@
+--- ContentFill.c
++++ ContentFill.c
+@@ -1,93 +0,0 @@
+-#include "ContentFill.h"
+-#include <stdlib.h>
+-#include <string.h>
+-#include <float.h>
+-
+-static uint32_t next_random(uint32_t *state) {
+-    *state = *state * 1664525u + 1013904223u;
+-    return *state;
+-}
+-static double match(const uint8_t *pixels, size_t stride, const uint8_t *known,
+-                    int w, int h, int p, int q, int radius) {
+-    int px=p%w, py=p/w, qx=q%w, qy=q/w, count=0;
+-    double sum=0;
+-    for(int dy=-radius; dy<=radius; ++dy) for(int dx=-radius; dx<=radius; ++dx) {
+-        int x=px+dx,y=py+dy,sx=qx+dx,sy=qy+dy;
+-        if(x<0||y<0||x>=w||y>=h||sx<0||sy<0||sx>=w||sy>=h||!known[y*w+x]) continue;
+-        const uint8_t *a=pixels+y*stride+x*4, *b=pixels+sy*stride+sx*4;
+-        for(int c=0;c<4;++c) { int d=a[c]-b[c]; sum+=d*d; }
+-        ++count;
+-    }
+-    return count ? sum/count : DBL_MAX;
+-}
+-int content_fill(uint8_t *pixels, size_t stride, const uint8_t *mask, size_t ms, int w, int h) {
+-    size_t n=(size_t)w*h;
+-    uint8_t *known=calloc(n,1), *target=calloc(n,1), *valid=calloc(n,1), *queued=calloc(n,1);
+-    int *donors=malloc(n*sizeof(int)), *queue=malloc(n*sizeof(int)), *chosen=malloc(n*sizeof(int));
+-    if(!known||!target||!valid||!queued||!donors||!queue||!chosen) {
+-        free(known);free(target);free(valid);free(queued);free(donors);free(queue);free(chosen);return -1;
+-    }
+-    int radius=(w>=5 && h>=5)?2:0;
+-    size_t missing=0, donorCount=0, head=0,tail=0, scan=0;
+-    // Selected pixels are filled. Unselected opaque pixels are the image to match and copy from; unselected
+-    // transparent ones are neither — nothing to match against, and left as they are.
+-    for(int y=0;y<h;++y) for(int x=0;x<w;++x) {
+-        int p=y*w+x; target[p]=mask[y*ms+x]!=0; known[p]=!target[p] && pixels[y*stride+x*4+3]==255; chosen[p]=-1;
+-        if(target[p]) ++missing;
+-    }
+-    if(!missing) { donorCount=1; goto done; }
+-    for(int y=0;y<h;++y) for(int x=0;x<w;++x) {
+-        int p=y*w+x;
+-        if(!known[p]) continue;
+-        int ok=1;
+-        for(int dy=-radius;dy<=radius&&ok;++dy) for(int dx=-radius;dx<=radius;++dx) {
+-            int sx=x+dx,sy=y+dy;
+-            if(sx<0||sy<0||sx>=w||sy>=h||!known[sy*w+sx]) {ok=0;break;}
+-        }
+-        if(ok) { valid[p]=1;donors[donorCount++]=p; }
+-    }
+-    if(!donorCount) goto done;
+-    for(int y=0;y<h;++y) for(int x=0;x<w;++x) {
+-        int p=y*w+x;
+-        if(target[p] && ((x&&known[p-1])||(x+1<w&&known[p+1])||(y&&known[p-w])||(y+1<h&&known[p+w]))) {
+-            queue[tail++]=p;queued[p]=1;
+-        }
+-    }
+-    uint32_t seed=0x6d2b79f5;
+-    for(;;) {
+-    while(head<tail) {
+-        int p=queue[head++],x=p%w,y=p/w,best=-1;
+-        double score=DBL_MAX;
+-        int neighbors[4]={x?p-1:-1,x+1<w?p+1:-1,y?p-w:-1,y+1<h?p+w:-1};
+-        // Propagate coherent source offsets, then refine with randomized patch search.
+-        for(int k=0;k<28;++k) {
+-            int q=-1;
+-            if(k<4) {
+-                int t=neighbors[k];
+-                if(t>=0) q=(chosen[t]>=0?chosen[t]:t)+(p-t);
+-            } else q=donors[next_random(&seed)%donorCount];
+-            if(q<0||(size_t)q>=n||!valid[q]) continue;
+-            double s=match(pixels,stride,known,w,h,p,q,radius);
+-            if(best<0||s<score) {score=s;best=q;}
+-        }
+-        if(best<0) best=donors[0];
+-        for(int r=64;r>=1;r/=2) {
+-            int qx=best%w+(int)(next_random(&seed)%(2*r+1))-r;
+-            int qy=best/w+(int)(next_random(&seed)%(2*r+1))-r;
+-            if(qx<0||qy<0||qx>=w||qy>=h||!valid[qy*w+qx]) continue;
+-            int q=qy*w+qx; double s=match(pixels,stride,known,w,h,p,q,radius);
+-            if(s<score) {score=s;best=q;}
+-        }
+-        memcpy(pixels+y*stride+x*4,pixels+(best/w)*stride+(best%w)*4,4);
+-        known[p]=1;chosen[p]=best;
+-        for(int k=0;k<4;++k) { int q=neighbors[k]; if(q>=0&&target[q]&&!known[q]&&!queued[q]) {queued[q]=1;queue[tail++]=q;} }
+-    }
+-    // A selected area that only transparency touches starts from the best random donor, then spreads.
+-    while(scan<n && (!target[scan]||known[scan])) ++scan;
+-    if(scan>=n) break;
+-    queue[tail++]=(int)scan; queued[scan]=1;
+-    }
+-done:
+-    free(known);free(target);free(valid);free(queued);free(donors);free(queue);free(chosen);
+-    return donorCount ? 1 : 0;
+-}
+--- ContentFill.h
++++ ContentFill.h
+@@ -1,4 +0,0 @@
+-#include <stddef.h>
+-#include <stdint.h>
+-// Returns 1 on success, 0 when no source patch exists, -1 on allocation failure.
+-int content_fill(uint8_t *rgba, size_t stride, const uint8_t *mask, size_t maskStride, int width, int height);
+--- HealPixels.h
++++ HealPixels.h
+@@ -6,14 +6,18 @@
+ void heal_coverage_bounds(const uint8_t *gray, size_t width, size_t height, size_t stride, long bounds[4]);
+ // Spot healing, in place, over premultiplied RGBA (4 bytes per pixel, `stride` bytes per row).
+ // `coverage` (width * height bytes, 0–255) marks what to heal.
+-//   mode 0, Content-Aware: copies texture from the nearby patch whose surrounding ring of pixels
+-//           best matches the ring around the spot;
++//   mode 0, Content-Aware: rebuilds the spot pixel by pixel from the image around it (PatchPixels.h);
+ //   mode 1, Create Texture: fills smoothly from the spot's edges and adds grain matching the
+ //           detail around it;
+-//   mode 2, Proximity Match: like 0, but takes the closest good patch.
+-// Copied texture is blended so it meets the surrounding tone exactly: the difference along the
++//   mode 2, Proximity Match: copies texture from the nearby patch whose surrounding ring of pixels
++//           best matches the ring around the spot, the closest good one.
++// Modes 1 and 2: copied texture is blended so it meets the surrounding tone exactly: the difference along the
+ // spot's edge is spread smoothly across it (a membrane fill). The result replaces the original
+ // by coverage × opacity. Returns 0, or -1 when memory runs out.
++// Smooth values over the pixels marked 2, fixed to the values of those marked 1 around them (0: neither): the
++// membrane that makes healed texture meet its surroundings' tone. `value` is 4 floats a pixel; pass depth 0. A
++// coarser copy is solved first and used as the starting point, so a large area settles in few passes.
++void heal_membrane(float *value, const uint8_t *role, long w, long h, int depth);
+ int spot_heal(uint8_t *rgba, const uint8_t *coverage, size_t width, size_t height, size_t stride,
+               float opacity, int mode, uint32_t seed);
+ #endif
+--- ContentFill.cpp
++++ ContentFill.cpp
+@@ -2,10 +2,18 @@
+ #include "Document/BrushStroke.h"
+ #include "Document/PixelAdjust.h"
+ #include "IO/ImageExporter.h"
+-
+-// The kernel shares this file's name: angle brackets skip here.
++#include "Rendering/PoolMap.h"
++#include <numeric>
+ extern "C" {
+-#include <ContentFill.h>
++#include "PatchPixels.h"
++}
++
++// The kernel's bands, where Swift's kernel calls dispatch_apply.
++extern "C" void patch_bands(size_t bands, void (*band)(void *context, size_t index), void *context)
++{
++    std::vector<size_t> indices(bands);
++    std::iota(indices.begin(), indices.end(), size_t(0));
++    PoolMap::blocking(indices, [band, context](size_t index) { band(context, index); });
+ }
+ 
+ ContentFillError::ContentFillError(Kind kind)
+@@ -24,7 +32,8 @@ QImage ContentFill::run(const FilterJob &job)
+     painter.end();
+     // White through the selection: the pixels to make.
+     const QImage mask = PixelAdjust::coverage(*job.selection, width, height, job.mapping);
+-    const int result = content_fill(pixels.bits(), size_t(pixels.bytesPerLine()), mask.constBits(), size_t(mask.bytesPerLine()), width, height);
++    // Multi-scale PatchMatch, as Spot Healing's Content-Aware mode.
++    const int result = patch_fill(pixels.bits(), size_t(pixels.bytesPerLine()), mask.constBits(), size_t(mask.bytesPerLine()), width, height, job.seed);
+     if (result == 0)
+         throw ContentFillError(ContentFillError::Kind::noSource);
+     if (result != 1)
+--- SpotHealingTests.cpp
++++ SpotHealingTests.cpp
+@@ -1,12 +1,21 @@
+ #include "AddressSpaceLimit.h"
+ #include "BrushFixtures.h"
++#include "Document/ContentFill.h"
+ #include "Document/EditorSession.h"
+ #include "Document/PixelAdjust.h"
+ #include "IO/ImageExporter.h"
+ #include "IO/ProjectStore.h"
+ #include "Rendering/RasterSnapshot.h"
+ #include <QSignalSpy>
++#include <QPainterPath>
++#include <algorithm>
++#include <array>
++#include <cmath>
+ #include <malloc.h>
++#include <stdexcept>
++extern "C" {
++#include "HealPixels.h"
++}
+ 
+ // Swift's SpotHealingTests: a blemish healed from its surroundings.
+ namespace {
+@@ -46,6 +55,75 @@ QImage healedTile(const QImage &surface, SpotHealingMode mode, double opacity =
+     return paint.patches().at(0).image;
+ }
+ 
++// Swift's ridge: sky over a curved hill, a disc optional.
++QImage ridge(bool disc)
++{
++    QImage image(320, 200, QImage::Format_RGBA8888_Premultiplied);
++    quint32 seed = 7;
++    const double top = 110 + 28 * std::sin(160.0 / 37);
++    for (int y = 0; y < 200; ++y)
++        for (int x = 0; x < 320; ++x) {
++            seed = seed * 1664525u + 1013904223u;
++            const double grain = double(int(seed >> 28) - 8) * 2;
++            const bool sky = y < 110 + 28 * std::sin(x / 37.0);
++            const double dx = x - 160, dy = y - top;
++            const bool red = disc && dx * dx + dy * dy < 22 * 22;
++            const std::array<double, 3> color = red ? std::array<double, 3>{220, 30, 30}
++                : sky                             ? std::array<double, 3>{120 + y * 0.5, 160 + y * 0.3, 230}
++                                                  : std::array<double, 3>{60 + grain, 110 + grain, 50 + grain};
++            uchar *pixel = image.scanLine(y) + x * 4;
++            for (int c = 0; c < 3; ++c)
++                pixel[c] = uchar(std::clamp(color[size_t(c)], 0.0, 255.0));
++            pixel[3] = 255;
++        }
++    return image;
++}
++
++const QPointF ridgeCentre(160, 110 + 28 * std::sin(160.0 / 37));
++
++// Mean level off from the hidden hill, inside the disc.
++double ridgeError(const QImage &healed)
++{
++    const QImage truth = ridge(false);
++    double sum = 0, count = 0;
++    for (int y = 0; y < 200; ++y)
++        for (int x = 0; x < 320; ++x) {
++            const double dx = x - ridgeCentre.x(), dy = y - ridgeCentre.y();
++            if (dx * dx + dy * dy >= 22 * 22)
++                continue;
++            for (int c = 0; c < 3; ++c, ++count)
++                sum += std::abs(healed.constScanLine(y)[x * 4 + c] - truth.constScanLine(y)[x * 4 + c]);
++        }
++    return sum / count;
++}
++
++// The fill over the disc, at a seed.
++QImage ridgeFilled(quint32 seed)
++{
++    QPainterPath disc;
++    disc.addEllipse(ridgeCentre, 22, 22);
++    const SelectionClip clip{QRectF(0, 0, 320, 200), DocumentSelection{disc}.coverage(320, 200)};
++    return ContentFill::run(FilterJob{FilterKind::contentAwareFill, ridge(true), FilterSettings(), 1, clip, QTransform(), seed});
++}
++
++// One stroke of a type over the disc: its error.
++double ridgeHealed(SpotHealingMode mode)
++{
++    EditorSession session;
++    session.createDocument(320, 200);
++    const QImage damaged = ridge(true);
++    session.insert(ImportedImage(damaged, damaged, QStringLiteral("Ridge")));
++    session.selectTool(NavigationTool::spotHealing);
++    session.setSpotHealingMode(mode);
++    session.setBrushSettings(BrushSettings{.diameter = 56, .hardness = 1});
++    session.beginBrush(ridgeCentre);
++    session.continueBrush(ridgeCentre + QPointF(0.5, 0));
++    session.finishBrush();
++    if (session.brushError())
++        throw std::runtime_error(session.brushError()->toStdString());
++    return ridgeError(ImageExporter::render(session.projectSnapshot().value()).image);
++}
++
+ // The blemished surface in a session, Spot Healing chosen.
+ void surface(EditorSession &session)
+ {
+@@ -75,6 +153,10 @@ private slots:
+     void theTypesDifferAndTextureGrainIsRandom();
+     void opacityHealsPartWayAndPlainStrokesNever();
+     void aSpotAcrossTilesHealsWhole();
++    void contentAwareCarriesACurvedEdgeThroughTheSpot();
++    void contentAwareFillCarriesTheCurveToo();
++    void theFillFollowsItsSeed();
++    void theKernelHealsSwiftsOwnBytes();
+ };
+ 
+ void SpotHealingTests::healsTheBlemishUnderTheBrushAndNothingElse_data()
+@@ -296,5 +378,46 @@ void SpotHealingTests::aSpotAcrossTilesHealsWhole()
+     QCOMPARE(pixel(result, 5, 40), pixel(original, 5, 40));
+ }
+ 
++void SpotHealingTests::contentAwareCarriesACurvedEdgeThroughTheSpot()
++{
++    const double contentAware = ridgeHealed(SpotHealingMode::contentAware), proximity = ridgeHealed(SpotHealingMode::proximityMatch);
++    // Swift's 12; x86-64 reaches 12.8 over 300 seeds.
++    QVERIFY2(contentAware < 14, qPrintable(QString("Content-Aware is off by %1 levels").arg(contentAware)));
++    QVERIFY2(contentAware < proximity / 2, qPrintable(QString("%1 against %2").arg(contentAware).arg(proximity)));
++}
++
++void SpotHealingTests::contentAwareFillCarriesTheCurveToo()
++{
++    const double fill = ridgeError(ridgeFilled(11)), proximity = ridgeHealed(SpotHealingMode::proximityMatch);
++    QVERIFY2(fill < proximity / 2, qPrintable(QString("%1 against %2").arg(fill).arg(proximity)));
++}
++
++void SpotHealingTests::theFillFollowsItsSeed()
++{
++    const QImage first = ridgeFilled(3);
++    QCOMPARE(ridgeFilled(3), first);
++    QVERIFY(ridgeFilled(4) != first);
++}
++
++void SpotHealingTests::theKernelHealsSwiftsOwnBytes()
++{
++    // Swift's PatchPixels.c, built with blocks and libdispatch, hashed so.
++    std::vector<uint8_t> cover(320 * 200);
++    for (int y = 0; y < 200; ++y)
++        for (int x = 0; x < 320; ++x) {
++            const double dx = x + 0.5 - 160, dy = y + 0.5 - ridgeCentre.y();
++            cover[size_t(y) * 320 + size_t(x)] = dx * dx + dy * dy < 28 * 28 ? 255 : 0;
++        }
++    for (const auto &[seed, hash] : {std::pair{1u, 0xe9b4a0af0dd8061full}, std::pair{13u, 0x012e0dbcdccce91bull}}) {
++        QImage image = ridge(true);
++        QCOMPARE(image.bytesPerLine(), 1280);
++        QCOMPARE(spot_heal(image.bits(), cover.data(), 320, 200, 1280, 1, 0, seed), 0);
++        quint64 fnv = 1469598103934665603ull;
++        for (qsizetype index = 0; index < image.sizeInBytes(); ++index)
++            fnv = (fnv ^ image.constBits()[index]) * 1099511628211ull;
++        QCOMPARE(fnv, hash);
++    }
++}
++
+ QTEST_GUILESS_MAIN(SpotHealingTests)
+ #include "SpotHealingTests.moc"
